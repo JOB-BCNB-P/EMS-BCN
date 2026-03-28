@@ -3,7 +3,7 @@ let APP={
   currentUser:null,currentRole:null,currentPage:'dashboard',sidebarOpen:false,
   allData:[],
   config:{system_title:'ระบบบริหารจัดการวิชาการ',college_name:'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ'},
-  permissions:{admin:{dashboard:1,students:1,subjects:1,schedule:1,grades:1,engResults:1,evalTeacher:1,teachers:1,services:1,tracking:1,leave:1,settings:1},teacher:{dashboard:1,students:1,subjects:1,grades:1,engResults:1,evalTeacher:1,tracking:1,leave:1},classTeacher:{dashboard:1,students:1,subjects:1,grades:1,engResults:1,leave:1},student:{dashboard:1,studentInfo:1,grades:1,evalTeacher:1,leave:1}},
+  permissions:{admin:{dashboard:1,students:1,subjects:1,schedule:1,grades:1,engResults:1,evalTeacher:1,teachers:1,services:1,tracking:1,gradeTracking:1,leave:1,settings:1},teacher:{dashboard:1,students:1,subjects:1,grades:1,engResults:1,evalTeacher:1,tracking:1,gradeTracking:1,leave:1},classTeacher:{dashboard:1,students:1,subjects:1,grades:1,engResults:1,leave:1},student:{dashboard:1,studentInfo:1,grades:1,evalTeacher:1,leave:1}},
   filters:{semester:'',academicYear:'',search:'',yearLevel:''},
   pagination:{page:1,perPage:10}
 };
@@ -184,6 +184,7 @@ function buildSidebar(){
   if(regSub.length)items.push({id:'registration',icon:'book-open',label:'ระบบทะเบียน',sub:regSub});
   
   if(p.tracking)items.push({id:'tracking',icon:'file-check',label:'ติดตามรายละเอียดรายวิชา'});
+  if(p.gradeTracking)items.push({id:'gradeTracking',icon:'clipboard-check',label:'ติดตามการส่งเกรด'});
   if(p.leave)items.push({id:'leave',icon:'calendar-off',label:'ระบบการลา'});
   if(r==='admin'&&p.settings)items.push({id:'settings',icon:'settings',label:'ตั้งค่าระบบ'});
 
@@ -358,6 +359,7 @@ function getPageContent(page,role){
     case 'teachers':return teachersPage();
     case 'services':return servicesPage();
     case 'tracking':return trackingPage();
+    case 'gradeTracking':return gradeTrackingPage();
     case 'leave':return leavePage();
     case 'settings':return settingsPage();
     default:return '<p>ไม่พบหน้าที่ต้องการ</p>';
@@ -1018,6 +1020,63 @@ async function updateTrackingField(id,field,value){readOnlyNotice();return;//
   if(r.isOk)showToast('อัปเดตสำเร็จ');else showToast('เกิดข้อผิดพลาด','error');
 }
 
+// ======================== GRADE TRACKING ========================
+function gradeTrackingPage(){
+  const isAdmin=APP.currentRole==='admin';
+  let data=getDataByType('grade_tracking');
+  if(APP.currentRole==='teacher')data=data.filter(t=>t.coordinator===APP.currentUser.name);
+  data=applyFilters(data);
+  const total=data.length;const paged=paginate(data);
+
+  // Summary stats
+  const totalItems=data.length;
+  const completed=data.filter(t=>t.deputy_sign==='เสร็จสิ้น').length;
+  const inProgress=data.filter(t=>t.coordinator_check==='เสร็จสิ้น'&&t.deputy_sign!=='เสร็จสิ้น').length;
+  const pending=totalItems-completed-inProgress;
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งเกรด</h2>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+    ${statCard('clock','รอดำเนินการ',pending,'วิชา','bg-yellow-500')}
+    ${statCard('loader','กำลังดำเนินการ',inProgress,'วิชา','bg-blue-500')}
+    ${statCard('check-circle','เสร็จสิ้น',completed,'วิชา','bg-green-500')}
+  </div>
+  ${filterBar({yearLevel:true})}
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left">
+        <th class="px-4 py-3 font-semibold">รายวิชา</th>
+        <th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th>
+        <th class="px-4 py-3 font-semibold">ชั้นปี</th>
+        <th class="px-4 py-3 font-semibold">ภาค/ปี</th>
+        <th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th>
+        <th class="px-4 py-3 font-semibold">อ.ประสานงานส่ง</th>
+        <th class="px-4 py-3 font-semibold">วิชาการตรวจ</th>
+        <th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th>
+        <th class="px-4 py-3 font-semibold">วันอนุมัติ</th>
+        <th class="px-4 py-3 font-semibold">หมายเหตุ</th>
+      </tr></thead>
+      <tbody>${paged.length?paged.map(t=>{
+        const statusBadge=(s)=>s==='เสร็จสิ้น'?'<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>':s==='กำลังดำเนินการ'?'<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>':'<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+        const isLate=t.is_late==='ใช่'||t.is_late==='late';
+        return `<tr class="border-t hover:bg-gray-50 ${isLate?'bg-red-50':''}">
+        <td class="px-4 py-3 font-medium">${t.subject_name||''} ${isLate?'<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>':''}</td>
+        <td class="px-4 py-3">${t.theory_practice||''}</td>
+        <td class="px-4 py-3">${t.year_level||''}</td>
+        <td class="px-4 py-3">${t.semester||''}/${t.academic_year||''}</td>
+        <td class="px-4 py-3">${t.coordinator||''}</td>
+        <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
+        <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
+        <td class="px-4 py-3">${statusBadge(t.deputy_sign)}</td>
+        <td class="px-4 py-3">${t.approved_date||'-'}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">${t.remarks||''}</td>
+      </tr>`}).join(''):'<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
+}
+
 // ======================== LEAVE ========================
 function leavePage(){
   const isStudent=APP.currentRole==='student';
@@ -1126,8 +1185,8 @@ function showAddLeaveModal(){readOnlyNotice();return;//
 // ======================== SETTINGS ========================
 function settingsPage(){
   const roles=['admin','teacher','classTeacher','student'];
-  const modules=['dashboard','students','subjects','schedule','grades','engResults','evalTeacher','teachers','services','tracking','leave'];
-  const moduleLabels={dashboard:'หน้าหลัก',students:'ข้อมูลนักศึกษา',subjects:'รายวิชา',schedule:'ตารางเรียน/สอบ',grades:'ผลการเรียน',engResults:'ผลสอบ ENG',evalTeacher:'ประเมินอาจารย์',teachers:'ข้อมูลอาจารย์',services:'บริการอื่นๆ',tracking:'ติดตามรายวิชา',leave:'ระบบการลา'};
+  const modules=['dashboard','students','subjects','schedule','grades','engResults','evalTeacher','teachers','services','tracking','gradeTracking','leave'];
+  const moduleLabels={dashboard:'หน้าหลัก',students:'ข้อมูลนักศึกษา',subjects:'รายวิชา',schedule:'ตารางเรียน/สอบ',grades:'ผลการเรียน',engResults:'ผลสอบ ENG',evalTeacher:'ประเมินอาจารย์',teachers:'ข้อมูลอาจารย์',services:'บริการอื่นๆ',tracking:'ติดตามรายวิชา',gradeTracking:'ติดตามส่งเกรด',leave:'ระบบการลา'};
   const roleLabels={admin:'ผู้ดูแลระบบ',teacher:'อาจารย์',classTeacher:'อ.ประจำชั้น',student:'นักศึกษา'};
   
   const users=getDataByType('user');
