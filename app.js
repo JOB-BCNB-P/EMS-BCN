@@ -481,6 +481,9 @@ function studentInfoPage(){
 
 function infoRow(l,v){return `<div><p class="text-xs text-gray-500">${l}</p><p class="font-medium">${v||'-'}</p></div>`}
 
+// Helper: show "รหัส ชื่อวิชา" or just "ชื่อวิชา" if no code
+function subjectLabel(code,name){return code?`${code} ${name||''}`:name||''}
+
 function showAddStudentModal(){readOnlyNotice();return;//
   showModal('เพิ่มนักศึกษา',`
     <form id="addStudentForm" class="space-y-3">
@@ -535,12 +538,12 @@ function subjectsPage(){
   ${filterBar({yearLevel:true})}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
       <tbody>${paged.length?paged.map(s=>`<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3 font-medium">${s.subject_name||''}</td><td class="px-4 py-3">${s.coordinator||''}</td>
+        <td class="px-4 py-3 font-mono text-primary">${s.subject_code||''}</td><td class="px-4 py-3 font-medium">${s.subject_name||''}</td><td class="px-4 py-3">${s.coordinator||''}</td>
         <td class="px-4 py-3">${s.year_level||''}</td><td class="px-4 py-3">${s.credits||''}</td>
         <td class="px-4 py-3">${s.semester||''}/${s.academic_year||''}</td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -657,9 +660,9 @@ function gradesPage(){
   ${gpaSection}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
       <tbody>${paged.length?paged.map(g=>`<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${g.name||''}</td><td class="px-4 py-3">${g.subject_name||''}</td>
+        <td class="px-4 py-3">${g.name||''}</td><td class="px-4 py-3 font-mono text-primary">${g.subject_code||''}</td><td class="px-4 py-3">${g.subject_name||''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade==='F'?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">${g.grade||''}</span></td>
         <td class="px-4 py-3">${g.credits||''}</td><td class="px-4 py-3">${g.semester||''}/${g.academic_year||''}</td>
         ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -701,8 +704,8 @@ function showTranscript(){
   showModal('ใบแสดงผลการเรียน (Transcript)',`
     <div class="text-center mb-4"><p class="font-bold text-lg">${APP.config.college_name}</p><p class="text-sm text-gray-500">ใบแสดงผลการเรียน</p></div>
     <div class="grid grid-cols-2 gap-2 mb-4 text-sm">${infoRow('ชื่อ-สกุล',stu.name)}${infoRow('รหัสนักศึกษา',stu.student_id)}</div>
-    <table class="w-full text-sm border"><thead><tr class="bg-surface"><th class="px-3 py-2 text-left">รายวิชา</th><th class="px-3 py-2">หน่วยกิต</th><th class="px-3 py-2">เกรด</th><th class="px-3 py-2">ภาค/ปี</th></tr></thead>
-    <tbody>${grades.map(g=>`<tr class="border-t"><td class="px-3 py-2">${g.subject_name||''}</td><td class="px-3 py-2 text-center">${g.credits||''}</td><td class="px-3 py-2 text-center font-bold">${g.grade||''}</td><td class="px-3 py-2 text-center">${g.semester||''}/${g.academic_year||''}</td></tr>`).join('')}</tbody></table>
+    <table class="w-full text-sm border"><thead><tr class="bg-surface"><th class="px-3 py-2 text-left">รหัสวิชา</th><th class="px-3 py-2 text-left">รายวิชา</th><th class="px-3 py-2">หน่วยกิต</th><th class="px-3 py-2">เกรด</th><th class="px-3 py-2">ภาค/ปี</th></tr></thead>
+    <tbody>${grades.map(g=>`<tr class="border-t"><td class="px-3 py-2 font-mono text-primary">${g.subject_code||''}</td><td class="px-3 py-2">${g.subject_name||''}</td><td class="px-3 py-2 text-center">${g.credits||''}</td><td class="px-3 py-2 text-center font-bold">${g.grade||''}</td><td class="px-3 py-2 text-center">${g.semester||''}/${g.academic_year||''}</td></tr>`).join('')}</tbody></table>
     <div class="mt-4 text-right font-bold">GPAX: ${gpax}</div>
   `);
 }
@@ -781,7 +784,7 @@ function evalTeacherPage(){
     return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ประเมินอาจารย์ผู้สอน</h2>
     <div class="bg-white rounded-2xl p-6 border border-blue-100">
       <form id="evalForm" class="space-y-4">
-        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateEvalTeacherOptions(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s=>`<option value="${s.subject_name}">${s.subject_name}</option>`).join('')}</select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateEvalTeacherOptions(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s=>`<option value="${s.subject_name}">${s.subject_code?s.subject_code+' ':'' }${s.subject_name}</option>`).join('')}</select></div>
         <div><label class="block text-xs text-gray-600 mb-1">หัวข้อการสอน</label><input name="eval_topic" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน</label><select name="name" id="evalTeacherSelect" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">เลือกอาจารย์</option></select></div>
         <div class="grid grid-cols-2 gap-3">
@@ -1107,7 +1110,7 @@ function leavePage(){
       <form id="leaveForm" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${APP.currentUser.data?.name||''}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
-          <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateLeaveCoordinator(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s=>`<option value="${s.subject_name}">${s.subject_name}</option>`).join('')}</select></div>
+          <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateLeaveCoordinator(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s=>`<option value="${s.subject_name}">${s.subject_code?s.subject_code+' ':''}${s.subject_name}</option>`).join('')}</select></div>
           <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้ประสานรายวิชา</label><input name="coordinator" id="leaveCoordinator" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
           <div><label class="block text-xs text-gray-600 mb-1">จำนวนชั่วโมง</label><input name="leave_hours" type="number" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
