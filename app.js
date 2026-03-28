@@ -13,6 +13,7 @@ function getDataByType(t){return APP.allData.filter(d=>d.type===t)}
 // ======================== GOOGLE SHEET INIT ========================
 function saveGSheetConfig(){
   const input=document.getElementById('gsheetUrlInput');
+  const scriptInput=document.getElementById('gsheetScriptUrl');
   const errEl=document.getElementById('configError');
   errEl.classList.add('hidden');
   const sheetId=GSheetDB.extractSheetId(input.value);
@@ -21,8 +22,9 @@ function saveGSheetConfig(){
     errEl.classList.remove('hidden');
     return;
   }
-  GSheetDB.storeConfig({spreadsheetId:sheetId});
-  initGSheet(sheetId);
+  const scriptUrl=(scriptInput?scriptInput.value:'').trim()||'';
+  GSheetDB.storeConfig({spreadsheetId:sheetId,scriptUrl:scriptUrl});
+  initGSheet(sheetId,scriptUrl);
 }
 
 function resetGSheetConfig(){
@@ -39,9 +41,9 @@ function showScreen(id){
   });
 }
 
-function initGSheet(sheetId){
+function initGSheet(sheetId,scriptUrl){
   showScreen('loadingScreen');
-  GSheetDB.init({spreadsheetId:sheetId}, (data)=>{
+  GSheetDB.init({spreadsheetId:sheetId,scriptUrl:scriptUrl||''}, (data)=>{
     APP.allData=data;
     if(APP.currentUser)renderCurrentPage();
     updateNotifBadge();
@@ -86,7 +88,7 @@ function readOnlyNotice(){
 (()=>{
   const storedConfig=GSheetDB.getStoredConfig();
   if(storedConfig&&storedConfig.spreadsheetId){
-    initGSheet(storedConfig.spreadsheetId);
+    initGSheet(storedConfig.spreadsheetId,storedConfig.scriptUrl||'');
   }else{
     showScreen('configScreen');
   }
@@ -345,7 +347,8 @@ function paginate(data){
 }
 
 function csvUploadBtn(type,fields){
-  return ''; // Read-only mode: no upload
+  return `<button onclick="triggerCSVUpload('${type}','${fields}')" class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-xl hover:bg-primaryLight text-sm"><i data-lucide="upload" class="w-4 h-4"></i>Upload CSV</button>
+  <input type="file" id="csvInput_${type}" accept=".csv" class="hidden" onchange="handleCSVUpload(event,'${type}','${fields}')">`;
 }
 
 function triggerCSVUpload(type){document.getElementById('csvInput_'+type).click()}
@@ -362,7 +365,8 @@ async function handleCSVUpload(e,type,fieldsStr){
     const vals=lines[i].split(',').map(v=>v.trim().replace(/"/g,''));
     const obj={type,created_at:new Date().toISOString()};
     headers.forEach((h,idx)=>{obj[h]=vals[idx]||''});
-    readOnlyNotice();return;//
+    const r=await GSheetDB.create(obj);
+    
     if(r.isOk)count++;
   }
   showToast(`นำเข้าข้อมูลสำเร็จ ${count} รายการ`);
@@ -508,7 +512,7 @@ function infoRow(l,v){return `<div><p class="text-xs text-gray-500">${l}</p><p c
 // Helper: show "รหัส ชื่อวิชา" or just "ชื่อวิชา" if no code
 function subjectLabel(code,name){return code?`${code} ${name||''}`:name||''}
 
-function showAddStudentModal(){readOnlyNotice();return;//
+function showAddStudentModal(){
   showModal('เพิ่มนักศึกษา',`
     <form id="addStudentForm" class="space-y-3">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -533,7 +537,8 @@ function showAddStudentModal(){readOnlyNotice();return;//
     const obj={type:'student',created_at:new Date().toISOString()};
     fd.forEach((v,k)=>obj[k]=v);
     if(APP.allData.filter(d=>d.type==='student').length>=999){showToast('ข้อมูลเต็ม','error');return}
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มนักศึกษาสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -573,7 +578,7 @@ function subjectsPage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddSubjectModal(){readOnlyNotice();return;//
+function showAddSubjectModal(){
   showModal('เพิ่มรายวิชา',`
     <form id="addSubjectForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -593,7 +598,8 @@ function showAddSubjectModal(){readOnlyNotice();return;//
     const obj={type:'subject',created_at:new Date().toISOString()};
     fd.forEach((v,k)=>obj[k]=k==='credits'?Number(v):v);
     if(APP.allData.filter(d=>d.type==='subject').length>=999){showToast('ข้อมูลเต็ม','error');return}
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มรายวิชาสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -624,7 +630,7 @@ function schedulePage(){
   </div>`;
 }
 
-function showAddScheduleModal(){readOnlyNotice();return;//
+function showAddScheduleModal(){
   showModal('เพิ่มตารางเรียน/สอบ',`
     <form id="addScheduleForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -641,7 +647,8 @@ function showAddScheduleModal(){readOnlyNotice();return;//
   document.getElementById('addScheduleForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'schedule',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มตารางสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -695,7 +702,7 @@ function gradesPage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddGradeModal(){readOnlyNotice();return;//
+function showAddGradeModal(){
   showModal('เพิ่มผลการเรียน',`
     <form id="addGradeForm" class="space-y-3">
       <div class="grid grid-cols-2 gap-3">
@@ -713,7 +720,8 @@ function showAddGradeModal(){readOnlyNotice();return;//
   document.getElementById('addGradeForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'grade',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=k==='credits'?Number(v):v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มผลการเรียนสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -777,7 +785,7 @@ function engResultsPage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddEngModal(){readOnlyNotice();return;//
+function showAddEngModal(){
   showModal('เพิ่มผลสอบภาษาอังกฤษ',`
     <form id="addEngForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -792,7 +800,8 @@ function showAddEngModal(){readOnlyNotice();return;//
   document.getElementById('addEngForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'eng_result',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=k==='eng_score'?Number(v):v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มผลสอบสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -863,7 +872,7 @@ function evalTeacherPage(){
   </div>`;
 }
 
-function showAddEvalModal(){readOnlyNotice();return;//
+function showAddEvalModal(){
   showModal('เพิ่มผลประเมิน',`
     <form id="addEvalForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -880,7 +889,8 @@ function showAddEvalModal(){readOnlyNotice();return;//
   document.getElementById('addEvalForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'evaluation',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=k==='eval_score'?Number(v):v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('บันทึกสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -906,7 +916,7 @@ function teachersPage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddTeacherModal(){readOnlyNotice();return;//
+function showAddTeacherModal(){
   showModal('เพิ่มอาจารย์',`
     <form id="addTeacherForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -923,7 +933,8 @@ function showAddTeacherModal(){readOnlyNotice();return;//
   document.getElementById('addTeacherForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'teacher',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มอาจารย์สำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -958,7 +969,7 @@ function servicesPage(){
   </div>`;
 }
 
-function showAddAnnouncementModal(){readOnlyNotice();return;//
+function showAddAnnouncementModal(){
   showModal('เพิ่มประกาศ/แจ้งเตือน',`
     <form id="addAnnForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">เรื่อง</label><input name="announcement_title" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -973,15 +984,16 @@ function showAddAnnouncementModal(){readOnlyNotice();return;//
   document.getElementById('addAnnForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'announcement',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มประกาศสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
 
-async function updateDocStatus(id,status){readOnlyNotice();return;//
+async function updateDocStatus(id,status){
   const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
   rec.doc_status=status;
-  readOnlyNotice();return;//
+  const r=await GSheetDB.update(rec);
   if(r.isOk)showToast('อัปเดตสถานะสำเร็จ');else showToast('เกิดข้อผิดพลาด','error');
 }
 
@@ -1016,7 +1028,7 @@ function trackingPage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddTrackingModal(){readOnlyNotice();return;//
+function showAddTrackingModal(){
   showModal('เพิ่มรายละเอียดรายวิชา',`
     <form id="addTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -1034,16 +1046,18 @@ function showAddTrackingModal(){readOnlyNotice();return;//
     e.preventDefault();const fd=new FormData(e.target);
     const obj={type:'tracking',class_teacher_check:'รอ',academic_propose:'รอ',deputy_sign:'รอ',approved_date:'',created_at:new Date().toISOString()};
     fd.forEach((v,k)=>obj[k]=v);
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
 
-async function updateTrackingField(id,field,value){readOnlyNotice();return;//
+async function updateTrackingField(id,field,value){
   const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
   rec[field]=value;
   if(field==='deputy_sign'&&value==='เสร็จสิ้น')rec.approved_date=new Date().toISOString().split('T')[0];
-  readOnlyNotice();return;//
+  
+  const r=await GSheetDB.update(rec);
   if(r.isOk)showToast('อัปเดตสำเร็จ');else showToast('เกิดข้อผิดพลาด','error');
 }
 
@@ -1181,7 +1195,7 @@ function leavePage(){
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
 }
 
-function showAddLeaveModal(){readOnlyNotice();return;//
+function showAddLeaveModal(){
   showModal('เพิ่มข้อมูลการลา',`
     <form id="addLeaveForm" class="space-y-3">
       <div class="grid grid-cols-2 gap-3">
@@ -1204,7 +1218,8 @@ function showAddLeaveModal(){readOnlyNotice();return;//
     obj.coordinator_approval='รอ';
     obj.class_teacher_approval='รอ';
     obj.deputy_approval='รอ';
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มข้อมูลการลาสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -1248,7 +1263,7 @@ function settingsPage(){
   </div>`;
 }
 
-function showAddUserModal(){readOnlyNotice();return;//
+function showAddUserModal(){
   showModal('เพิ่มผู้ใช้งาน',`
     <form id="addUserForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">บทบาท *</label>
@@ -1287,7 +1302,8 @@ function showAddUserModal(){readOnlyNotice();return;//
     else{obj.email=fd.get('email');obj.password=fd.get('password')||'123456'}
     const resp_yr=fd.get('responsible_year');
     if(resp_yr)obj.responsible_year=resp_yr;
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.create(obj);
     if(r.isOk){showToast('เพิ่มผู้ใช้สำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
 }
@@ -1392,7 +1408,7 @@ function initPageScripts(page){
   if(leaveForm){
     leaveForm.onsubmit=async(e)=>{
       e.preventDefault();
-      readOnlyNotice();
+      
       const diff=Math.ceil((new Date(leaveDate)-today)/(1000*60*60*24));
       const valEl=document.getElementById('leaveValidation');
 
@@ -1433,7 +1449,8 @@ function initPageScripts(page){
       obj.class_teacher_approval='รอ';
       obj.deputy_approval='รอ';
       if(APP.allData.filter(d=>d.type==='leave').length>=999){showToast('ข้อมูลเต็ม','error');return}
-      readOnlyNotice();return;//
+      
+      const r=await GSheetDB.create(obj);
       if(r.isOk){showToast('ส่งใบลาสำเร็จ');leaveForm.reset()}else showToast('เกิดข้อผิดพลาด','error');
     };
   }
@@ -1443,10 +1460,11 @@ function initPageScripts(page){
   if(evalForm){
     evalForm.onsubmit=async(e)=>{
       e.preventDefault();
-      readOnlyNotice();
+      
       const obj={type:'evaluation',student_name:APP.currentUser.data?.name||'',created_at:new Date().toISOString()};
       fd.forEach((v,k)=>{if(k!=='medical_cert'&&k!=='appointment_doc')obj[k]=k==='eval_score'?Number(v):v});
-      readOnlyNotice();return;//
+      
+      const r=await GSheetDB.create(obj);
       if(r.isOk){showToast('ส่งผลประเมินสำเร็จ');evalForm.reset()}else showToast('เกิดข้อผิดพลาด','error');
     };
   }
@@ -1481,33 +1499,36 @@ function renderCalendar(containerId){
 }
 
 // ======================== LEAVE APPROVAL ========================
-async function approveLeave(id,approvalField){readOnlyNotice();return;//
+async function approveLeave(id,approvalField){
   const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
   rec[approvalField]='อนุมัติ';
   // If all approvals done, mark as approved
   if(rec.coordinator_approval==='อนุมัติ'&&rec.class_teacher_approval==='อนุมัติ'&&rec.deputy_approval==='อนุมัติ'){
     rec.leave_status='อนุมัติแล้ว';
   }
-  readOnlyNotice();return;//
+  
+  const r=await GSheetDB.update(rec);
   if(r.isOk){showToast('อนุมัติการลาสำเร็จ');renderCurrentPage()}else showToast('เกิดข้อผิดพลาด','error');
 }
 
-async function rejectLeave(id,approvalField){readOnlyNotice();return;//
+async function rejectLeave(id,approvalField){
   const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
   rec[approvalField]='ปฏิเสธ';
   rec.leave_status='ปฏิเสธ';
-  readOnlyNotice();return;//
+  
+  const r=await GSheetDB.update(rec);
   if(r.isOk){showToast('ปฏิเสธการลาสำเร็จ');renderCurrentPage()}else showToast('เกิดข้อผิดพลาด','error');
 }
 
 // ======================== GLOBAL ACTIONS ========================
 function changePage(p){APP.pagination.page=p;renderCurrentPage()}
 
-async function deleteRecord(id){readOnlyNotice();return;//
+async function deleteRecord(id){
   const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
   // Inline confirmation
   showModal('ยืนยันการลบ','<p class="text-center text-gray-600">คุณต้องการลบรายการนี้หรือไม่?</p>',async()=>{
-    readOnlyNotice();return;//
+    
+    const r=await GSheetDB.delete(rec);
     if(r.isOk){showToast('ลบสำเร็จ');closeModal()}else{showToast('เกิดข้อผิดพลาด','error');closeModal()}
   });
 }
