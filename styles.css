@@ -1,0 +1,19 @@
+*{font-family:'Sarabun',sans-serif;box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+.sidebar{transition:transform .3s ease}
+.sidebar-hidden{transform:translateX(-100%)}
+.dropdown-menu{display:none}.dropdown-open .dropdown-menu{display:block}
+.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.toast{animation:toastIn .3s ease,toastOut .3s ease 2.7s}
+@keyframes toastIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+.modal-overlay{background:rgba(0,0,0,.4)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#b8d4ed;border-radius:3px}
+.tab-active{border-bottom:3px solid #1e6fba;color:#1e6fba;font-weight:600}
+.card-stat{transition:transform .2s,box-shadow .2s}.card-stat:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(30,111,186,.15)}
+input[type="file"]{font-size:14px}
+table th{position:sticky;top:0;z-index:2}
+.cal-day:hover{background:#e8f4fd;cursor:pointer}
+.cal-event{font-size:11px;padding:1px 4px;border-radius:3px;margin-top:1px}
+body { box-sizing: border-box; }
