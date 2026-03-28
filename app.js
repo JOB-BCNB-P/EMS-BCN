@@ -61,6 +61,22 @@ async function refreshData(){
   showToast('รีเฟรชข้อมูลสำเร็จ');
 }
 
+async function debugConnection(){
+  const result = await GSheetDB.debugTab('user');
+  const totalData = APP.allData.length;
+  const userCount = getDataByType('user').length;
+  let msg = `=== Debug Info ===\n`;
+  msg += `ข้อมูลทั้งหมดในระบบ: ${totalData} แถว\n`;
+  msg += `ข้อมูล type=user: ${userCount} แถว\n\n`;
+  msg += `=== Raw "user" tab ===\n`;
+  msg += JSON.stringify(result, null, 2);
+  if(userCount > 0){
+    msg += `\n\n=== User data ===\n`;
+    msg += JSON.stringify(getDataByType('user'), null, 2);
+  }
+  alert(msg);
+}
+
 // ======================== READ-ONLY NOTICE ========================
 function readOnlyNotice(){
   showToast('ระบบเป็นแบบอ่านอย่างเดียว — แก้ไขข้อมูลใน Google Sheet','error');
@@ -101,9 +117,9 @@ function handleLogin(){
     if(!adminUser){
       const allUsers=getDataByType('user');
       if(allUsers.length===0){
-        err.textContent='ไม่พบข้อมูลผู้ใช้ — ตรวจสอบว่า Google Sheet มี tab ชื่อ "user" และ Share เป็น Public แล้ว';
+        err.innerHTML='ไม่พบข้อมูลผู้ใช้ — ตรวจสอบว่า Google Sheet มี tab ชื่อ "user" และ Share เป็น Public แล้ว<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button>';
       } else {
-        err.textContent='รหัสผ่านไม่ถูกต้อง';
+        err.textContent='รหัสผ่านไม่ถูกต้อง (พบ user '+allUsers.length+' คน)';
       }
       err.classList.remove('hidden');return
     }
