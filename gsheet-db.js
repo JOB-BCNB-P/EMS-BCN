@@ -74,7 +74,10 @@ const GSheetDB = (() => {
         const obj = { type: tabName, __backendId: `${tabName}_${idx}` };
         row.c.forEach((cell, i) => {
           if (cols[i]) {
-            obj[cols[i]] = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+            let val = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+            // Google Sheets sends numbers like 123456.0 — strip trailing .0
+            if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
+            obj[cols[i]] = val;
           }
         });
         return obj;
