@@ -59,15 +59,34 @@ const GSheetDB = (() => {
     const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
     try {
       const resp = await fetch(url);
-      if (!resp.ok) return [];
+      if (!resp.ok) { console.warn(`Tab "${tabName}": HTTP ${resp.status}`); return []; }
       let text = await resp.text();
       // Response is wrapped in google.visualization.Query.setResponse({...})
       const jsonStr = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
-      if (!jsonStr) return [];
+      if (!jsonStr) { console.warn(`Tab "${tabName}": cannot parse gviz response`); return []; }
       const json = JSON.parse(jsonStr[1]);
+
+      // Check for errors from Google
+      if (json.status === 'error') {
+        console.warn(`Tab "${tabName}": gviz error`, json.errors);
+        return [];
+      }
+
       if (!json.table || !json.table.cols || !json.table.rows) return [];
 
-      const cols = json.table.cols.map(c => c.label || '');
+      // Get column headers — prefer label, fallback to id
+      let cols = json.table.cols.map(c => (c.label || '').trim());
+
+      // If all labels are empty, the first row IS the header — use first data row as headers
+      if (cols.every(c => c === '')) {
+        const firstRow = json.table.rows[0];
+        if (firstRow && firstRow.c) {
+          cols = firstRow.c.map(cell => cell ? String(cell.v || '').trim() : '');
+          // Remove first row from data since it's headers
+          json.table.rows.shift();
+        }
+      }
+
       const rows = json.table.rows || [];
 
       return rows.map((row, idx) => {
@@ -89,6 +108,25 @@ const GSheetDB = (() => {
       console.warn(`Failed to fetch tab "${tabName}":`, err.message);
       return [];
     }
+  }
+
+  // ---------- Debug: fetch raw response for a tab ----------
+  async function debugTab(tabName) {
+    const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+    try {
+      const resp = await fetch(url);
+      const text = await resp.text();
+      const jsonStr = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
+      if (!jsonStr) return { error: 'Cannot parse response', raw: text.substring(0, 500) };
+      const json = JSON.parse(jsonStr[1]);
+      return {
+        status: json.status,
+        errors: json.errors,
+        cols: json.table ? json.table.cols : null,
+        rowCount: json.table ? (json.table.rows || []).length : 0,
+        firstRow: json.table && json.table.rows && json.table.rows[0] ? json.table.rows[0].c : null
+      };
+    } catch (err) { return { error: err.message }; }
   }
 
   // ---------- Fetch all tabs ----------
@@ -136,6 +174,6 @@ const GSheetDB = (() => {
 
   return {
     getStoredConfig, storeConfig, clearConfig, extractSheetId,
-    init, refresh, destroy, SHEET_TABS
+    init, refresh, destroy, debugTab, SHEET_TABS
   };
 })();
