@@ -47,6 +47,13 @@ tailwind.config={theme:{extend:{fontFamily:{sarabun:['Sarabun','sans-serif']},co
 
       <label class="block text-sm font-medium text-gray-700 mb-2">Google Sheet URL หรือ Spreadsheet ID</label>
       <input id="gsheetUrlInput" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="https://docs.google.com/spreadsheets/d/xxxxx/edit">
+
+      <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+       <label class="block text-sm font-medium text-green-800 mb-2">Apps Script URL (สำหรับแก้ไขข้อมูลผ่านเว็บ)</label>
+       <input id="gsheetScriptUrl" type="text" class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+       <p class="text-xs text-green-700 mt-1">ถ้าไม่กรอก = อ่านอย่างเดียว | กรอก = เพิ่ม/แก้ไข/ลบข้อมูลได้</p>
+      </div>
+
       <div id="configError" class="text-red-500 text-sm mt-2 hidden"></div>
       <button onclick="saveGSheetConfig()" class="w-full mt-4 bg-primary hover:bg-primaryDark text-white font-semibold py-3 rounded-xl transition shadow-md">เชื่อมต่อ</button>
       <p class="text-xs text-gray-400 mt-3 text-center">URL จะถูกเก็บไว้ใน localStorage ของเบราว์เซอร์นี้</p>
