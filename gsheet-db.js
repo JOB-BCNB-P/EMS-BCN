@@ -20,7 +20,7 @@ const GSheetDB = (() => {
   const SHEET_TABS = [
     'student', 'teacher', 'subject', 'schedule',
     'grade', 'eng_result', 'evaluation', 'leave',
-    'tracking', 'announcement', 'user', 'doc_request'
+    'tracking', 'grade_tracking', 'announcement', 'user', 'doc_request'
   ];
 
   const REFRESH_INTERVAL = 60000; // 60 seconds
