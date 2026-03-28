@@ -270,6 +270,9 @@ function renderCurrentPage(){
 }
 
 // ======================== HELPERS ========================
+// Normalize value from Google Sheet (strip .0, trim whitespace)
+function norm(v){return String(v||'').replace(/\.0$/,'').trim()}
+
 function showToast(msg,type='success'){
   const c=document.getElementById('toastContainer');
   const colors=type==='success'?'bg-green-500':'bg-red-500';
@@ -284,11 +287,12 @@ function showToast(msg,type='success'){
 function showModal(title,content,onConfirm){
   const mc=document.getElementById('modalContainer');
   mc.classList.remove('hidden');
+  window._modalConfirm=onConfirm||null;
   mc.innerHTML=`<div class="modal-overlay fixed inset-0 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80%] overflow-auto fade-in">
       <div class="p-5 border-b flex items-center justify-between"><h3 class="font-bold text-lg">${title}</h3><button onclick="closeModal()" class="p-1 rounded hover:bg-gray-100"><i data-lucide="x" class="w-5 h-5"></i></button></div>
       <div class="p-5">${content}</div>
-      ${onConfirm?`<div class="p-4 border-t flex justify-end gap-2"><button onclick="closeModal()" class="px-4 py-2 rounded-xl border hover:bg-gray-50">ยกเลิก</button><button onclick="(${onConfirm.toString()})()" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primaryDark">ยืนยัน</button></div>`:''}
+      ${onConfirm?`<div class="p-4 border-t flex justify-end gap-2"><button onclick="closeModal()" class="px-4 py-2 rounded-xl border hover:bg-gray-50">ยกเลิก</button><button onclick="if(window._modalConfirm)window._modalConfirm()" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primaryDark">ยืนยัน</button></div>`:''}
     </div>
   </div>`;
   lucide.createIcons();
@@ -334,10 +338,11 @@ function filterBar(opts={}){
 
 function applyFilters(data){
   let d=data;
+  
   if(APP.filters.search){const s=APP.filters.search.toLowerCase();d=d.filter(x=>Object.values(x).some(v=>String(v).toLowerCase().includes(s)))}
-  if(APP.filters.semester)d=d.filter(x=>x.semester===APP.filters.semester);
-  if(APP.filters.academicYear)d=d.filter(x=>x.academic_year===APP.filters.academicYear);
-  if(APP.filters.yearLevel)d=d.filter(x=>x.year_level===APP.filters.yearLevel);
+  if(APP.filters.semester)d=d.filter(x=>norm(x.semester)===APP.filters.semester);
+  if(APP.filters.academicYear)d=d.filter(x=>norm(x.academic_year)===APP.filters.academicYear);
+  if(APP.filters.yearLevel)d=d.filter(x=>norm(x.year_level)===APP.filters.yearLevel);
   return d;
 }
 
@@ -413,7 +418,7 @@ function dashboardPage(){
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${[1,2,3,4].map(yr=>{
-        const yrStudents=students.filter(s=>s.year_level===String(yr));
+        const yrStudents=students.filter(s=>norm(s.year_level)===String(yr));
         const yrEngPass=engPass.filter(e=>yrStudents.some(s=>s.name===e.name));
         return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
@@ -435,7 +440,7 @@ function dashboardPage(){
     </div>`;
   } else if(r==='classTeacher'){
     const yr=APP.currentUser.responsible_year||'1';
-    const myStudents=students.filter(s=>s.year_level===yr);
+    const myStudents=students.filter(s=>norm(s.year_level)===norm(yr));
     const myEngPass=getDataByType('eng_result').filter(e=>e.eng_status==='ผ่าน'&&myStudents.some(s=>s.name===e.name));
     stats=`
     <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">อาจารย์ประจำชั้นปีที่ ${yr}</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
@@ -468,7 +473,7 @@ function studentsPage(){
   const isAdmin=APP.currentRole==='admin';
   const isClassTeacher=APP.currentRole==='classTeacher';
   let data=getDataByType('student');
-  if(isClassTeacher)data=data.filter(s=>s.year_level===(APP.currentUser.responsible_year||'1'));
+  if(isClassTeacher)data=data.filter(s=>norm(s.year_level)===norm(APP.currentUser.responsible_year||'1'));
   if(APP.currentRole==='teacher')data=data.filter(s=>s.advisor===APP.currentUser.name);
   data=applyFilters(data);
   const total=data.length;
@@ -557,7 +562,7 @@ function showStudentDetail(id){
 function subjectsPage(){
   const isAdmin=APP.currentRole==='admin';
   let data=applyFilters(getDataByType('subject'));
-  if(APP.currentRole==='classTeacher')data=data.filter(s=>s.year_level===(APP.currentUser.responsible_year||'1'));
+  if(APP.currentRole==='classTeacher')data=data.filter(s=>norm(s.year_level)===norm(APP.currentUser.responsible_year||'1'));
   const total=data.length;const paged=paginate(data);
   
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -661,7 +666,7 @@ function gradesPage(){
   if(isStudent&&APP.currentUser.data)data=data.filter(g=>g.name===APP.currentUser.data.name||g.student_id===APP.currentUser.data.student_id);
   if(APP.currentRole==='classTeacher'){
     const yr=APP.currentUser.responsible_year||'1';
-    const stuNames=getDataByType('student').filter(s=>s.year_level===yr).map(s=>s.name);
+    const stuNames=getDataByType('student').filter(s=>norm(s.year_level)===norm(yr)).map(s=>s.name);
     data=data.filter(g=>stuNames.includes(g.name));
   }
   if(APP.currentRole==='teacher'){
@@ -749,7 +754,7 @@ function engResultsPage(){
   if(APP.currentRole==='teacher'||APP.currentRole==='classTeacher'){
     // Filter by advisor
     const advisorName=APP.currentUser.name;
-    const stuNames=getDataByType('student').filter(s=>s.advisor===advisorName||(APP.currentRole==='classTeacher'&&s.year_level===(APP.currentUser.responsible_year||'1'))).map(s=>s.name);
+    const stuNames=getDataByType('student').filter(s=>s.advisor===advisorName||(APP.currentRole==='classTeacher'&&norm(s.year_level)===norm(APP.currentUser.responsible_year||'1'))).map(s=>s.name);
     data=data.filter(e=>stuNames.includes(e.name));
   }
   const total=data.length;const paged=paginate(data);
@@ -1134,7 +1139,7 @@ function leavePage(){
   });
   if(isClassTeacher){
     const yr=APP.currentUser.responsible_year||'1';
-    const stuNames=getDataByType('student').filter(s=>s.year_level===yr).map(s=>s.name);
+    const stuNames=getDataByType('student').filter(s=>norm(s.year_level)===norm(yr)).map(s=>s.name);
     data=data.filter(l=>stuNames.includes(l.name));
   }
   data=applyFilters(data);
