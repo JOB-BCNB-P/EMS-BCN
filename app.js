@@ -815,89 +815,231 @@ function showAddEngModal(){
 function evalTeacherPage(){
   const isAdmin=APP.currentRole==='admin';
   const isStudent=APP.currentRole==='student';
+  const evalForms=getDataByType('eval_form');
+  const evaluations=getDataByType('evaluation');
   
   if(isStudent){
-    // Student submits evaluation
-    const subjects=getDataByType('subject');
+    // Student: see forms created by admin, fill in scores
+    const myEvals=evaluations.filter(e=>e.student_name===(APP.currentUser.data?.name||''));
+    const availableForms=evalForms.filter(f=>{
+      // Filter forms that student hasn't submitted yet
+      return f.status==='เปิด' && !myEvals.some(e=>e.eval_form_id===f.__backendId);
+    });
+    const submittedForms=evalForms.filter(f=>{
+      return myEvals.some(e=>e.eval_form_id===f.__backendId);
+    });
+
     return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ประเมินอาจารย์ผู้สอน</h2>
-    <div class="bg-white rounded-2xl p-6 border border-blue-100">
-      <form id="evalForm" class="space-y-4">
-        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateEvalTeacherOptions(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s=>`<option value="${s.subject_name}">${s.subject_code?s.subject_code+' ':'' }${s.subject_name}</option>`).join('')}</select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หัวข้อการสอน</label><input name="eval_topic" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน</label><select name="name" id="evalTeacherSelect" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">เลือกอาจารย์</option></select></div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
-          <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        </div>
-        <div><label class="block text-xs text-gray-600 mb-1">คะแนน (1-5)</label>
-          <div class="flex gap-2 mt-1" id="evalStars">${[1,2,3,4,5].map(i=>`<button type="button" onclick="setEvalScore(${i})" class="eval-star w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center text-lg hover:border-yellow-400 hover:bg-yellow-50 transition">${i}</button>`).join('')}</div>
-          <input type="hidden" name="eval_score" id="evalScoreInput" value="5">
-        </div>
-        <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ส่งผลประเมิน</button>
-      </form>
-    </div>
-    <h3 class="font-bold mt-6 mb-3">ประวัติการประเมิน</h3>
+    
+    ${availableForms.length?`<h3 class="font-bold mb-3 text-green-700 flex items-center gap-2"><i data-lucide="clipboard-list" class="w-5 h-5"></i>แบบประเมินที่ยังไม่ได้ทำ (${availableForms.length})</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">${availableForms.map(f=>`<div class="bg-white rounded-2xl p-5 border border-green-200 hover:shadow-md transition cursor-pointer" onclick="showStudentEvalForm('${f.__backendId}')">
+      <div class="flex items-center justify-between mb-2">
+        <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">รอประเมิน</span>
+        <span class="text-xs text-gray-400">${f.semester||''}/${f.academic_year||''}</span>
+      </div>
+      <p class="font-bold text-gray-800">${f.subject_code?f.subject_code+' ':''}${f.subject_name||''}</p>
+      <p class="text-sm text-gray-500 mt-1">อาจารย์: ${f.teacher_name||''}</p>
+      <p class="text-xs text-gray-400 mt-2">${f.eval_items?f.eval_items.split(',').length||0:0} หัวข้อประเมิน</p>
+    </div>`).join('')}</div>`:'<div class="bg-green-50 rounded-2xl p-6 text-center mb-6"><p class="text-green-600">ไม่มีแบบประเมินที่ต้องทำ</p></div>'}
+
+    <h3 class="font-bold mb-3 text-gray-600">ประวัติที่ประเมินแล้ว (${submittedForms.length})</h3>
     <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead><tr class="bg-surface"><th class="px-4 py-3 text-left">รายวิชา</th><th class="px-4 py-3 text-left">อาจารย์</th><th class="px-4 py-3">คะแนน</th><th class="px-4 py-3">ภาค/ปี</th></tr></thead>
-        <tbody>${getDataByType('evaluation').filter(e=>e.student_name===(APP.currentUser.data?.name||'')).map(e=>`<tr class="border-t"><td class="px-4 py-3">${e.subject_name||''}</td><td class="px-4 py-3">${e.name||''}</td><td class="px-4 py-3 text-center">${e.eval_score||''}/5</td><td class="px-4 py-3 text-center">${e.semester||''}/${e.academic_year||''}</td></tr>`).join('')||'<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีประวัติ</td></tr>'}</tbody>
+        <thead><tr class="bg-surface"><th class="px-4 py-3 text-left">รายวิชา</th><th class="px-4 py-3 text-left">อาจารย์</th><th class="px-4 py-3">คะแนนเฉลี่ย</th><th class="px-4 py-3">ภาค/ปี</th></tr></thead>
+        <tbody>${myEvals.length?myEvals.map(e=>`<tr class="border-t"><td class="px-4 py-3">${e.subject_name||''}</td><td class="px-4 py-3">${e.teacher_name||e.name||''}</td><td class="px-4 py-3 text-center font-bold text-primary">${e.eval_score||''}/5</td><td class="px-4 py-3 text-center">${e.semester||''}/${e.academic_year||''}</td></tr>`).join(''):'<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีประวัติ</td></tr>'}</tbody>
       </table></div>
     </div>`;
   }
   
-  // Admin/teacher view
-  let data=getDataByType('evaluation');
-  if(APP.currentRole==='teacher')data=data.filter(e=>e.name===APP.currentUser.name);
-  data=applyFilters(data);
-
-  // Summary by teacher
-  const byTeacher={};
-  data.forEach(e=>{
-    if(!byTeacher[e.name])byTeacher[e.name]={total:0,count:0,subject:e.subject_name};
-    byTeacher[e.name].total+=Number(e.eval_score)||0;
-    byTeacher[e.name].count++;
-  });
-
-  // Teacher/year filter for admin
-  let teacherFilter='';
+  // ===== Admin view: manage eval forms + see results =====
   if(isAdmin){
-    const teachers=[...new Set(data.map(e=>e.name).filter(Boolean))];
-    teacherFilter=`<select onchange="APP.filters._evalTeacher=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกอาจารย์</option>${teachers.map(t=>`<option>${t}</option>`).join('')}</select>`;
+    const data=applyFilters(evaluations);
+    // Summary by teacher
+    const byTeacher={};
+    data.forEach(e=>{
+      const tname=e.teacher_name||e.name||'';
+      if(!tname)return;
+      if(!byTeacher[tname])byTeacher[tname]={total:0,count:0,subject:e.subject_name};
+      byTeacher[tname].total+=Number(e.eval_score)||0;
+      byTeacher[tname].count++;
+    });
+
+    const teacherFilter=`<select onchange="APP.filters._evalTeacher=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกอาจารย์</option>${[...new Set(data.map(e=>e.teacher_name||e.name).filter(Boolean))].map(t=>`<option>${t}</option>`).join('')}</select>`;
+
+    return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ระบบประเมินอาจารย์ผู้สอน</h2>
+    
+    <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold">จัดการแบบประเมิน</h3>
+        <button onclick="showCreateEvalFormModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>สร้างแบบประเมิน</button>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">อาจารย์</th><th class="px-4 py-3 font-semibold">หัวข้อประเมิน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3 font-semibold">ผู้ตอบ</th><th class="px-4 py-3"></th></tr></thead>
+        <tbody>${evalForms.length?evalForms.map(f=>{
+          const respCount=evaluations.filter(e=>e.eval_form_id===f.__backendId).length;
+          return `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${f.subject_code?f.subject_code+' ':''}${f.subject_name||''}</td>
+          <td class="px-4 py-3">${f.teacher_name||''}</td>
+          <td class="px-4 py-3 text-xs">${(f.eval_items||'').split(',').filter(Boolean).join(', ')}</td>
+          <td class="px-4 py-3">${f.semester||''}/${f.academic_year||''}</td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${f.status==='เปิด'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500'}">${f.status||'เปิด'}</span></td>
+          <td class="px-4 py-3 font-bold text-primary">${respCount}</td>
+          <td class="px-4 py-3"><button onclick="deleteRecord('${f.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+        </tr>`}).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ยังไม่มีแบบประเมิน</td></tr>'}</tbody>
+      </table></div>
+    </div>
+
+    <h3 class="font-bold mb-3">ผลประเมินรวม</h3>
+    <div class="flex flex-wrap gap-3 mb-4">${teacherFilter}</div>
+    ${Object.keys(byTeacher).length?`<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${Object.entries(byTeacher).map(([name,d])=>`<div class="bg-white rounded-2xl p-4 border border-blue-100"><p class="font-bold">${name}</p><p class="text-sm text-gray-500">${d.subject||''}</p><div class="flex items-center gap-2 mt-2"><span class="text-2xl font-bold text-primary">${(d.total/d.count).toFixed(1)}</span><span class="text-gray-400">/5 (${d.count} ผลประเมิน)</span></div></div>`).join('')}</div>`:''}
+    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">อาจารย์</th><th class="px-4 py-3 font-semibold">นักศึกษา</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
+        <tbody>${data.length?data.slice(0,30).map(e=>`<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name||''}</td><td class="px-4 py-3">${e.teacher_name||e.name||''}</td><td class="px-4 py-3">${e.student_name||''}</td><td class="px-4 py-3 font-bold">${e.eval_score||''}/5</td><td class="px-4 py-3">${e.semester||''}/${e.academic_year||''}</td></tr>`).join(''):'<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
   }
 
-  return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ผลประเมินอาจารย์ผู้สอน</h2>
-  ${isAdmin?`<div class="flex gap-2 mb-4"><button onclick="showAddEvalModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลประเมิน</button></div>`:''}
-  <div class="flex flex-wrap gap-3 mb-4">${teacherFilter}</div>
-  ${Object.keys(byTeacher).length?`<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${Object.entries(byTeacher).map(([name,d])=>`<div class="bg-white rounded-2xl p-4 border border-blue-100"><p class="font-bold">${name}</p><p class="text-sm text-gray-500">${d.subject||''}</p><div class="flex items-center gap-2 mt-2"><span class="text-2xl font-bold text-primary">${(d.total/d.count).toFixed(1)}</span><span class="text-gray-400">/5 (${d.count} ผลประเมิน)</span></div></div>`).join('')}</div>`:''}
+  // ===== Teacher view: see own results =====
+  let data=evaluations.filter(e=>(e.teacher_name||e.name)===APP.currentUser.name);
+  data=applyFilters(data);
+  let totalScore=0,totalCount=0;
+  data.forEach(e=>{totalScore+=Number(e.eval_score)||0;totalCount++});
+  const avgScore=totalCount?(totalScore/totalCount).toFixed(1):'N/A';
+
+  return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ผลประเมินของฉัน</h2>
+  <div class="bg-gradient-to-r from-primary to-accent text-white rounded-2xl p-5 mb-4 flex items-center justify-between">
+    <div><p class="text-sm opacity-90">คะแนนเฉลี่ยรวม</p><p class="text-3xl font-bold">${avgScore}/5</p></div>
+    <div><p class="text-sm opacity-90">จำนวนผู้ประเมิน</p><p class="text-3xl font-bold">${totalCount} <span class="text-sm font-normal opacity-80">คน</span></p></div>
+  </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">อาจารย์</th><th class="px-4 py-3 font-semibold">หัวข้อ</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
-      <tbody>${data.length?data.slice(0,20).map(e=>`<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name||''}</td><td class="px-4 py-3">${e.name||''}</td><td class="px-4 py-3">${e.eval_topic||''}</td><td class="px-4 py-3 font-bold">${e.eval_score||''}/5</td><td class="px-4 py-3">${e.semester||''}/${e.academic_year||''}</td></tr>`).join(''):'<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">นักศึกษา</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
+      <tbody>${data.length?data.map(e=>`<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name||''}</td><td class="px-4 py-3">${e.student_name||''}</td><td class="px-4 py-3 font-bold">${e.eval_score||''}/5</td><td class="px-4 py-3">${e.semester||''}/${e.academic_year||''}</td></tr>`).join(''):'<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
     </table></div>
   </div>`;
 }
 
-function showAddEvalModal(){
-  showModal('เพิ่มผลประเมิน',`
-    <form id="addEvalForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">หัวข้อ</label><input name="eval_topic" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">คะแนน (1-5)</label><input name="eval_score" type="number" min="1" max="5" value="5" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+// Admin: Create eval form
+function showCreateEvalFormModal(){
+  const subjects=getDataByType('subject');
+  showModal('สร้างแบบประเมินอาจารย์',`
+    <form id="createEvalFormForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา *</label>
+        <select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="onEvalFormSubjectChange(this)">
+          <option value="">เลือกรายวิชา</option>
+          ${subjects.map(s=>`<option value="${s.subject_name}" data-code="${s.subject_code||''}" data-coord="${s.coordinator||''}">${s.subject_code?s.subject_code+' ':''}${s.subject_name}</option>`).join('')}
+        </select>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" id="evalFormSubCode" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน *</label><input name="teacher_name" id="evalFormTeacher" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">หัวข้อประเมิน * (คั่นด้วยเครื่องหมาย ,)</label>
+        <textarea name="eval_items" required rows="3" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เนื้อหาการสอน,เทคนิคการสอน,สื่อการสอน,การวัดผล,ความตรงต่อเวลา"></textarea>
+        <p class="text-xs text-gray-400 mt-1">ตัวอย่าง: เนื้อหาการสอน,เทคนิคการสอน,สื่อการสอน,การวัดผล,ความตรงต่อเวลา</p>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label>
+        <select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="เปิด">เปิดรับประเมิน</option><option value="ปิด">ปิดรับประเมิน</option></select>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">สร้างแบบประเมิน</button>
     </form>
   `);
-  document.getElementById('addEvalForm').onsubmit=async(e)=>{
+  document.getElementById('createEvalFormForm').onsubmit=async(e)=>{
     e.preventDefault();const fd=new FormData(e.target);
-    const obj={type:'evaluation',created_at:new Date().toISOString()};fd.forEach((v,k)=>obj[k]=k==='eval_score'?Number(v):v);
-    
+    const obj={type:'eval_form',created_at:new Date().toISOString()};
+    fd.forEach((v,k)=>obj[k]=v);
     const r=await GSheetDB.create(obj);
-    if(r.isOk){showToast('บันทึกสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
+    if(r.isOk){showToast('สร้างแบบประเมินสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
   };
+}
+
+function onEvalFormSubjectChange(sel){
+  const opt=sel.options[sel.selectedIndex];
+  document.getElementById('evalFormSubCode').value=opt.dataset.code||'';
+  document.getElementById('evalFormTeacher').value=opt.dataset.coord||'';
+}
+
+// Student: fill eval form
+function showStudentEvalForm(formId){
+  const form=APP.allData.find(d=>d.__backendId===formId);
+  if(!form)return;
+  const items=(form.eval_items||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(!items.length){showToast('แบบประเมินนี้ยังไม่มีหัวข้อ','error');return}
+  
+  let formHTML=`<div class="mb-4 p-3 bg-blue-50 rounded-xl">
+    <p class="font-bold">${form.subject_code?form.subject_code+' ':''}${form.subject_name||''}</p>
+    <p class="text-sm text-gray-600">อาจารย์: ${form.teacher_name||''} | ภาค ${form.semester||''}/${form.academic_year||''}</p>
+  </div>
+  <form id="studentEvalForm" class="space-y-4">
+    <input type="hidden" name="eval_form_id" value="${formId}">
+    <input type="hidden" name="subject_name" value="${form.subject_name||''}">
+    <input type="hidden" name="subject_code" value="${form.subject_code||''}">
+    <input type="hidden" name="teacher_name" value="${form.teacher_name||''}">
+    <input type="hidden" name="semester" value="${form.semester||''}">
+    <input type="hidden" name="academic_year" value="${form.academic_year||''}">
+    <p class="text-sm text-gray-500">ให้คะแนนแต่ละหัวข้อ (1-5)</p>`;
+  
+  items.forEach((item,idx)=>{
+    formHTML+=`<div class="border rounded-xl p-3">
+      <p class="font-medium text-sm mb-2">${idx+1}. ${item}</p>
+      <div class="flex gap-2">${[1,2,3,4,5].map(n=>`<button type="button" onclick="setItemScore(${idx},${n})" class="eval-item-${idx} w-9 h-9 rounded-full border-2 border-gray-300 flex items-center justify-center text-sm hover:border-yellow-400 hover:bg-yellow-50 transition">${n}</button>`).join('')}</div>
+      <input type="hidden" name="score_${idx}" id="scoreInput_${idx}" value="0">
+    </div>`;
+  });
+  
+  formHTML+=`<button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ส่งผลประเมิน</button></form>`;
+  
+  showModal('ประเมินอาจารย์ผู้สอน',formHTML);
+  
+  document.getElementById('studentEvalForm').onsubmit=async(ev)=>{
+    ev.preventDefault();
+    const fd=new FormData(ev.target);
+    // Calculate average score
+    let total=0,count=0;
+    items.forEach((item,idx)=>{
+      const s=Number(fd.get('score_'+idx))||0;
+      if(s>0){total+=s;count++}
+    });
+    if(count<items.length){showToast('กรุณาให้คะแนนทุกหัวข้อ','error');return}
+    const avg=(total/count).toFixed(1);
+    
+    // Build score detail string
+    const scoreDetail=items.map((item,idx)=>`${item}:${fd.get('score_'+idx)}`).join('|');
+    
+    const obj={
+      type:'evaluation',
+      eval_form_id:fd.get('eval_form_id'),
+      subject_name:fd.get('subject_name'),
+      subject_code:fd.get('subject_code'),
+      teacher_name:fd.get('teacher_name'),
+      name:fd.get('teacher_name'),
+      student_name:APP.currentUser.data?.name||'',
+      eval_score:avg,
+      eval_detail:scoreDetail,
+      semester:fd.get('semester'),
+      academic_year:fd.get('academic_year'),
+      created_at:new Date().toISOString()
+    };
+    const r=await GSheetDB.create(obj);
+    if(r.isOk){showToast('ส่งผลประเมินสำเร็จ');closeModal();renderCurrentPage()}else showToast('เกิดข้อผิดพลาด','error');
+  };
+}
+
+function setItemScore(idx,score){
+  document.getElementById('scoreInput_'+idx).value=score;
+  document.querySelectorAll('.eval-item-'+idx).forEach((btn,i)=>{
+    btn.classList.toggle('bg-yellow-400',i<score);
+    btn.classList.toggle('text-white',i<score);
+    btn.classList.toggle('border-yellow-400',i<score);
+  });
+}
+
+function showAddEvalModal(){
+  showCreateEvalFormModal();
 }
 
 // ======================== TEACHERS ========================
