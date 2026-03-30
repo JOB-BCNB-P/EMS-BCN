@@ -1161,24 +1161,37 @@ function trackingPage(){
   data=applyFilters(data);
   const total=data.length;const paged=paginate(data);
 
+  // Summary stats (like grade tracking)
+  const totalItems=data.length;
+  const completed=data.filter(t=>t.deputy_sign==='เสร็จสิ้น').length;
+  const inProgress=data.filter(t=>(t.class_teacher_check==='เสร็จสิ้น'||t.academic_propose==='เสร็จสิ้น')&&t.deputy_sign!=='เสร็จสิ้น').length;
+  const pending=totalItems-completed-inProgress;
+
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งรายละเอียดรายวิชา</h2>
     ${isAdmin?`<button onclick="showAddTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>`:''}
   </div>
-  ${filterBar()}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+    ${statCard('clock','รอดำเนินการ',pending,'วิชา','bg-yellow-500')}
+    ${statCard('loader','กำลังดำเนินการ',inProgress,'วิชา','bg-blue-500')}
+    ${statCard('check-circle','เสร็จสิ้น',completed,'วิชา','bg-green-500')}
+  </div>
+  ${filterBar({yearLevel:true})}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th><th class="px-4 py-3 font-semibold">หมายเหตุ</th>${isAdmin?'<th class="px-4 py-3"></th>':''}</tr></thead>
       <tbody>${paged.length?paged.map(t=>{
-        const statusBadge=(s)=>s==='เสร็จสิ้น'?'<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓</span>':s==='กำลังดำเนินการ'?'<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳</span>':'<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
-        return `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3 font-medium">${t.subject_name||''}</td><td class="px-4 py-3">${t.theory_practice||''}</td>
+        const statusBadge=(s)=>s==='เสร็จสิ้น'?'<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>':s==='กำลังดำเนินการ'?'<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>':'<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+        const isLate=t.is_late==='ใช่'||t.is_late==='late';
+        return `<tr class="border-t hover:bg-gray-50 ${isLate?'bg-red-50':''}">
+        <td class="px-4 py-3 font-medium">${t.subject_name||''} ${isLate?'<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>':''}</td><td class="px-4 py-3">${t.theory_practice||''}</td>
         <td class="px-4 py-3">${t.year_level||''}</td><td class="px-4 py-3">${t.semester||''}</td>
         <td class="px-4 py-3">${isAdmin?`<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check==='รอ'?'selected':''}>รอ</option><option ${t.class_teacher_check==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option><option ${t.class_teacher_check==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option></select>`:statusBadge(t.class_teacher_check)}</td>
         <td class="px-4 py-3">${isAdmin?`<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose==='รอ'?'selected':''}>รอ</option><option ${t.academic_propose==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option><option ${t.academic_propose==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option></select>`:statusBadge(t.academic_propose)}</td>
         <td class="px-4 py-3">${isAdmin?`<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign==='รอ'?'selected':''}>รอ</option><option ${t.deputy_sign==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option><option ${t.deputy_sign==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option></select>`:statusBadge(t.deputy_sign)}</td>
         <td class="px-4 py-3">${t.approved_date||'-'}</td>
-        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`}).join(''):'<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3 text-xs text-gray-500">${t.remarks||''}</td>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`}).join(''):'<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -1233,6 +1246,7 @@ function gradeTrackingPage(){
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งเกรด</h2>
+    ${isAdmin?`<button onclick="showAddGradeTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>`:''}
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
     ${statCard('clock','รอดำเนินการ',pending,'วิชา','bg-yellow-500')}
@@ -1272,6 +1286,30 @@ function gradeTrackingPage(){
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
+}
+
+function showAddGradeTrackingModal(){
+  showModal('เพิ่มข้อมูลติดตามการส่งเกรด',`
+    <form id="addGradeTrackingForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addGradeTrackingForm').onsubmit=async(e)=>{
+    e.preventDefault();const fd=new FormData(e.target);
+    const obj={type:'grade_tracking',coordinator_check:'รอ',academic_check:'รอ',deputy_sign:'รอ',approved_date:'',created_at:new Date().toISOString()};
+    fd.forEach((v,k)=>obj[k]=v);
+    const r=await GSheetDB.create(obj);
+    if(r.isOk){showToast('เพิ่มสำเร็จ');closeModal()}else showToast('เกิดข้อผิดพลาด','error');
+  };
 }
 
 // ======================== LEAVE ========================
@@ -1415,9 +1453,9 @@ function settingsPage(){
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100">
     <h3 class="font-bold mb-4">สิทธิ์การเข้าถึงระบบ</h3>
-    <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left">โมดูล</th>${roles.map(r=>`<th class="px-3 py-2 text-center">${roleLabels[r]}</th>`).join('')}</tr></thead>
-      <tbody>${modules.map(m=>`<tr class="border-t"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r=>`<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m]?'checked':''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
+    <div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:600px">
+      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold">โมดูล</th>${roles.map(r=>`<th class="px-3 py-2 text-center font-semibold">${roleLabels[r]}</th>`).join('')}</tr></thead>
+      <tbody>${modules.map(m=>`<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r=>`<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m]?'checked':''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>
   </div>`;
 }
