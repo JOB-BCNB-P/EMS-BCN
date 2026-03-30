@@ -486,6 +486,7 @@ function statCard(icon, label, value, unit, color) {
 function studentsPage() {
   const isAdmin = APP.currentRole === 'admin';
   const isClassTeacher = APP.currentRole === 'classTeacher';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || isClassTeacher;
   let data = getDataByType('student');
   if (isClassTeacher) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'teacher') data = data.filter(s => s.advisor === APP.currentUser.name);
@@ -575,6 +576,7 @@ function showStudentDetail(id) {
 // ======================== SUBJECTS ========================
 function subjectsPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = applyFilters(getDataByType('subject'));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   const total = data.length; const paged = paginate(data);
@@ -675,6 +677,7 @@ function showAddScheduleModal() {
 // ======================== GRADES ========================
 function gradesPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   const isStudent = APP.currentRole === 'student';
   let data = applyFilters(getDataByType('grade'));
   if (isStudent && APP.currentUser.data) data = data.filter(g => g.name === APP.currentUser.data.name || g.student_id === APP.currentUser.data.student_id);
@@ -764,6 +767,7 @@ function showTranscript() {
 // ======================== ENG RESULTS ========================
 function engResultsPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = applyFilters(getDataByType('eng_result'));
   if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
     // Filter by advisor
@@ -1161,6 +1165,7 @@ async function updateDocStatus(id, status) {
 // ======================== TRACKING ========================
 function trackingPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('tracking');
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
   data = applyFilters(data);
@@ -1174,7 +1179,7 @@ function trackingPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งรายละเอียดรายวิชา</h2>
-    ${isAdmin ? `<button onclick="showAddTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
+    ${canEdit ? `<button onclick="showAddTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
     ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
@@ -1239,6 +1244,7 @@ async function updateTrackingField(id, field, value) {
 // ======================== GRADE TRACKING ========================
 function gradeTrackingPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('grade_tracking');
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
   data = applyFilters(data);
@@ -1252,7 +1258,7 @@ function gradeTrackingPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งเกรด</h2>
-    ${isAdmin ? `<button onclick="showAddGradeTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
+    ${canEdit ? `<button onclick="showAddGradeTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
     ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
@@ -1324,6 +1330,7 @@ function leavePage() {
   const isAdmin = APP.currentRole === 'admin';
   const isTeacher = APP.currentRole === 'teacher';
   const isClassTeacher = APP.currentRole === 'classTeacher';
+  const canEdit = isAdmin || isTeacher || isClassTeacher;
 
   let data = getDataByType('leave');
 
