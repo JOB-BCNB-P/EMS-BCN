@@ -1387,8 +1387,9 @@ function settingsPage(){
   const moduleLabels={dashboard:'หน้าหลัก',students:'ข้อมูลนักศึกษา',subjects:'รายวิชา',schedule:'ตารางเรียน/สอบ',grades:'ผลการเรียน',engResults:'ผลสอบ ENG',evalTeacher:'ประเมินอาจารย์',teachers:'ข้อมูลอาจารย์',services:'บริการอื่นๆ',tracking:'ติดตามรายวิชา',gradeTracking:'ติดตามส่งเกรด',leave:'ระบบการลา'};
   const roleLabels={admin:'ผู้ดูแลระบบ',teacher:'อาจารย์',classTeacher:'อ.ประจำชั้น',student:'นักศึกษา'};
   
-  const users=getDataByType('user');
-  const usersTable=users.map(u=>`<tr class="border-t hover:bg-gray-50">
+  const users=applyFilters(getDataByType('user'));
+  const total=users.length;const paged=paginate(users);
+  const usersTable=paged.map(u=>`<tr class="border-t hover:bg-gray-50">
     <td class="px-4 py-3">${u.name||''}</td>
     <td class="px-4 py-3">${u.email||u.national_id||''}</td>
     <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs bg-surface">${roleLabels[u.role]||u.role}</span></td>
@@ -1399,15 +1400,17 @@ function settingsPage(){
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="font-bold">จัดการผู้ใช้งาน</h3>
+      <h3 class="font-bold">จัดการผู้ใช้งาน (${total} คน)</h3>
       <button onclick="showAddUserModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผู้ใช้</button>
     </div>
+    ${filterBar({semester:false,year:false})}
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชื่อผู้ใช้/Email/รหัสประชาชน</th><th class="px-4 py-3 font-semibold">บทบาท</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${usersTable||'<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผู้ใช้</td></tr>'}</tbody>
       </table>
     </div>
+    ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}
   </div>
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100">
