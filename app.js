@@ -500,7 +500,7 @@ function studentsPage(){
         <td class="px-4 py-3">${s.name||''}</td><td class="px-4 py-3">${s.student_id||''}</td><td class="px-4 py-3">${s.year_level||''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status==='กำลังศึกษา'?'bg-green-100 text-green-700':s.status==='สำเร็จการศึกษา'?'bg-blue-100 text-blue-700':'bg-yellow-100 text-yellow-700'}">${s.status||''}</span></td>
         <td class="px-4 py-3">${s.advisor||''}</td><td class="px-4 py-3">${s.phone||''}</td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -586,7 +586,7 @@ function subjectsPage(){
         <td class="px-4 py-3 font-mono text-primary">${s.subject_code||''}</td><td class="px-4 py-3 font-medium">${s.subject_name||''}</td><td class="px-4 py-3">${s.coordinator||''}</td>
         <td class="px-4 py-3">${s.year_level||''}</td><td class="px-4 py-3">${s.credits||''}</td>
         <td class="px-4 py-3">${s.semester||''}/${s.academic_year||''}</td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -638,7 +638,7 @@ function schedulePage(){
         <td class="px-4 py-3">${s.subject_name||''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.schedule_type==='สอบ'?'bg-red-100 text-red-700':'bg-blue-100 text-blue-700'}">${s.schedule_type||'เรียน'}</span></td>
         <td class="px-4 py-3">${s.room||''}</td>
-        <td class="px-4 py-3"><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditScheduleModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
       </tr>`).join('')||'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>`;
@@ -710,7 +710,7 @@ function gradesPage(){
         <td class="px-4 py-3">${g.name||''}</td><td class="px-4 py-3 font-mono text-primary">${g.subject_code||''}</td><td class="px-4 py-3">${g.subject_name||''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade==='F'?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}">${g.grade||''}</span></td>
         <td class="px-4 py-3">${g.credits||''}</td><td class="px-4 py-3">${g.semester||''}/${g.academic_year||''}</td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -793,7 +793,7 @@ function engResultsPage(){
       <tbody>${paged.length?paged.map(e=>`<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${e.name||''}</td><td class="px-4 py-3">${e.eng_score||''}</td><td class="px-4 py-3">${e.eng_type||''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status==='ผ่าน'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${e.eng_status||''}</span></td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`).join(''):'<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`).join(''):'<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -893,7 +893,7 @@ function evalTeacherPage(){
           <td class="px-4 py-3">${f.semester||''}/${f.academic_year||''}</td>
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${f.status==='เปิด'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500'}">${f.status||'เปิด'}</span></td>
           <td class="px-4 py-3 font-bold text-primary">${respCount}</td>
-          <td class="px-4 py-3"><button onclick="deleteRecord('${f.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+          <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEvalFormModal('${f.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${f.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
         </tr>`}).join(''):'<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ยังไม่มีแบบประเมิน</td></tr>'}</tbody>
       </table></div>
     </div>
@@ -1066,7 +1066,7 @@ function teachersPage(){
       <tbody>${paged.length?paged.map(t=>`<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name||''}</td><td class="px-4 py-3">${t.position||''}</td>
         <td class="px-4 py-3">${t.department||''}</td><td class="px-4 py-3">${t.phone||''}</td><td class="px-4 py-3">${t.email||''}</td>
-        <td class="px-4 py-3"><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td></tr>`).join(''):'<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -1106,7 +1106,7 @@ function servicesPage(){
       <div class="flex items-center justify-between mb-4"><h3 class="font-bold">ข่าวสาร/แจ้งเตือน</h3><button onclick="showAddAnnouncementModal()" class="text-primary hover:underline text-sm">+ เพิ่มประกาศ</button></div>
       ${announcements.length?announcements.map(a=>`<div class="p-3 bg-surface rounded-xl mb-2 flex justify-between items-start">
         <div><p class="font-medium text-sm">${a.announcement_title||''}</p><p class="text-xs text-gray-500">${a.announcement_date||''} · ${a.event_type||'ทั่วไป'}</p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content||'').substring(0,80)}</p></div>
-        <button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600 ml-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        <div class="flex gap-1 ml-2"><button onclick="showEditAnnouncementModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
       </div>`).join(''):'<p class="text-gray-400 text-center py-6 text-sm">ไม่มีประกาศ</p>'}
     </div>
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
@@ -1178,7 +1178,7 @@ function trackingPage(){
         <td class="px-4 py-3">${isAdmin?`<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose==='รอ'?'selected':''}>รอ</option><option ${t.academic_propose==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option><option ${t.academic_propose==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option></select>`:statusBadge(t.academic_propose)}</td>
         <td class="px-4 py-3">${isAdmin?`<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign==='รอ'?'selected':''}>รอ</option><option ${t.deputy_sign==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option><option ${t.deputy_sign==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option></select>`:statusBadge(t.deputy_sign)}</td>
         <td class="px-4 py-3">${t.approved_date||'-'}</td>
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`}).join(''):'<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`}).join(''):'<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -1345,7 +1345,7 @@ function leavePage(){
         <td class="px-4 py-3">${l.leave_date||''}</td><td class="px-4 py-3">${l.semester||''}/${l.academic_year||''}</td>
         <td class="px-4 py-3">${getStatusBadge(l.leave_status)}</td>
         ${(isTeacher||isClassTeacher)?`<td class="px-4 py-3">${approvalButtons}</td>`:''} 
-        ${isAdmin?`<td class="px-4 py-3"><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`:''}</tr>`}).join(''):'<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin?`<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditLeaveModal('${l.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>`:''}</tr>`}).join(''):'<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total,APP.pagination.perPage,APP.pagination.page,'changePage')}`;
@@ -1392,7 +1392,7 @@ function settingsPage(){
     <td class="px-4 py-3">${u.name||''}</td>
     <td class="px-4 py-3">${u.email||u.national_id||''}</td>
     <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs bg-surface">${roleLabels[u.role]||u.role}</span></td>
-    <td class="px-4 py-3"><button onclick="deleteRecord('${u.__backendId}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+    <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditUserModal('${u.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${u.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
   </tr>`).join('');
 
   return `<h2 class="text-xl font-bold text-gray-800 mb-6"><i data-lucide="settings" class="w-6 h-6 inline mr-2"></i>ตั้งค่าระบบ</h2>
@@ -1687,6 +1687,224 @@ async function deleteRecord(id){
     const r=await GSheetDB.delete(rec);
     if(r.isOk){showToast('ลบสำเร็จ');closeModal()}else{showToast('เกิดข้อผิดพลาด','error');closeModal()}
   });
+}
+
+// ======================== GENERIC EDIT HELPER ========================
+async function editRecord(id, formId){
+  const rec=APP.allData.find(d=>d.__backendId===id);if(!rec)return;
+  const form=document.getElementById(formId);if(!form)return;
+  const fd=new FormData(form);
+  fd.forEach((v,k)=>{if(k!=='__backendId')rec[k]=v});
+  const r=await GSheetDB.update(rec);
+  if(r.isOk){showToast('แก้ไขข้อมูลสำเร็จ');closeModal();renderCurrentPage()}else showToast('เกิดข้อผิดพลาด: '+(r.error||''),'error');
+}
+
+// ======================== EDIT MODALS ========================
+function showEditStudentModal(id){
+  const s=APP.allData.find(d=>d.__backendId===id);if(!s)return;
+  showModal('แก้ไขข้อมูลนักศึกษา',`
+    <form id="editStudentForm" class="space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${s.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id||''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status==='กำลังศึกษา'?'selected':''}>กำลังศึกษา</option><option ${s.status==='พักการศึกษา'?'selected':''}>พักการศึกษา</option><option ${s.status==='สำเร็จการศึกษา'?'selected':''}>สำเร็จการศึกษา</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level)==='1'?'selected':''}>1</option><option ${norm(s.year_level)==='2'?'selected':''}>2</option><option ${norm(s.year_level)==='3'?'selected':''}>3</option><option ${norm(s.year_level)==='4'?'selected':''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${s.phone||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${s.email||''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชื่อผู้ปกครอง</label><input name="parent_name" value="${s.parent_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" value="${s.parent_phone||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editStudentForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editStudentForm')};
+}
+
+function showEditSubjectModal(id){
+  const s=APP.allData.find(d=>d.__backendId===id);if(!s)return;
+  showModal('แก้ไขรายวิชา',`
+    <form id="editSubjectForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${s.subject_code||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา</label><input name="subject_name" value="${s.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" value="${s.coordinator||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level)==='1'?'selected':''}>1</option><option ${norm(s.year_level)==='2'?'selected':''}>2</option><option ${norm(s.year_level)==='3'?'selected':''}>3</option><option ${norm(s.year_level)==='4'?'selected':''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${s.credits||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(s.semester)==='1'?'selected':''}>1</option><option value="2" ${norm(s.semester)==='2'?'selected':''}>2</option><option value="3" ${norm(s.semester)==='3'?'selected':''}>ฤดูร้อน</option></select></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${s.academic_year||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editSubjectForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editSubjectForm')};
+}
+
+function showEditScheduleModal(id){
+  const s=APP.allData.find(d=>d.__backendId===id);if(!s)return;
+  showModal('แก้ไขตารางเรียน/สอบ',`
+    <form id="editScheduleForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${s.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="schedule_date" type="date" value="${s.schedule_date||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เวลา</label><input name="schedule_time" type="time" value="${s.schedule_time||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="schedule_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.schedule_type==='เรียน'?'selected':''}>เรียน</option><option ${s.schedule_type==='สอบ'?'selected':''}>สอบ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level)==='1'?'selected':''}>1</option><option ${norm(s.year_level)==='2'?'selected':''}>2</option><option ${norm(s.year_level)==='3'?'selected':''}>3</option><option ${norm(s.year_level)==='4'?'selected':''}>4</option></select></div>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editScheduleForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editScheduleForm')};
+}
+
+function showEditGradeModal(id){
+  const g=APP.allData.find(d=>d.__backendId===id);if(!g)return;
+  showModal('แก้ไขผลการเรียน',`
+    <form id="editGradeForm" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${g.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${g.student_id||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${g.subject_code||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${g.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${g.grade==='A'?'selected':''}>A</option><option ${g.grade==='B+'?'selected':''}>B+</option><option ${g.grade==='B'?'selected':''}>B</option><option ${g.grade==='C+'?'selected':''}>C+</option><option ${g.grade==='C'?'selected':''}>C</option><option ${g.grade==='D+'?'selected':''}>D+</option><option ${g.grade==='D'?'selected':''}>D</option><option ${g.grade==='F'?'selected':''}>F</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${g.credits||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester)==='1'?'selected':''}>1</option><option value="2" ${norm(g.semester)==='2'?'selected':''}>2</option></select></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${g.academic_year||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editGradeForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editGradeForm')};
+}
+
+function showEditEngModal(id){
+  const e=APP.allData.find(d=>d.__backendId===id);if(!e)return;
+  showModal('แก้ไขผลสอบภาษาอังกฤษ',`
+    <form id="editEngForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${e.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input name="eng_score" type="number" value="${e.eng_score||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รูปแบบ</label><input name="eng_type" value="${e.eng_type||''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="eng_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${e.eng_status==='ผ่าน'?'selected':''}>ผ่าน</option><option ${e.eng_status==='ไม่ผ่าน'?'selected':''}>ไม่ผ่าน</option></select></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editEngForm').onsubmit=(ev)=>{ev.preventDefault();editRecord(id,'editEngForm')};
+}
+
+function showEditEvalFormModal(id){
+  const f=APP.allData.find(d=>d.__backendId===id);if(!f)return;
+  showModal('แก้ไขแบบประเมิน',`
+    <form id="editEvalFormForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${f.subject_code||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${f.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน</label><input name="teacher_name" value="${f.teacher_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(f.semester)==='1'?'selected':''}>1</option><option value="2" ${norm(f.semester)==='2'?'selected':''}>2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${f.academic_year||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">หัวข้อประเมิน (คั่นด้วย ,)</label><textarea name="eval_items" rows="3" class="w-full border rounded-xl px-3 py-2 text-sm">${f.eval_items||''}</textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="เปิด" ${f.status==='เปิด'?'selected':''}>เปิดรับประเมิน</option><option value="ปิด" ${f.status==='ปิด'?'selected':''}>ปิดรับประเมิน</option></select></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editEvalFormForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editEvalFormForm')};
+}
+
+function showEditTeacherModal(id){
+  const t=APP.allData.find(d=>d.__backendId===id);if(!t)return;
+  showModal('แก้ไขข้อมูลอาจารย์',`
+    <form id="editTeacherForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${t.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="position" value="${t.position||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชา</label><input name="department" value="${t.department||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${t.phone||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${t.email||''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(t.responsible_year)==='1'?'selected':''}>1</option><option ${norm(t.responsible_year)==='2'?'selected':''}>2</option><option ${norm(t.responsible_year)==='3'?'selected':''}>3</option><option ${norm(t.responsible_year)==='4'?'selected':''}>4</option></select></div>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editTeacherForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editTeacherForm')};
+}
+
+function showEditAnnouncementModal(id){
+  const a=APP.allData.find(d=>d.__backendId===id);if(!a)return;
+  showModal('แก้ไขประกาศ',`
+    <form id="editAnnForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">เรื่อง</label><input name="announcement_title" value="${a.announcement_title||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เนื้อหา</label><textarea name="announcement_content" rows="3" class="w-full border rounded-xl px-3 py-2 text-sm">${a.announcement_content||''}</textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" value="${a.announcement_date||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${a.event_type==='ทั่วไป'?'selected':''}>ทั่วไป</option><option ${a.event_type==='สอบ'?'selected':''}>สอบ</option><option ${a.event_type==='วันหยุด'?'selected':''}>วันหยุด</option><option ${a.event_type==='กิจกรรม'?'selected':''}>กิจกรรม</option></select></div>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editAnnForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editAnnForm')};
+}
+
+function showEditTrackingModal(id){
+  const t=APP.allData.find(d=>d.__backendId===id);if(!t)return;
+  showModal('แก้ไขข้อมูลติดตามรายวิชา',`
+    <form id="editTrackingForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา</label><input name="subject_name" value="${t.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${t.theory_practice==='ทฤษฎี'?'selected':''}>ทฤษฎี</option><option ${t.theory_practice==='ปฏิบัติ'?'selected':''}>ปฏิบัติ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(t.year_level)==='1'?'selected':''}>1</option><option ${norm(t.year_level)==='2'?'selected':''}>2</option><option ${norm(t.year_level)==='3'?'selected':''}>3</option><option ${norm(t.year_level)==='4'?'selected':''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${t.room||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(t.semester)==='1'?'selected':''}>1</option><option value="2" ${norm(t.semester)==='2'?'selected':''}>2</option></select></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" value="${t.coordinator||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วันอนุมัติ</label><input name="approved_date" type="date" value="${t.approved_date||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editTrackingForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editTrackingForm')};
+}
+
+function showEditLeaveModal(id){
+  const l=APP.allData.find(d=>d.__backendId===id);if(!l)return;
+  showModal('แก้ไขข้อมูลการลา',`
+    <form id="editLeaveForm" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${l.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${l.subject_name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">จำนวนชั่วโมง</label><input name="leave_hours" type="number" value="${l.leave_hours||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">% การลา</label><input name="leave_percent" type="number" value="${l.leave_percent||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่ลา</label><input name="leave_date" type="date" value="${l.leave_date||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="leave_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${l.leave_type==='ลาป่วย'?'selected':''}>ลาป่วย</option><option ${l.leave_type==='ลากิจ'?'selected':''}>ลากิจ</option><option ${l.leave_type==='ลาพบแพทย์'?'selected':''}>ลาพบแพทย์</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="leave_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${l.leave_status==='รออนุมัติ'?'selected':''}>รออนุมัติ</option><option ${l.leave_status==='อนุมัติแล้ว'?'selected':''}>อนุมัติแล้ว</option><option ${l.leave_status==='ปฏิเสธ'?'selected':''}>ปฏิเสธ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(l.semester)==='1'?'selected':''}>1</option><option value="2" ${norm(l.semester)==='2'?'selected':''}>2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${l.academic_year||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editLeaveForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editLeaveForm')};
+}
+
+function showEditUserModal(id){
+  const u=APP.allData.find(d=>d.__backendId===id);if(!u)return;
+  const roleLabels={admin:'ผู้ดูแลระบบ',teacher:'อาจารย์',classTeacher:'อาจารย์ประจำชั้น',student:'นักศึกษา'};
+  showModal('แก้ไขผู้ใช้งาน',`
+    <form id="editUserForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${u.name||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">บทบาท</label><select name="role" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="admin" ${u.role==='admin'?'selected':''}>ผู้ดูแลระบบ</option><option value="teacher" ${u.role==='teacher'?'selected':''}>อาจารย์</option><option value="classTeacher" ${u.role==='classTeacher'?'selected':''}>อาจารย์ประจำชั้น</option><option value="student" ${u.role==='student'?'selected':''}>นักศึกษา</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${u.email||''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id||''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(u.responsible_year)==='1'?'selected':''}>1</option><option ${norm(u.responsible_year)==='2'?'selected':''}>2</option><option ${norm(u.responsible_year)==='3'?'selected':''}>3</option><option ${norm(u.responsible_year)==='4'?'selected':''}>4</option></select></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editUserForm').onsubmit=(e)=>{e.preventDefault();editRecord(id,'editUserForm')};
 }
 
 // Init icons
