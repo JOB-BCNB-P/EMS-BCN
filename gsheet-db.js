@@ -38,7 +38,7 @@ const GSheetDB = (() => {
 
   // ---------- READ ----------
   async function fetchTab(tabName) {
-    const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1`;
     try {
       const resp = await fetch(url);
       if (!resp.ok) return [];
@@ -137,7 +137,7 @@ const GSheetDB = (() => {
   function hasWriteAccess() { return !!_scriptUrl; }
 
   async function debugTab(tabName) {
-    const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1`;
     try {
       const resp = await fetch(url); const text = await resp.text();
       const m = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
