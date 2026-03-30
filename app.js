@@ -1443,8 +1443,8 @@ function settingsPage(){
     </div>
     ${filterBar({semester:false,year:false})}
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชื่อผู้ใช้/Email/รหัสประชาชน</th><th class="px-4 py-3 font-semibold">บทบาท</th><th class="px-4 py-3"></th></tr></thead>
+      <table class="w-full text-sm table-fixed">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold w-[30%]">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold w-[35%]">ชื่อผู้ใช้/Email/รหัสประชาชน</th><th class="px-4 py-3 font-semibold w-[20%]">บทบาท</th><th class="px-4 py-3 w-[15%]"></th></tr></thead>
         <tbody>${usersTable||'<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผู้ใช้</td></tr>'}</tbody>
       </table>
     </div>
