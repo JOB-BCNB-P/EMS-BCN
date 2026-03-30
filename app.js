@@ -1444,7 +1444,7 @@ function settingsPage(){
     ${filterBar({semester:false,year:false})}
     <div class="overflow-x-auto">
       <table class="w-full text-sm table-fixed">
-        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold w-[30%]">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold w-[35%]">ชื่อผู้ใช้/Email/รหัสประชาชน</th><th class="px-4 py-3 font-semibold w-[20%]">บทบาท</th><th class="px-4 py-3 w-[15%]"></th></tr></thead>
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold" style="width: 30%;">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold" style="width: 35%;">ชื่อผู้ใช้/Email/รหัสประชาชน</th><th class="px-4 py-3 font-semibold" style="width: 25%;">บทบาท</th><th class="px-4 py-3" style="width: 10%;"></th></tr></thead>
         <tbody>${usersTable||'<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผู้ใช้</td></tr>'}</tbody>
       </table>
     </div>
@@ -1453,8 +1453,8 @@ function settingsPage(){
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100">
     <h3 class="font-bold mb-4">สิทธิ์การเข้าถึงระบบ</h3>
-    <div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:600px">
-      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold">โมดูล</th>${roles.map(r=>`<th class="px-3 py-2 text-center font-semibold">${roleLabels[r]}</th>`).join('')}</tr></thead>
+    <div class="overflow-x-auto"><table class="w-full text-sm table-fixed" style="min-width:600px">
+      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold" style="width: 20%;">โมดูล</th>${roles.map(r=>`<th class="px-3 py-2 text-center font-semibold" style="width: 20%;">${roleLabels[r]}</th>`).join('')}</tr></thead>
       <tbody>${modules.map(m=>`<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r=>`<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m]?'checked':''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>
   </div>`;
