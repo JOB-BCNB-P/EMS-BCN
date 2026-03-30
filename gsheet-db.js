@@ -81,6 +81,7 @@ const GSheetDB = (() => {
   async function _callScript(params) {
     if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL — ไปที่ตั้งค่าระบบเพื่อกรอก URL' };
     try {
+      if (typeof showLoading === 'function') showLoading(params.action === 'delete' ? 'กำลังลบข้อมูล...' : params.action === 'update' ? 'กำลังอัปเดต...' : 'กำลังบันทึก...');
       const qs = new URLSearchParams({ action: params.action });
       if (params.sheet) qs.set('sheet', params.sheet);
       if (params.rowIndex) qs.set('rowIndex', String(params.rowIndex));
@@ -90,9 +91,19 @@ const GSheetDB = (() => {
         body: JSON.stringify(params.data || {})
       });
       const result = await resp.json();
-      if (result.isOk) setTimeout(fetchAllData, 800);
+      if (result.isOk) {
+        if (typeof document !== 'undefined') {
+          const msg = document.getElementById('loadingMsg');
+          if (msg) msg.textContent = 'กำลังรีเฟรชข้อมูล...';
+        }
+        await fetchAllData();
+      }
+      if (typeof hideLoading === 'function') hideLoading();
       return result;
-    } catch (err) { return { isOk: false, error: err.message }; }
+    } catch (err) {
+      if (typeof hideLoading === 'function') hideLoading();
+      return { isOk: false, error: err.message };
+    }
   }
 
   async function create(obj) {
