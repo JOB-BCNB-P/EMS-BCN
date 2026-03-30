@@ -95,6 +95,15 @@ function readOnlyNotice(){
 })();
 
 // ======================== LOGIN ========================
+// Map Thai role names to English equivalents for matching
+function normalizeRole(role){
+  const r=String(role||'').trim().toLowerCase();
+  if(r==='admin'||r==='ผู้ดูแลระบบ')return 'admin';
+  if(r==='teacher'||r==='อาจารย์')return 'teacher';
+  if(r==='classteacher'||r==='อาจารย์ประจำชั้น')return 'classTeacher';
+  if(r==='student'||r==='นักศึกษา')return 'student';
+  return r;
+}
 function updateLoginFields(){
   const role=document.getElementById('loginRole').value;
   const f=document.getElementById('loginFields');
@@ -115,7 +124,7 @@ function handleLogin(){
   if(role==='admin'){
     const p=document.getElementById('adminPass').value;
     if(!/^\d{6}$/.test(p)){err.textContent='กรุณากรอกรหัสผ่าน 6 หลัก (ตัวเลขเท่านั้น)';err.classList.remove('hidden');return}
-    const adminUser=getDataByType('user').find(u=>u.role==='admin'&&String(u.password).replace(/\.0$/,'').trim()===p);
+    const adminUser=getDataByType('user').find(u=>normalizeRole(u.role)==='admin'&&String(u.password).replace(/\.0$/,'').trim()===p);
     if(!adminUser){
       const allUsers=getDataByType('user');
       if(allUsers.length===0){
@@ -137,7 +146,7 @@ function handleLogin(){
     const pw=document.getElementById('teacherPass').value;
     if(!em){err.textContent='กรุณากรอก E-mail';err.classList.remove('hidden');return}
     if(!pw){err.textContent='กรุณากรอกรหัสผ่าน';err.classList.remove('hidden');return}
-    const user=getDataByType('user').find(u=>u.role==='teacher'&&u.email===em&&String(u.password).replace(/\.0$/,'').trim()===pw);
+    const user=getDataByType('user').find(u=>normalizeRole(u.role)==='teacher'&&String(u.email||'').trim().toLowerCase()===em.trim().toLowerCase()&&String(u.password).replace(/\.0$/,'').trim()===pw);
     if(!user){err.textContent='E-mail หรือรหัสผ่านไม่ถูกต้อง';err.classList.remove('hidden');return}
     const t=getDataByType('teacher').find(x=>x.email===em);
     APP.currentUser=t?{name:t.name,role:'teacher',data:t}:{name:user.name||em,role:'teacher',email:em};
@@ -146,7 +155,7 @@ function handleLogin(){
     const pw=document.getElementById('teacherPass').value;
     if(!em){err.textContent='กรุณากรอก E-mail';err.classList.remove('hidden');return}
     if(!pw){err.textContent='กรุณากรอกรหัสผ่าน';err.classList.remove('hidden');return}
-    const user=getDataByType('user').find(u=>u.role==='classTeacher'&&u.email===em&&String(u.password).replace(/\.0$/,'').trim()===pw);
+    const user=getDataByType('user').find(u=>normalizeRole(u.role)==='classTeacher'&&String(u.email||'').trim().toLowerCase()===em.trim().toLowerCase()&&String(u.password).replace(/\.0$/,'').trim()===pw);
     if(!user){err.textContent='E-mail หรือรหัสผ่านไม่ถูกต้อง';err.classList.remove('hidden');return}
     const t=getDataByType('teacher').find(x=>x.email===em);
     APP.currentUser=t?{name:t.name,role:'classTeacher',data:t,responsible_year:t.responsible_year||user.responsible_year||'1'}:{name:user.name||em,role:'classTeacher',email:em,responsible_year:user.responsible_year||'1'};
