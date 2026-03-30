@@ -1,5 +1,5 @@
 *{font-family:'Sarabun',sans-serif;box-sizing:border-box}
-html,body{height:100%;margin:0;overflow:hidden}
+html,body,#app{height:100%;margin:0;overflow:hidden;display:flex;flex-direction:column}
 .sidebar{transition:transform .3s ease}
 .sidebar-hidden{transform:translateX(-100%)}
 .dropdown-menu{display:none}.dropdown-open .dropdown-menu{display:block}
