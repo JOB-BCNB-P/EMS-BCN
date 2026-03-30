@@ -287,6 +287,27 @@ function renderCurrentPage() {
 // Normalize value from Google Sheet (strip .0, trim whitespace)
 function norm(v) { return String(v || '').replace(/\.0$/, '').trim() }
 
+// Loading overlay for save/edit/delete operations
+function showLoading(msg = 'กำลังบันทึก...') {
+  let overlay = document.getElementById('loadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div class="bg-white rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3 fade-in">
+    <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-sm text-gray-700 font-medium" id="loadingMsg">${msg}</p>
+  </div>`;
+  overlay.classList.remove('hidden');
+}
+
+function hideLoading() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
 function showToast(msg, type = 'success') {
   const c = document.getElementById('toastContainer');
   const colors = type === 'success' ? 'bg-green-500' : 'bg-red-500';
