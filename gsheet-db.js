@@ -96,7 +96,7 @@ const GSheetDB = (() => {
         body: JSON.stringify(params.data || {})
       });
       const result = await resp.json();
-      
+
       if (result.isOk && params.sheet) {
         // Refresh data in background
         await refreshTab(params.sheet);
