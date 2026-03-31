@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการวิชาการ', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, leave: 1 }, student: { dashboard: 1, studentInfo: 1, grades: 1, evalTeacher: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -199,37 +199,29 @@ function buildSidebar() {
   // Registration dropdown
   let regSub = [];
   if (r === 'admin') {
-    regSub = [
-      { id: 'students', label: 'ข้อมูลนักศึกษา' },
-      { id: 'subjects', label: 'รายวิชาที่เปิดสอน' },
-      { id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' },
-      { id: 'grades', label: 'ผลการเรียน' },
-      { id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' },
-      { id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' },
-      { id: 'teachers', label: 'ข้อมูลอาจารย์' },
-      { id: 'services', label: 'บริการอื่นๆ' }
-    ];
+    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
+    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
+    if (p.schedule) regSub.push({ id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' });
+    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
+    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
+    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
+    if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+    if (p.services) regSub.push({ id: 'services', label: 'บริการอื่นๆ' });
   } else if (r === 'teacher') {
-    regSub = [
-      { id: 'students', label: 'ข้อมูลนักศึกษา' },
-      { id: 'subjects', label: 'รายวิชาที่เปิดสอน' },
-      { id: 'grades', label: 'ผลการเรียน' },
-      { id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' },
-      { id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' }
-    ];
+    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
+    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
+    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
+    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
+    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
   } else if (r === 'classTeacher') {
-    regSub = [
-      { id: 'students', label: 'ข้อมูลนักศึกษา' },
-      { id: 'subjects', label: 'รายวิชาที่เปิดสอน' },
-      { id: 'grades', label: 'ผลการเรียน' },
-      { id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' }
-    ];
+    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
+    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
+    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
+    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
   } else {
-    regSub = [
-      { id: 'studentInfo', label: 'ข้อมูลนักศึกษา' },
-      { id: 'grades', label: 'ผลการเรียน' },
-      { id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' }
-    ];
+    if (p.students) regSub.push({ id: 'studentInfo', label: 'ข้อมูลนักศึกษา' });
+    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
+    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
   }
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
