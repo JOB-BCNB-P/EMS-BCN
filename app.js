@@ -60,7 +60,10 @@ function initGSheet(sheetId, scriptUrl) {
   GSheetDB.init({ spreadsheetId: sheetId, scriptUrl: scriptUrl || '' }, (data) => {
     APP.allData = data;
     loadPermissions();
-    if (APP.currentUser) renderCurrentPage();
+    if (APP.currentUser) {
+      buildSidebar();
+      renderCurrentPage();
+    }
     updateNotifBadge();
   }).then(r => {
     if (r.isOk) {
@@ -196,33 +199,20 @@ function buildSidebar() {
   let items = [];
   if (p.dashboard) items.push({ id: 'dashboard', icon: 'layout-dashboard', label: 'หน้าหลัก' });
 
-  // Registration dropdown
+  // Registration dropdown — permission-driven for all roles
   let regSub = [];
-  if (r === 'admin') {
-    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
-    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
-    if (p.schedule) regSub.push({ id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' });
-    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
-    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
-    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
-    if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
-    if (p.services) regSub.push({ id: 'services', label: 'บริการอื่นๆ' });
-  } else if (r === 'teacher') {
-    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
-    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
-    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
-    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
-    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
-  } else if (r === 'classTeacher') {
-    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
-    if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
-    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
-    if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
-  } else {
+  if (r === 'student') {
     if (p.students) regSub.push({ id: 'studentInfo', label: 'ข้อมูลนักศึกษา' });
-    if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
-    if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
+  } else {
+    if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
   }
+  if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
+  if (p.schedule) regSub.push({ id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' });
+  if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
+  if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
+  if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
+  if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+  if (p.services) regSub.push({ id: 'services', label: 'บริการอื่นๆ' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
   if (p.tracking) items.push({ id: 'tracking', icon: 'file-check', label: 'ติดตามรายละเอียดรายวิชา' });
@@ -1564,12 +1554,15 @@ function onUserRoleChange(role) {
 async function togglePermission(role, module, checked) {
   if (!APP.permissions[role]) APP.permissions[role] = {};
   APP.permissions[role][module] = checked ? 1 : 0;
-  
+
+  // Rebuild sidebar immediately so tabs reflect the change
+  buildSidebar();
+
   const existing = getDataByType('permission').find(p => p.role === role && String(p.module) === String(module));
   let result;
-  
+
   if (existing) {
-    existing.value = checked ? 1 : 0;
+    existing.value = String(checked ? 1 : 0);
     result = await GSheetDB.update(existing);
   } else {
     result = await GSheetDB.create({
@@ -1579,7 +1572,7 @@ async function togglePermission(role, module, checked) {
       value: checked ? 1 : 0
     });
   }
-  
+
   if (result && result.isOk) {
     showToast('อัปเดตสิทธิ์ในฐานข้อมูลสำเร็จ');
   } else {
