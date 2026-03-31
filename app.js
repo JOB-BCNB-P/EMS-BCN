@@ -600,6 +600,7 @@ function subjectsPage() {
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = applyFilters(getDataByType('subject'));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
+  if (APP.currentRole === 'student' && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
   const total = data.length; const paged = paginate(data);
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
