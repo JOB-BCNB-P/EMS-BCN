@@ -257,6 +257,9 @@ function toggleSidebar() {
 function navigateTo(page) {
   APP.currentPage = page;
   APP.pagination.page = 1;
+  APP.filters.search = '';
+  APP.filters._gradeStudent = '';
+  APP.filters._engStudent = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -437,12 +440,27 @@ function dashboardPage() {
 
   let stats = '';
   if (r === 'admin') {
+    // Teacher breakdown by department
+    const deptMap = {};
+    teachers.forEach(t => {
+      const dept = t.department || 'ไม่ระบุสาขา';
+      deptMap[dept] = (deptMap[dept] || 0) + 1;
+    });
+    const deptCards = Object.entries(deptMap).map(([dept, count]) =>
+      `<div class="bg-white rounded-xl p-3 border border-blue-100 flex items-center gap-3">
+        <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center"><i data-lucide="briefcase" class="w-5 h-5 text-emerald-600"></i></div>
+        <div><p class="text-xs text-gray-500">${dept}</p><p class="text-lg font-bold text-gray-800">${count} <span class="text-xs font-normal text-gray-500">คน</span></p></div>
+      </div>`
+    ).join('');
+
     stats = `
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
       ${statCard('users', 'จำนวนนักศึกษาทั้งหมด', students.length, 'คน', 'bg-blue-500')}
-      ${statCard('briefcase', 'จำนวนอาจารย์', teachers.length, 'คน', 'bg-emerald-500')}
+      ${statCard('briefcase', 'จำนวนอาจารย์ทั้งหมด', teachers.length, 'คน', 'bg-emerald-500')}
       ${statCard('check-circle', 'สอบผ่านภาษาอังกฤษ', engPass.length, 'คน', 'bg-amber-500')}
     </div>
+    <h3 class="font-bold mb-3 text-gray-800">จำนวนอาจารย์แยกสาขาวิชา</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">${deptCards || '<p class="text-gray-400 text-sm col-span-3">ไม่มีข้อมูลสาขาวิชา</p>'}</div>
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${[1, 2, 3, 4].map(yr => {
@@ -694,49 +712,79 @@ function gradesPage() {
   const isAdmin = APP.currentRole === 'admin';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   const isStudent = APP.currentRole === 'student';
-  let data = applyFilters(getDataByType('grade'));
-  if (isStudent && APP.currentUser.data) data = data.filter(g => g.name === APP.currentUser.data.name || g.student_id === APP.currentUser.data.student_id);
-  if (APP.currentRole === 'classTeacher') {
-    const yr = APP.currentUser.responsible_year || '1';
-    const stuNames = getDataByType('student').filter(s => norm(s.year_level) === norm(yr)).map(s => s.name);
-    data = data.filter(g => stuNames.includes(g.name));
+  let allGrades = getDataByType('grade');
+  
+  // Build student list for non-student roles
+  let studentSelector = '';
+  let selectedStudentName = APP.filters._gradeStudent || '';
+  
+  if (!isStudent) {
+    let studentList = getDataByType('student');
+    if (APP.currentRole === 'classTeacher') {
+      const yr = APP.currentUser.responsible_year || '1';
+      studentList = studentList.filter(s => norm(s.year_level) === norm(yr));
+    }
+    if (APP.currentRole === 'teacher') {
+      studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
+    }
+    studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
+      <select onchange="APP.filters._gradeStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+        <option value="">-- กรุณาเลือกนักศึกษา --</option>
+        ${studentList.map(s => `<option value="${s.name}" ${selectedStudentName === s.name ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
+      </select>
+    </div>`;
   }
-  if (APP.currentRole === 'teacher') {
-    const stuNames = getDataByType('student').filter(s => s.advisor === APP.currentUser.name).map(s => s.name);
-    data = data.filter(g => stuNames.includes(g.name));
+
+  // Filter data
+  let data;
+  if (isStudent && APP.currentUser.data) {
+    data = allGrades.filter(g => g.name === APP.currentUser.data.name || g.student_id === APP.currentUser.data.student_id);
+  } else if (selectedStudentName) {
+    data = allGrades.filter(g => g.name === selectedStudentName);
+  } else {
+    data = [];
   }
+  data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
   // GPA calc
   let gpaSection = '';
-  if (isStudent && data.length) {
+  if (data.length && (isStudent || selectedStudentName)) {
     const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
     let totalCredits = 0, totalPoints = 0;
     data.forEach(g => { const gv = gradeMap[g.grade]; const cr = Number(g.credits) || 3; if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr } });
     const gpax = totalCredits ? ((totalPoints / totalCredits).toFixed(2)) : 'N/A';
     gpaSection = `<div class="bg-gradient-to-r from-primary to-accent text-white rounded-2xl p-5 mb-4 flex items-center justify-between">
       <div><p class="text-sm opacity-90">เกรดเฉลี่ยสะสม (GPAX)</p><p class="text-3xl font-bold">${gpax}</p></div>
-      <button onclick="showTranscript()" class="px-4 py-2 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 text-sm">ใบแสดงผลการเรียน</button>
+      ${isStudent ? `<button onclick="showTranscript()" class="px-4 py-2 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 text-sm">ใบแสดงผลการเรียน</button>` : `<button onclick="showTranscriptForStudent('${selectedStudentName.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-white bg-opacity-20 rounded-xl hover:bg-opacity-30 text-sm">ใบแสดงผลการเรียน</button>`}
     </div>`;
+  }
+
+  // Show prompt if no student selected (non-student roles)
+  let noSelectionMsg = '';
+  if (!isStudent && !selectedStudentName) {
+    noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400"><i data-lucide="user-search" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i><p>กรุณาเลือกนักศึกษาเพื่อดูผลการเรียน</p></div>`;
   }
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-text" class="w-6 h-6 inline mr-2"></i>ผลการเรียน</h2>
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddGradeModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลการเรียน</button>${csvUploadBtn('grade', 'name,student_id,subject_name,grade,credits,semester,academic_year')}</div>` : ''}
   </div>
-  ${filterBar()}
+  ${studentSelector}
+  ${noSelectionMsg || `${filterBar()}
   ${gpaSection}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left">${isStudent ? '' : '<th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>'}<th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(g => `<tr class="border-t hover:bg-gray-50">
-        ${isStudent ? '' : `<td class="px-4 py-3">${g.name || ''}</td>`}<td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
+        <td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade === 'F' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${g.grade || ''}</span></td>
         <td class="px-4 py-3">${g.credits || ''}</td><td class="px-4 py-3">${g.semester || ''}/${g.academic_year || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isStudent ? 5 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
 }
 
 function showAddGradeModal() {
@@ -765,10 +813,20 @@ function showAddGradeModal() {
 
 function showTranscript() {
   const stu = APP.currentUser.data; if (!stu) return;
+  _renderTranscript(stu);
+}
+
+function showTranscriptForStudent(studentName) {
+  if (!studentName) return;
+  const stu = getDataByType('student').find(s => s.name === studentName);
+  if (!stu) { showToast('ไม่พบข้อมูลนักศึกษา', 'error'); return; }
+  _renderTranscript(stu);
+}
+
+function _renderTranscript(stu) {
   const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
-  // Group by semester/year
   const semesters = {};
   grades.forEach(g => {
     const key = `${g.semester || '1'}/${g.academic_year || ''}`;
@@ -779,16 +837,13 @@ function showTranscript() {
 
   let totalCreditsAll = 0, totalPointsAll = 0;
   let tableRows = '';
-  let semIdx = 0;
   semKeys.forEach(key => {
-    semIdx++;
     const sem = semesters[key];
     tableRows += `<tr class="bg-blue-50"><td colspan="4" class="px-3 py-2 font-bold text-primary text-center">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
       const cr = Number(g.credits) || 0;
       const gv = gradeMap[g.grade];
-      const crText = g.credits ? `${cr}(${g.credits_detail || cr + '-0'})` : '';
       tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${g.credits || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
@@ -802,6 +857,7 @@ function showTranscript() {
   const studentLevel = stu.level || 'ปริญญาตรี';
   const studentBatch = stu.batch || '';
   const studentYearLevel = stu.year_level || '';
+  const stuNameSafe = (stu.name || '').replace(/'/g, "\\'");
 
   showModal('ใบรายงานผลการเรียน', `
     <div id="transcriptContent" class="bg-white p-4" style="max-width:700px;margin:auto;">
@@ -829,18 +885,18 @@ function showTranscript() {
       </div>
     </div>
     <div class="flex justify-center mt-4">
-      <button onclick="downloadTranscriptPDF()" class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button>
+      <button onclick="downloadTranscriptPDF('${stuNameSafe}')" class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button>
     </div>
   `, null, 'max-w-3xl');
   setTimeout(() => lucide.createIcons(), 100);
 }
 
-async function downloadTranscriptPDF() {
-  const stu = APP.currentUser.data; if (!stu) return;
+async function downloadTranscriptPDF(studentName) {
+  const stu = getDataByType('student').find(s => s.name === studentName) || (APP.currentUser.data && APP.currentUser.data.name === studentName ? APP.currentUser.data : null);
+  if (!stu) return;
   const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
-  // Group by semester
   const semesters = {};
   grades.forEach(g => {
     const key = `${g.semester || '1'}/${g.academic_year || ''}`;
@@ -848,10 +904,6 @@ async function downloadTranscriptPDF() {
     semesters[key].grades.push(g);
   });
   const semKeys = Object.keys(semesters).sort();
-
-  // Build PDF via canvas using html2canvas + jsPDF
-  // We use a simpler approach: generate the PDF content as a printable HTML and use window.print or a library
-  // For broad compatibility, we open a new window with the transcript and trigger print
   let totalCreditsAll = 0, totalPointsAll = 0;
   let tableHTML = '';
   semKeys.forEach(key => {
@@ -859,8 +911,7 @@ async function downloadTranscriptPDF() {
     tableHTML += `<tr style="background:#e8f4fd"><td colspan="4" style="padding:4px 8px;font-weight:bold;text-align:center;font-size:12px;border:1px solid #999">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
-      const cr = Number(g.credits) || 0;
-      const gv = gradeMap[g.grade];
+      const cr = Number(g.credits) || 0; const gv = gradeMap[g.grade];
       tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${g.credits || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
@@ -870,106 +921,90 @@ async function downloadTranscriptPDF() {
   });
   const gpax = totalCreditsAll ? (totalPointsAll / totalCreditsAll).toFixed(2) : 'N/A';
 
-  // Try to read logo as base64
   let logoBase64 = '';
-  try {
-    const resp = await fetch('Logo_Thai.png');
-    if (resp.ok) {
-      const blob = await resp.blob();
-      logoBase64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });
-    }
-  } catch (e) { /* no logo */ }
+  try { const resp = await fetch('Logo_Thai.png'); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } } catch (e) {}
 
   const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
   const studentLevel = stu.level || 'ปริญญาตรี';
-  const studentBatch = stu.batch || '';
-  const studentYearLevel = stu.year_level || '';
 
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบรายงานผลการเรียน - ${stu.name || ''}</title>
-    <style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
-    *{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}
-    body{padding:20px 40px;font-size:12px;color:#333}
-    @media print{body{padding:15px 30px}@page{size:A4;margin:15mm 20mm}}
-    table{width:100%;border-collapse:collapse}
-    </style></head><body>
-    <div style="text-align:center;margin-bottom:12px">
-      ${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}
-      <div style="font-weight:700;font-size:14px">${APP.config.college_name}</div>
-      <div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div>
-      <div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}${studentBatch ? ' รุ่นที่ ' + studentBatch : ''}${studentYearLevel ? ' ชั้นปีที่ ' + studentYearLevel : ''}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px">
-      <div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div>
-      <div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div>
-    </div>
-    <table>
-      <thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead>
-      <tbody>${tableHTML}</tbody>
-    </table>
-    <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px">
-      <div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div>
-      <div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div>
-    </div>
-    <div style="margin-top:10px;font-size:10px;color:#666">
-      <div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div>
-      <div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</div>
-    </div>
-    <script>window.onload=function(){window.print()}<\/script>
-    </body></html>`;
-
-  const printWin = window.open('', '_blank');
-  if (printWin) {
-    printWin.document.write(htmlContent);
-    printWin.document.close();
-  } else {
-    showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error');
-  }
+    <style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');*{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}body{padding:20px 40px;font-size:12px;color:#333}@media print{body{padding:15px 30px}@page{size:A4;margin:15mm 20mm}}table{width:100%;border-collapse:collapse}</style></head><body>
+    <div style="text-align:center;margin-bottom:12px">${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}<div style="font-weight:700;font-size:14px">${APP.config.college_name}</div><div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div><div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}</div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px"><div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div><div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div></div>
+    <table><thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead><tbody>${tableHTML}</tbody></table>
+    <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px"><div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div></div>
+    <div style="margin-top:10px;font-size:10px;color:#666"><div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div><div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</div></div>
+    <script>window.onload=function(){window.print()}<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(htmlContent); w.document.close(); } else { showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error'); }
 }
 
 // ======================== ENG RESULTS ========================
 function engResultsPage() {
   const isAdmin = APP.currentRole === 'admin';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
-  let data = applyFilters(getDataByType('eng_result'));
-  if (APP.currentRole === 'student' && APP.currentUser.data) {
-    data = data.filter(e => e.name === APP.currentUser.data.name || e.student_id === APP.currentUser.data.student_id);
-  } else if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
-    // Filter by advisor
-    const advisorName = APP.currentUser.name;
-    const stuNames = getDataByType('student').filter(s => s.advisor === advisorName || (APP.currentRole === 'classTeacher' && norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'))).map(s => s.name);
-    data = data.filter(e => stuNames.includes(e.name));
+  const isStudent = APP.currentRole === 'student';
+  let allEng = getDataByType('eng_result');
+
+  // Build student selector for non-student roles
+  let studentSelector = '';
+  let selectedStudentName = APP.filters._engStudent || '';
+
+  if (!isStudent) {
+    let studentList = getDataByType('student');
+    if (APP.currentRole === 'classTeacher') {
+      const yr = APP.currentUser.responsible_year || '1';
+      studentList = studentList.filter(s => norm(s.year_level) === norm(yr));
+    }
+    if (APP.currentRole === 'teacher') {
+      studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
+    }
+    studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
+      <select onchange="APP.filters._engStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+        <option value="">-- กรุณาเลือกนักศึกษา --</option>
+        ${studentList.map(s => `<option value="${s.name}" ${selectedStudentName === s.name ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
+      </select>
+    </div>`;
   }
+
+  // Filter data
+  let data;
+  if (isStudent && APP.currentUser.data) {
+    data = allEng.filter(e => e.name === APP.currentUser.data.name || e.student_id === APP.currentUser.data.student_id);
+  } else if (selectedStudentName) {
+    data = allEng.filter(e => e.name === selectedStudentName);
+  } else {
+    data = [];
+  }
+  data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
-  // Advisor filter for admin
-  let advisorFilter = '';
-  if (isAdmin) {
-    const advisors = [...new Set(getDataByType('student').map(s => s.advisor).filter(Boolean))];
-    advisorFilter = `<select onchange="APP.filters._advisor=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกอาจารย์ที่ปรึกษา</option>${advisors.map(a => `<option value="${a}">${a}</option>`).join('')}</select>`;
+  // Show prompt if no student selected
+  let noSelectionMsg = '';
+  if (!isStudent && !selectedStudentName) {
+    noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400"><i data-lucide="user-search" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i><p>กรุณาเลือกนักศึกษาเพื่อดูผลสอบภาษาอังกฤษ</p></div>`;
   }
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="languages" class="w-6 h-6 inline mr-2"></i>ผลสอบภาษาอังกฤษ</h2>
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'name,eng_score,eng_type,eng_status')}</div>` : ''}
   </div>
-  <div class="flex flex-wrap gap-3 mb-4">
-    <div class="flex-1 min-w-[200px] relative"><i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหา..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm" onkeyup="APP.filters.search=this.value;APP.pagination.page=1;renderCurrentPage()"></div>
-    ${advisorFilter}
-  </div>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+  ${studentSelector}
+  ${noSelectionMsg || `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
     ${statCard('check-circle', 'ผ่าน', data.filter(e => e.eng_status === 'ผ่าน').length, 'คน', 'bg-green-500')}
     ${statCard('x-circle', 'ไม่ผ่าน', data.filter(e => e.eng_status === 'ไม่ผ่าน').length, 'คน', 'bg-red-500')}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">รูปแบบ</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">รูปแบบ</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(e => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${e.name || ''}</td><td class="px-4 py-3">${e.eng_score || ''}</td><td class="px-4 py-3">${e.eng_type || ''}</td>
+        <td class="px-4 py-3">${e.eng_score || ''}</td><td class="px-4 py-3">${e.eng_type || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
 }
 
 function showAddEngModal() {
