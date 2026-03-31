@@ -78,6 +78,13 @@ const GSheetDB = (() => {
   }
 
   // ---------- WRITE via Apps Script ----------
+  // Refresh only one tab and merge into _allData
+  async function refreshTab(tabName) {
+    const newRows = await fetchTab(tabName);
+    _allData = _allData.filter(d => d.type !== tabName).concat(newRows);
+    if (_onDataChanged) _onDataChanged(_allData);
+  }
+
   async function _callScript(params) {
     if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL — ไปที่ตั้งค่าระบบเพื่อกรอก URL' };
     try {
@@ -91,8 +98,8 @@ const GSheetDB = (() => {
         body: JSON.stringify(params.data || {})
       });
       const result = await resp.json();
-      if (result.isOk) {
-        await fetchAllData();
+      if (result.isOk && params.sheet) {
+        await refreshTab(params.sheet);
       }
       if (typeof hideLoading === 'function') hideLoading();
       return result;
