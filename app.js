@@ -46,10 +46,20 @@ function showScreen(id) {
   });
 }
 
+function loadPermissions() {
+  const perms = getDataByType('permission');
+  perms.forEach(p => {
+    if (p.role && p.module && APP.permissions[p.role]) {
+      APP.permissions[p.role][p.module] = parseInt(p.value, 10) || 0;
+    }
+  });
+}
+
 function initGSheet(sheetId, scriptUrl) {
   showScreen('loadingScreen');
   GSheetDB.init({ spreadsheetId: sheetId, scriptUrl: scriptUrl || '' }, (data) => {
     APP.allData = data;
+    loadPermissions();
     if (APP.currentUser) renderCurrentPage();
     updateNotifBadge();
   }).then(r => {
@@ -1559,10 +1569,30 @@ function onUserRoleChange(role) {
   }
 }
 
-function togglePermission(role, module, checked) {
+async function togglePermission(role, module, checked) {
   if (!APP.permissions[role]) APP.permissions[role] = {};
   APP.permissions[role][module] = checked ? 1 : 0;
-  showToast('อัปเดตสิทธิ์สำเร็จ');
+  
+  const existing = getDataByType('permission').find(p => p.role === role && String(p.module) === String(module));
+  let result;
+  
+  if (existing) {
+    existing.value = checked ? 1 : 0;
+    result = await GSheetDB.update(existing);
+  } else {
+    result = await GSheetDB.create({
+      type: 'permission',
+      role: role,
+      module: module,
+      value: checked ? 1 : 0
+    });
+  }
+  
+  if (result && result.isOk) {
+    showToast('อัปเดตสิทธิ์ในฐานข้อมูลสำเร็จ');
+  } else {
+    showToast('เกิดข้อผิดพลาดในการบันทึกสิทธิ์', 'error');
+  }
 }
 
 // ======================== LEAVE VALIDATION (Student) ========================
