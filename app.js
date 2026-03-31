@@ -783,7 +783,9 @@ function engResultsPage() {
   const isAdmin = APP.currentRole === 'admin';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = applyFilters(getDataByType('eng_result'));
-  if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
+  if (APP.currentRole === 'student' && APP.currentUser.data) {
+    data = data.filter(e => e.name === APP.currentUser.data.name || e.student_id === APP.currentUser.data.student_id);
+  } else if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
     // Filter by advisor
     const advisorName = APP.currentUser.name;
     const stuNames = getDataByType('student').filter(s => s.advisor === advisorName || (APP.currentRole === 'classTeacher' && norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'))).map(s => s.name);
