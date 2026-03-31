@@ -9,7 +9,6 @@ const GSheetDB = (() => {
   let _spreadsheetId = null;
   let _scriptUrl = null;
   let _onDataChanged = null;
-  let _refreshTimer = null;
   let _allData = [];
 
   const SHEET_TABS = [
@@ -18,7 +17,7 @@ const GSheetDB = (() => {
     'tracking', 'grade_tracking', 'announcement', 'user', 'doc_request'
   ];
 
-  const REFRESH_INTERVAL = 60000;
+
 
   // ---------- Config ----------
   function getStoredConfig() {
@@ -65,7 +64,7 @@ const GSheetDB = (() => {
           }
         });
         return obj;
-      }).filter(obj => Object.entries(obj).some(([k, v]) => !['type','__backendId','__rowIndex'].includes(k) && v !== ''));
+      }).filter(obj => Object.entries(obj).some(([k, v]) => !['type', '__backendId', '__rowIndex'].includes(k) && v !== ''));
     } catch (err) { console.warn(`Tab "${tabName}":`, err.message); return []; }
   }
 
@@ -140,14 +139,12 @@ const GSheetDB = (() => {
     if (!_spreadsheetId) return { isOk: false, error: 'Invalid Spreadsheet ID' };
     try {
       await fetchAllData();
-      if (_refreshTimer) clearInterval(_refreshTimer);
-      _refreshTimer = setInterval(fetchAllData, REFRESH_INTERVAL);
       return { isOk: true };
     } catch (err) { return { isOk: false, error: err.message }; }
   }
 
   async function refresh() { return fetchAllData(); }
-  function destroy() { if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; } }
+  function destroy() { }
   function hasWriteAccess() { return !!_scriptUrl; }
 
   async function debugTab(tabName) {
@@ -157,7 +154,7 @@ const GSheetDB = (() => {
       const m = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
       if (!m) return { error: 'Cannot parse', raw: text.substring(0, 500) };
       const json = JSON.parse(m[1]);
-      return { status: json.status, cols: json.table?.cols, rowCount: (json.table?.rows||[]).length, firstRow: json.table?.rows?.[0]?.c };
+      return { status: json.status, cols: json.table?.cols, rowCount: (json.table?.rows || []).length, firstRow: json.table?.rows?.[0]?.c };
     } catch (err) { return { error: err.message }; }
   }
 
