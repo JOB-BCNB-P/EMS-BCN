@@ -92,10 +92,6 @@ const GSheetDB = (() => {
       });
       const result = await resp.json();
       if (result.isOk) {
-        if (typeof document !== 'undefined') {
-          const msg = document.getElementById('loadingMsg');
-          if (msg) msg.textContent = 'กำลังรีเฟรชข้อมูล...';
-        }
         await fetchAllData();
       }
       if (typeof hideLoading === 'function') hideLoading();
