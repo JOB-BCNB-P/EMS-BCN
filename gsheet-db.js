@@ -87,7 +87,6 @@ const GSheetDB = (() => {
   async function _callScript(params) {
     if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL — ไปที่ตั้งค่าระบบเพื่อกรอก URL' };
     try {
-      if (typeof showLoading === 'function') showLoading(params.action === 'delete' ? 'กำลังลบข้อมูล...' : params.action === 'update' ? 'กำลังอัปเดต...' : 'กำลังบันทึก...');
       const qs = new URLSearchParams({ action: params.action });
       if (params.sheet) qs.set('sheet', params.sheet);
       if (params.rowIndex) qs.set('rowIndex', String(params.rowIndex));
@@ -100,10 +99,8 @@ const GSheetDB = (() => {
       if (result.isOk && params.sheet) {
         await refreshTab(params.sheet);
       }
-      if (typeof hideLoading === 'function') hideLoading();
       return result;
     } catch (err) {
-      if (typeof hideLoading === 'function') hideLoading();
       return { isOk: false, error: err.message };
     }
   }
