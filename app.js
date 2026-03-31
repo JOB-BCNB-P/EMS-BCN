@@ -260,6 +260,8 @@ function navigateTo(page) {
   APP.filters.search = '';
   APP.filters._gradeStudent = '';
   APP.filters._engStudent = '';
+  APP.filters._gradeSearch = '';
+  APP.filters._engSearch = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -727,21 +729,37 @@ function gradesPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+    // Store student list for search
+    window._gradeStudentList = studentList;
+    const searchVal = APP.filters._gradeSearch || '';
+    let filteredList = studentList;
+    if (searchVal) {
+      const q = searchVal.toLowerCase();
+      filteredList = studentList.filter(s => (s.name || '').toLowerCase().includes(q) || (s.student_id || '').toLowerCase().includes(q));
+    }
     studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
+      <div class="flex gap-2 mb-2">
+        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" onkeyup="APP.filters._gradeSearch=this.value;APP.filters._gradeStudent='';APP.pagination.page=1;renderCurrentPage()"></div>
+      </div>
       <select onchange="APP.filters._gradeStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
-        <option value="">-- กรุณาเลือกนักศึกษา --</option>
-        ${studentList.map(s => `<option value="${s.name}" ${selectedStudentName === s.name ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
+        <option value="">-- กรุณาเลือกนักศึกษา (${filteredList.length} คน) --</option>
+        ${filteredList.map(s => `<option value="${s.student_id || s.name}" ${selectedStudentName === (s.student_id || s.name) ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
       </select>
     </div>`;
   }
 
-  // Filter data
+  // Filter data — match by student_id or name
   let data;
   if (isStudent && APP.currentUser.data) {
     data = allGrades.filter(g => g.name === APP.currentUser.data.name || g.student_id === APP.currentUser.data.student_id);
   } else if (selectedStudentName) {
-    data = allGrades.filter(g => g.name === selectedStudentName);
+    const selStu = getDataByType('student').find(s => s.student_id === selectedStudentName || s.name === selectedStudentName);
+    if (selStu) {
+      data = allGrades.filter(g => g.name === selStu.name || g.student_id === selStu.student_id);
+    } else {
+      data = allGrades.filter(g => g.name === selectedStudentName || g.student_id === selectedStudentName);
+    }
   } else {
     data = [];
   }
@@ -816,9 +834,9 @@ function showTranscript() {
   _renderTranscript(stu);
 }
 
-function showTranscriptForStudent(studentName) {
-  if (!studentName) return;
-  const stu = getDataByType('student').find(s => s.name === studentName);
+function showTranscriptForStudent(studentKey) {
+  if (!studentKey) return;
+  const stu = getDataByType('student').find(s => s.student_id === studentKey || s.name === studentKey);
   if (!stu) { showToast('ไม่พบข้อมูลนักศึกษา', 'error'); return; }
   _renderTranscript(stu);
 }
@@ -891,8 +909,8 @@ function _renderTranscript(stu) {
   setTimeout(() => lucide.createIcons(), 100);
 }
 
-async function downloadTranscriptPDF(studentName) {
-  const stu = getDataByType('student').find(s => s.name === studentName) || (APP.currentUser.data && APP.currentUser.data.name === studentName ? APP.currentUser.data : null);
+async function downloadTranscriptPDF(studentKey) {
+  const stu = getDataByType('student').find(s => s.student_id === studentKey || s.name === studentKey) || (APP.currentUser.data && (APP.currentUser.data.name === studentKey || APP.currentUser.data.student_id === studentKey) ? APP.currentUser.data : null);
   if (!stu) return;
   const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
@@ -959,21 +977,35 @@ function engResultsPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+    const searchVal = APP.filters._engSearch || '';
+    let filteredList = studentList;
+    if (searchVal) {
+      const q = searchVal.toLowerCase();
+      filteredList = studentList.filter(s => (s.name || '').toLowerCase().includes(q) || (s.student_id || '').toLowerCase().includes(q));
+    }
     studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
+      <div class="flex gap-2 mb-2">
+        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" onkeyup="APP.filters._engSearch=this.value;APP.filters._engStudent='';APP.pagination.page=1;renderCurrentPage()"></div>
+      </div>
       <select onchange="APP.filters._engStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
-        <option value="">-- กรุณาเลือกนักศึกษา --</option>
-        ${studentList.map(s => `<option value="${s.name}" ${selectedStudentName === s.name ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
+        <option value="">-- กรุณาเลือกนักศึกษา (${filteredList.length} คน) --</option>
+        ${filteredList.map(s => `<option value="${s.student_id || s.name}" ${selectedStudentName === (s.student_id || s.name) ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('')}
       </select>
     </div>`;
   }
 
-  // Filter data
+  // Filter data — match by student_id or name
   let data;
   if (isStudent && APP.currentUser.data) {
     data = allEng.filter(e => e.name === APP.currentUser.data.name || e.student_id === APP.currentUser.data.student_id);
   } else if (selectedStudentName) {
-    data = allEng.filter(e => e.name === selectedStudentName);
+    const selStu = getDataByType('student').find(s => s.student_id === selectedStudentName || s.name === selectedStudentName);
+    if (selStu) {
+      data = allEng.filter(e => e.name === selStu.name || e.student_id === selStu.student_id);
+    } else {
+      data = allEng.filter(e => e.name === selectedStudentName || e.student_id === selectedStudentName);
+    }
   } else {
     data = [];
   }
