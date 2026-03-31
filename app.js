@@ -311,12 +311,13 @@ function showToast(msg, type = 'success') {
   setTimeout(() => d.remove(), 3000);
 }
 
-function showModal(title, content, onConfirm) {
+function showModal(title, content, onConfirm, maxWidth) {
   const mc = document.getElementById('modalContainer');
   mc.classList.remove('hidden');
   window._modalConfirm = onConfirm || null;
+  const mw = maxWidth || 'max-w-lg';
   mc.innerHTML = `<div class="modal-overlay fixed inset-0 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80%] overflow-auto fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full ${mw} max-h-[85vh] overflow-auto fade-in">
       <div class="p-5 border-b flex items-center justify-between"><h3 class="font-bold text-lg">${title}</h3><button onclick="closeModal()" class="p-1 rounded hover:bg-gray-100"><i data-lucide="x" class="w-5 h-5"></i></button></div>
       <div class="p-5">${content}</div>
       ${onConfirm ? `<div class="p-4 border-t flex justify-end gap-2"><button onclick="closeModal()" class="px-4 py-2 rounded-xl border hover:bg-gray-50">ยกเลิก</button><button onclick="if(window._modalConfirm)window._modalConfirm()" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primaryDark">ยืนยัน</button></div>` : ''}
@@ -727,12 +728,12 @@ function gradesPage() {
   ${gpaSection}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left">${isStudent ? '' : '<th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>'}<th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">เกรด</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(g => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${g.name || ''}</td><td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
+        ${isStudent ? '' : `<td class="px-4 py-3">${g.name || ''}</td>`}<td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade === 'F' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${g.grade || ''}</span></td>
         <td class="px-4 py-3">${g.credits || ''}</td><td class="px-4 py-3">${g.semester || ''}/${g.academic_year || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isStudent ? 5 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -766,16 +767,163 @@ function showTranscript() {
   const stu = APP.currentUser.data; if (!stu) return;
   const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
-  let totalCredits = 0, totalPoints = 0;
-  grades.forEach(g => { const gv = gradeMap[g.grade]; const cr = Number(g.credits) || 3; if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr } });
-  const gpax = totalCredits ? (totalPoints / totalCredits).toFixed(2) : 'N/A';
-  showModal('ใบแสดงผลการเรียน (Transcript)', `
-    <div class="text-center mb-4"><p class="font-bold text-lg">${APP.config.college_name}</p><p class="text-sm text-gray-500">ใบแสดงผลการเรียน</p></div>
-    <div class="grid grid-cols-2 gap-2 mb-4 text-sm">${infoRow('ชื่อ-สกุล', stu.name)}${infoRow('รหัสนักศึกษา', stu.student_id)}</div>
-    <table class="w-full text-sm border"><thead><tr class="bg-surface"><th class="px-3 py-2 text-left">รหัสวิชา</th><th class="px-3 py-2 text-left">รายวิชา</th><th class="px-3 py-2">หน่วยกิต</th><th class="px-3 py-2">เกรด</th><th class="px-3 py-2">ภาค/ปี</th></tr></thead>
-    <tbody>${grades.map(g => `<tr class="border-t"><td class="px-3 py-2 font-mono text-primary">${g.subject_code || ''}</td><td class="px-3 py-2">${g.subject_name || ''}</td><td class="px-3 py-2 text-center">${g.credits || ''}</td><td class="px-3 py-2 text-center font-bold">${g.grade || ''}</td><td class="px-3 py-2 text-center">${g.semester || ''}/${g.academic_year || ''}</td></tr>`).join('')}</tbody></table>
-    <div class="mt-4 text-right font-bold">GPAX: ${gpax}</div>
-  `);
+
+  // Group by semester/year
+  const semesters = {};
+  grades.forEach(g => {
+    const key = `${g.semester || '1'}/${g.academic_year || ''}`;
+    if (!semesters[key]) semesters[key] = { semester: g.semester || '1', year: g.academic_year || '', grades: [] };
+    semesters[key].grades.push(g);
+  });
+  const semKeys = Object.keys(semesters).sort();
+
+  let totalCreditsAll = 0, totalPointsAll = 0;
+  let tableRows = '';
+  let semIdx = 0;
+  semKeys.forEach(key => {
+    semIdx++;
+    const sem = semesters[key];
+    tableRows += `<tr class="bg-blue-50"><td colspan="4" class="px-3 py-2 font-bold text-primary text-center">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
+    let semCredits = 0, semPoints = 0;
+    sem.grades.forEach(g => {
+      const cr = Number(g.credits) || 0;
+      const gv = gradeMap[g.grade];
+      const crText = g.credits ? `${cr}(${g.credits_detail || cr + '-0'})` : '';
+      tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${g.credits || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
+      if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
+    });
+    const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
+    totalCreditsAll += semCredits; totalPointsAll += semPoints;
+    tableRows += `<tr class="border-t bg-gray-50"><td colspan="2" class="px-3 py-1.5 text-xs text-right font-semibold">จำนวนหน่วยกิตรวม: ${semCredits}</td><td colspan="2" class="px-3 py-1.5 text-xs text-right font-semibold">คะแนนเฉลี่ย: ${semGpa}</td></tr>`;
+  });
+
+  const gpax = totalCreditsAll ? (totalPointsAll / totalCreditsAll).toFixed(2) : 'N/A';
+  const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
+  const studentLevel = stu.level || 'ปริญญาตรี';
+  const studentBatch = stu.batch || '';
+  const studentYearLevel = stu.year_level || '';
+
+  showModal('ใบรายงานผลการเรียน', `
+    <div id="transcriptContent" class="bg-white p-4" style="max-width:700px;margin:auto;">
+      <div class="text-center mb-3">
+        <img src="Logo_Thai.png" alt="Logo" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="this.style.display='none'">
+        <p class="font-bold text-sm">${APP.config.college_name}</p>
+        <p class="text-xs text-gray-600">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</p>
+        <p class="text-xs text-gray-600">${studentProgram} ระดับ ${studentLevel}${studentBatch ? ' รุ่นที่ ' + studentBatch : ''}${studentYearLevel ? ' ชั้นปีที่ ' + studentYearLevel : ''}</p>
+      </div>
+      <div class="flex justify-between text-xs mb-3 px-1">
+        <div><span class="text-gray-500">รหัสนักศึกษา:</span> <strong>${stu.student_id || ''}</strong></div>
+        <div><span class="text-gray-500">ชื่อ-สกุล:</span> <strong>${stu.name || ''}</strong></div>
+      </div>
+      <table class="w-full text-sm border border-gray-300" style="border-collapse:collapse">
+        <thead><tr class="bg-surface"><th class="px-3 py-2 text-left text-xs border border-gray-300" style="width:22%">รหัสวิชา</th><th class="px-3 py-2 text-left text-xs border border-gray-300" style="width:48%">รายวิชา</th><th class="px-3 py-2 text-center text-xs border border-gray-300" style="width:15%">หน่วยกิต</th><th class="px-3 py-2 text-center text-xs border border-gray-300" style="width:15%">ระดับคะแนน</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <div class="mt-3 border border-gray-300 rounded p-2 text-xs">
+        <div class="flex justify-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div>
+        <div class="flex justify-between mt-1"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div>
+      </div>
+      <div class="mt-3 text-xs text-gray-500">
+        <p class="font-semibold mb-1">หมายเหตุ</p>
+        <p>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</p>
+      </div>
+    </div>
+    <div class="flex justify-center mt-4">
+      <button onclick="downloadTranscriptPDF()" class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button>
+    </div>
+  `, null, 'max-w-3xl');
+  setTimeout(() => lucide.createIcons(), 100);
+}
+
+async function downloadTranscriptPDF() {
+  const stu = APP.currentUser.data; if (!stu) return;
+  const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
+  const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
+
+  // Group by semester
+  const semesters = {};
+  grades.forEach(g => {
+    const key = `${g.semester || '1'}/${g.academic_year || ''}`;
+    if (!semesters[key]) semesters[key] = { semester: g.semester || '1', year: g.academic_year || '', grades: [] };
+    semesters[key].grades.push(g);
+  });
+  const semKeys = Object.keys(semesters).sort();
+
+  // Build PDF via canvas using html2canvas + jsPDF
+  // We use a simpler approach: generate the PDF content as a printable HTML and use window.print or a library
+  // For broad compatibility, we open a new window with the transcript and trigger print
+  let totalCreditsAll = 0, totalPointsAll = 0;
+  let tableHTML = '';
+  semKeys.forEach(key => {
+    const sem = semesters[key];
+    tableHTML += `<tr style="background:#e8f4fd"><td colspan="4" style="padding:4px 8px;font-weight:bold;text-align:center;font-size:12px;border:1px solid #999">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
+    let semCredits = 0, semPoints = 0;
+    sem.grades.forEach(g => {
+      const cr = Number(g.credits) || 0;
+      const gv = gradeMap[g.grade];
+      tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${g.credits || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
+      if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
+    });
+    const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
+    totalCreditsAll += semCredits; totalPointsAll += semPoints;
+    tableHTML += `<tr style="background:#f9fafb"><td colspan="2" style="padding:3px 8px;font-size:11px;text-align:right;font-weight:600;border:1px solid #999">จำนวนหน่วยกิตรวม: ${semCredits}</td><td colspan="2" style="padding:3px 8px;font-size:11px;text-align:right;font-weight:600;border:1px solid #999">คะแนนเฉลี่ย: ${semGpa}</td></tr>`;
+  });
+  const gpax = totalCreditsAll ? (totalPointsAll / totalCreditsAll).toFixed(2) : 'N/A';
+
+  // Try to read logo as base64
+  let logoBase64 = '';
+  try {
+    const resp = await fetch('Logo_Thai.png');
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoBase64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });
+    }
+  } catch (e) { /* no logo */ }
+
+  const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
+  const studentLevel = stu.level || 'ปริญญาตรี';
+  const studentBatch = stu.batch || '';
+  const studentYearLevel = stu.year_level || '';
+
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบรายงานผลการเรียน - ${stu.name || ''}</title>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+    *{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}
+    body{padding:20px 40px;font-size:12px;color:#333}
+    @media print{body{padding:15px 30px}@page{size:A4;margin:15mm 20mm}}
+    table{width:100%;border-collapse:collapse}
+    </style></head><body>
+    <div style="text-align:center;margin-bottom:12px">
+      ${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}
+      <div style="font-weight:700;font-size:14px">${APP.config.college_name}</div>
+      <div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div>
+      <div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}${studentBatch ? ' รุ่นที่ ' + studentBatch : ''}${studentYearLevel ? ' ชั้นปีที่ ' + studentYearLevel : ''}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px">
+      <div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div>
+      <div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div>
+    </div>
+    <table>
+      <thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead>
+      <tbody>${tableHTML}</tbody>
+    </table>
+    <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px">
+      <div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div>
+    </div>
+    <div style="margin-top:10px;font-size:10px;color:#666">
+      <div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div>
+      <div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</div>
+    </div>
+    <script>window.onload=function(){window.print()}<\/script>
+    </body></html>`;
+
+  const printWin = window.open('', '_blank');
+  if (printWin) {
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+  } else {
+    showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error');
+  }
 }
 
 // ======================== ENG RESULTS ========================
