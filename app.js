@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการวิชาการ', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -265,6 +265,7 @@ function buildSidebar() {
   if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
   if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+  if (p.teacherDirectory) regSub.push({ id: 'teacherDirectory', label: 'ทำเนียบอาจารย์' });
   if (p.services) regSub.push({ id: 'services', label: 'บริการอื่นๆ' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
@@ -481,6 +482,7 @@ function getPageContent(page, role) {
     case 'engResults': return engResultsPage();
     case 'evalTeacher': return evalTeacherPage();
     case 'teachers': return teachersPage();
+    case 'teacherDirectory': return teacherDirectoryPage();
     case 'services': return servicesPage();
     case 'tracking': return trackingPage();
     case 'gradeTracking': return gradeTrackingPage();
@@ -601,7 +603,7 @@ function studentsPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
   </div>
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
@@ -1434,6 +1436,213 @@ function showAddTeacherModal() {
   };
 }
 
+// ======================== PROMOTE YEAR (เลื่อนชั้นปี) ========================
+function showPromoteYearModal() {
+  const students = getDataByType('student').filter(s => s.status === 'กำลังศึกษา');
+  const y1 = students.filter(s => norm(s.year_level) === '1').length;
+  const y2 = students.filter(s => norm(s.year_level) === '2').length;
+  const y3 = students.filter(s => norm(s.year_level) === '3').length;
+  const y4 = students.filter(s => norm(s.year_level) === '4').length;
+
+  showModal('เลื่อนชั้นปีนักศึกษา', `
+    <div class="space-y-4">
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <p class="font-semibold mb-1">⚠️ คำเตือน</p>
+        <p>การเลื่อนชั้นปีจะปรับข้อมูลนักศึกษาที่มีสถานภาพ "กำลังศึกษา" ทั้งหมด</p>
+        <p class="mt-1">• ชั้นปี 4 → สำเร็จการศึกษา</p>
+        <p>• ชั้นปี 3 → ชั้นปี 4</p>
+        <p>• ชั้นปี 2 → ชั้นปี 3</p>
+        <p>• ชั้นปี 1 → ชั้นปี 2</p>
+      </div>
+      <div class="grid grid-cols-4 gap-2 text-center">
+        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 1</p><p class="text-xl font-bold text-primary">${y1}</p></div>
+        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 2</p><p class="text-xl font-bold text-primary">${y2}</p></div>
+        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 3</p><p class="text-xl font-bold text-primary">${y3}</p></div>
+        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 4</p><p class="text-xl font-bold text-primary">${y4}</p></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="executePromoteYear()" class="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl hover:bg-emerald-600 font-semibold">ยืนยันเลื่อนชั้นปี</button>
+        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl hover:bg-gray-300">ยกเลิก</button>
+      </div>
+    </div>
+  `);
+}
+
+async function executePromoteYear() {
+  const students = getDataByType('student').filter(s => s.status === 'กำลังศึกษา');
+  if (!students.length) { showToast('ไม่มีนักศึกษาที่ต้องเลื่อนชั้นปี', 'error'); closeModal(); return; }
+
+  let successCount = 0; let errorCount = 0;
+  showToast('กำลังเลื่อนชั้นปี... กรุณารอสักครู่');
+
+  // Process from year 4 down to year 1 to avoid conflicts
+  for (const yr of ['4', '3', '2', '1']) {
+    const batch = students.filter(s => norm(s.year_level) === yr);
+    for (const s of batch) {
+      if (yr === '4') {
+        s.status = 'สำเร็จการศึกษา';
+      } else {
+        s.year_level = String(parseInt(yr) + 1);
+      }
+      const r = await GSheetDB.update(s);
+      if (r.isOk) successCount++; else errorCount++;
+    }
+  }
+
+  closeModal();
+  if (errorCount === 0) {
+    showToast(`เลื่อนชั้นปีสำเร็จ ${successCount} คน`);
+  } else {
+    showToast(`เลื่อนชั้นปีสำเร็จ ${successCount} คน / ผิดพลาด ${errorCount} คน`, 'error');
+  }
+  renderCurrentPage();
+}
+
+// ======================== TEACHER DIRECTORY (ทำเนียบอาจารย์) ========================
+function teacherDirectoryPage() {
+  const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  let data = getDataByType('teacher_directory');
+  const search = APP.filters.search ? APP.filters.search.toLowerCase() : '';
+  if (search) data = data.filter(d => (d.name || '').toLowerCase().includes(search) || (d.academic_position || '').toLowerCase().includes(search));
+
+  // Counts by category
+  const catAll = data.length;
+  const catCurriculum = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร').length;
+  const catRegular = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ').length;
+  const catResponsible = data.filter(d => (d.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร').length;
+
+  // Tab filter
+  const activeTab = APP._directoryTab || 'all';
+  if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
+  else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
+  else if (activeTab === 'responsible') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร');
+
+  const total = data.length; const paged = paginate(data);
+
+  function tabBtn(id, label, count) {
+    const active = activeTab === id;
+    return `<button onclick="APP._directoryTab='${id}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium transition ${active ? 'bg-primary text-white shadow' : 'bg-white text-gray-600 hover:bg-surface border border-gray-200'}">${label} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs ${active ? 'bg-white/20' : 'bg-gray-100'}">${count}</span></button>`;
+  }
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,academic_position,education,nursing_teaching_exp,nursing_practice_exp,academic_work,teacher_category')}</div>` : ''}
+  </div>
+
+  <div class="flex flex-wrap gap-2 mb-4">
+    ${tabBtn('all', 'ทั้งหมด', catAll)}
+    ${tabBtn('curriculum', 'อาจารย์ประจำหลักสูตร', catCurriculum)}
+    ${tabBtn('regular', 'อาจารย์ประจำ', catRegular)}
+    ${tabBtn('responsible', 'อาจารย์ผู้รับผิดชอบหลักสูตร', catResponsible)}
+  </div>
+
+  ${filterBar({ semester: false, year: false })}
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left">
+        <th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>
+        <th class="px-4 py-3 font-semibold">ตำแหน่งทางวิชาการ</th>
+        <th class="px-4 py-3 font-semibold">วุฒิการศึกษา</th>
+        <th class="px-4 py-3 font-semibold">ประสบการณ์สอน</th>
+        <th class="px-4 py-3 font-semibold">ประสบการณ์ปฏิบัติการ</th>
+        <th class="px-4 py-3 font-semibold">ผลงานวิชาการ (5 ปี)</th>
+        <th class="px-4 py-3 font-semibold">ประเภท</th>
+        ${isAdmin ? '<th class="px-4 py-3"></th>' : ''}
+      </tr></thead>
+      <tbody>${paged.length ? paged.map(t => {
+        const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : (t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+        return `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3 font-medium">${t.name || ''}</td>
+        <td class="px-4 py-3">${t.academic_position || '-'}</td>
+        <td class="px-4 py-3">${t.education || '-'}</td>
+        <td class="px-4 py-3 text-xs">${(t.nursing_teaching_exp || '-').substring(0, 60)}${(t.nursing_teaching_exp || '').length > 60 ? '...' : ''}</td>
+        <td class="px-4 py-3 text-xs">${(t.nursing_practice_exp || '-').substring(0, 60)}${(t.nursing_practice_exp || '').length > 60 ? '...' : ''}</td>
+        <td class="px-4 py-3 text-xs">${(t.academic_work || '-').substring(0, 60)}${(t.academic_work || '').length > 60 ? '...' : ''}</td>
+        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></td>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1">
+          <button onclick="showTeacherDirectoryDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          <button onclick="showEditTeacherDirectoryModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div></td>` : ''}
+      </tr>`}).join('') : `<tr><td colspan="${isAdmin ? 8 : 7}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function showTeacherDirectoryDetail(id) {
+  const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : (t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+  showModal('ข้อมูลทำเนียบอาจารย์', `
+    <div class="space-y-3">
+      <div class="flex items-center gap-3 mb-2"><div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center"><i data-lucide="user" class="w-6 h-6 text-white"></i></div><div><p class="font-bold text-lg">${t.name || '-'}</p><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></div></div>
+      <div class="grid grid-cols-1 gap-3">
+        ${infoRow('ตำแหน่งทางวิชาการ', t.academic_position)}
+        ${infoRow('วุฒิการศึกษา', t.education)}
+      </div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1">ประสบการณ์สอนทางการพยาบาล</p><p class="text-sm">${t.nursing_teaching_exp || '-'}</p></div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1">ประสบการณ์ปฏิบัติการพยาบาล</p><p class="text-sm">${t.nursing_practice_exp || '-'}</p></div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1">ผลงานวิชาการ (ย้อนหลัง 5 ปี)</p><p class="text-sm">${t.academic_work || '-'}</p></div>
+    </div>
+  `);
+}
+
+function showAddTeacherDirectoryModal() {
+  showModal('เพิ่มอาจารย์ (ทำเนียบ)', `
+    <form id="addTeacherDirForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ผศ.ดร., รศ."></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วุฒิการศึกษา</label><input name="education" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น พย.ด., ปร.ด."></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล</label><textarea name="nursing_teaching_exp" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอนวิชาการพยาบาลผู้ใหญ่ 10 ปี"></textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล</label><textarea name="nursing_practice_exp" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี 5 ปี"></textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผลงานวิชาการ (ย้อนหลัง 5 ปี)</label><textarea name="academic_work" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น บทความวิจัย, ตำรา, งานวิจัย"></textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์ *</label>
+        <select name="teacher_category" required class="w-full border rounded-xl px-3 py-2 text-sm">
+          <option value="">-- เลือกประเภท --</option>
+          <option>อาจารย์ประจำหลักสูตร</option>
+          <option>อาจารย์ประจำ</option>
+          <option>อาจารย์ผู้รับผิดชอบหลักสูตร</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addTeacherDirForm').onsubmit = async (e) => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    const obj = { type: 'teacher_directory', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
+    const r = await GSheetDB.create(obj);
+    if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+  };
+}
+
+function showEditTeacherDirectoryModal(id) {
+  const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  showModal('แก้ไขข้อมูลทำเนียบอาจารย์', `
+    <form id="editTeacherDirForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${t.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" value="${t.academic_position || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วุฒิการศึกษา</label><input name="education" value="${t.education || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล</label><textarea name="nursing_teaching_exp" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.nursing_teaching_exp || ''}</textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล</label><textarea name="nursing_practice_exp" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.nursing_practice_exp || ''}</textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผลงานวิชาการ (ย้อนหลัง 5 ปี)</label><textarea name="academic_work" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.academic_work || ''}</textarea></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์</label>
+        <select name="teacher_category" class="w-full border rounded-xl px-3 py-2 text-sm">
+          <option value="">-- เลือกประเภท --</option>
+          <option ${(t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'selected' : ''}>อาจารย์ประจำหลักสูตร</option>
+          <option ${(t.teacher_category || '') === 'อาจารย์ประจำ' ? 'selected' : ''}>อาจารย์ประจำ</option>
+          <option ${(t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'selected' : ''}>อาจารย์ผู้รับผิดชอบหลักสูตร</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editTeacherDirForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editTeacherDirForm') };
+}
+
 // ======================== SERVICES ========================
 function servicesPage() {
   const announcements = getDataByType('announcement').slice(-10).reverse();
@@ -1957,8 +2166,8 @@ function showAddLeaveModal() {
 // ======================== SETTINGS ========================
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามรายวิชา', gradeTracking: 'ติดตามส่งเกรด', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลา' };
+  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'teacherDirectory', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามรายวิชา', gradeTracking: 'ติดตามส่งเกรด', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
