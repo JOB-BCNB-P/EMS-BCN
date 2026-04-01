@@ -276,6 +276,8 @@ function navigateTo(page) {
   APP.filters._engStudent = '';
   APP.filters._gradeSearch = '';
   APP.filters._engSearch = '';
+  APP.filters._trackingYear = '';
+  APP.filters._gradeTrackingYear = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -1403,24 +1405,52 @@ function trackingPage() {
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('tracking');
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+
+  // Year filter for stats
+  const selectedYear = APP.filters._trackingYear || '';
+  const allSubjects = getDataByType('subject');
+  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+
+  // Find subjects not yet in tracking
+  const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
+  const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+
+  // Status counts
+  const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
+  const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
+  const pending = dataForStats.length - completed - inProgress;
+
+  // Year options
+  const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
+
+  // Apply general filters to table data
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
-
-  // Summary stats (like grade tracking)
-  const totalItems = data.length;
-  const completed = data.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-  const inProgress = data.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
-  const pending = totalItems - completed - inProgress;
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งรายละเอียดรายวิชา</h2>
     ${canEdit ? `<button onclick="showAddTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
   </div>
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-    ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
-    ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
-    ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 mb-3">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._trackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">ทั้งหมด</option>
+        ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      ${statCard('alert-circle', 'ยังไม่ส่ง', notSubmitted.length, 'วิชา', 'bg-red-500')}
+      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
+      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
+      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+    </div>
   </div>
+  ${notSubmitted.length ? `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
+    <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา)</h3>
+    <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''}/${s.academic_year || ''})</span></span>`).join('')}</div>
+  </div>` : ''}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -1430,7 +1460,7 @@ function trackingPage() {
     const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
         <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td><td class="px-4 py-3">${t.theory_practice || ''}</td>
-        <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${t.semester || ''}</td>
+        <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
         <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.class_teacher_check)}</td>
         <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.academic_propose)}</td>
         <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.deputy_sign)}</td>
@@ -1482,24 +1512,52 @@ function gradeTrackingPage() {
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('grade_tracking');
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+
+  // Year filter for stats
+  const selectedYear = APP.filters._gradeTrackingYear || '';
+  const allSubjects = getDataByType('subject');
+  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+
+  // Find subjects not yet in grade tracking
+  const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
+  const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+
+  // Status counts
+  const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
+  const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
+  const pending = dataForStats.length - completed - inProgress;
+
+  // Year options
+  const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
+
+  // Apply general filters to table data
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
-
-  // Summary stats
-  const totalItems = data.length;
-  const completed = data.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-  const inProgress = data.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
-  const pending = totalItems - completed - inProgress;
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งเกรด</h2>
     ${canEdit ? `<button onclick="showAddGradeTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
   </div>
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-    ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
-    ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
-    ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 mb-3">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._gradeTrackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">ทั้งหมด</option>
+        ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      ${statCard('alert-circle', 'ยังไม่ส่งเกรด', notSubmitted.length, 'วิชา', 'bg-red-500')}
+      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
+      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
+      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+    </div>
   </div>
+  ${notSubmitted.length ? `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
+    <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งเกรด (${notSubmitted.length} วิชา)</h3>
+    <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''}/${s.academic_year || ''})</span></span>`).join('')}</div>
+  </div>` : ''}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
