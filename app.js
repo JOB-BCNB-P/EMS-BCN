@@ -1730,6 +1730,122 @@ function showAddGradeTrackingModal() {
   };
 }
 
+// ======================== FILE TRACKING ========================
+function fileTrackingPage() {
+  const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
+  let data = getDataByType('file_tracking');
+  if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+
+  // Year filter for stats
+  const selectedYear = APP.filters._fileTrackingYear || '';
+  const allSubjects = getDataByType('subject');
+  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+
+  let statsSection = '';
+  let notSubmittedSection = '';
+  if (selectedYear) {
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+
+    const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
+    const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
+    const pending = dataForStats.length - completed - inProgress;
+
+    statsSection = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+      ${statCard('alert-circle', 'ยังไม่ส่งแฟ้ม', notSubmitted.length, 'วิชา', 'bg-red-500')}
+      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
+      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
+      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+    </div>`;
+    if (notSubmitted.length) {
+      notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
+        <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งแฟ้ม (${notSubmitted.length} วิชา)</h3>
+        <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+      </div>`;
+    }
+  }
+
+  const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
+
+  data = applyFilters(data);
+  const total = data.length; const paged = paginate(data);
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="folder-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งแฟ้มรายวิชา</h2>
+    ${canEdit ? `<button onclick="showAddFileTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
+  </div>
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 mb-3">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._fileTrackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">ทั้งหมด</option>
+        ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    ${statsSection}
+  </div>
+  ${notSubmittedSection}
+  ${filterBar({ yearLevel: true })}
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left">
+        <th class="px-4 py-3 font-semibold">รายวิชา</th>
+        <th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th>
+        <th class="px-4 py-3 font-semibold">ชั้นปี</th>
+        <th class="px-4 py-3 font-semibold">ภาค/ปี</th>
+        <th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th>
+        <th class="px-4 py-3 font-semibold">อ.ประสานงานส่ง</th>
+        <th class="px-4 py-3 font-semibold">วิชาการตรวจ</th>
+        <th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th>
+        <th class="px-4 py-3 font-semibold">วันอนุมัติ</th>
+        <th class="px-4 py-3 font-semibold">หมายเหตุ</th>
+      </tr></thead>
+      <tbody>${paged.length ? paged.map(t => {
+    const statusBadge = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+    const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
+    return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
+        <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3">${t.theory_practice || ''}</td>
+        <td class="px-4 py-3">${t.year_level || ''}</td>
+        <td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
+        <td class="px-4 py-3">${t.coordinator || ''}</td>
+        <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
+        <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
+        <td class="px-4 py-3">${statusBadge(t.deputy_sign)}</td>
+        <td class="px-4 py-3">${t.approved_date || '-'}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
+      </tr>`}).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function showAddFileTrackingModal() {
+  showModal('เพิ่มข้อมูลติดตามการส่งแฟ้มรายวิชา', `
+    <form id="addFileTrackingForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
+    fd.forEach((v, k) => obj[k] = v);
+    const r = await GSheetDB.create(obj);
+    if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+  };
+}
+
 // ======================== LEAVE ========================
 function leavePage() {
   const isStudent = APP.currentRole === 'student';
@@ -1841,8 +1957,8 @@ function showAddLeaveModal() {
 // ======================== SETTINGS ========================
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'services', 'tracking', 'gradeTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามรายวิชา', gradeTracking: 'ติดตามส่งเกรด', leave: 'ระบบการลา' };
+  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามรายวิชา', gradeTracking: 'ติดตามส่งเกรด', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
