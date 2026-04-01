@@ -96,8 +96,8 @@ function initGSheet(sheetId, scriptUrl) {
     if (r.isOk) {
       showScreen('loginScreen');
     } else {
-      alert('เชื่อมต่อ Google Sheet ไม่สำเร็จ: ' + (r.error || 'ตรวจสอบว่า Sheet เป็น Public'));
-      showScreen('configScreen');
+      alert('เชื่อมต่อ Google Sheet ไม่สำเร็จ: ' + (r.error || 'ตรวจสอบว่า Sheet เป็น Public และไม่ได้ลบ Tab ที่จำเป็นทิ้ง'));
+      document.body.innerHTML = `<div class="h-screen flex flex-col items-center justify-center text-center p-6 bg-gray-50"><h2 class="text-2xl font-bold text-red-500 mb-2">เชื่อมต่อฐานข้อมูลไม่สำเร็จ 🚨</h2><p class="text-gray-600">${r.error || 'โปรดตรวจสอบลิงก์ Google Sheet ว่าถูกต้อง หรือสิทธิ์การเข้าถึงเป็น Anyone with the link'}</p></div>`;
     }
   });
 }
@@ -129,14 +129,11 @@ function readOnlyNotice() {
   showToast('ระบบเป็นแบบอ่านอย่างเดียว — แก้ไขข้อมูลใน Google Sheet', 'error');
 }
 
-// Boot: check for stored config
+// Boot: Hardcoded config
 (() => {
-  const storedConfig = GSheetDB.getStoredConfig();
-  if (storedConfig && storedConfig.spreadsheetId) {
-    initGSheet(storedConfig.spreadsheetId, storedConfig.scriptUrl || '');
-  } else {
-    showScreen('configScreen');
-  }
+  const HARDCODED_SPREADSHEET_ID = '1SjucS8W7syfiS7I9PyQQonwSYbHT5TwSHeo9B1cGQ9U';
+  const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzyTFKNmxCzEpqz-BNOTe3N3DREkHKhwMnsWjlU0AmM0YqaVrWrqFARHAI88MEKPulrMQ/exec';
+  initGSheet(HARDCODED_SPREADSHEET_ID, HARDCODED_SCRIPT_URL);
 })();
 
 // ======================== LOGIN ========================
