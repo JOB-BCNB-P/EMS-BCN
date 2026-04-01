@@ -1,6 +1,6 @@
 // ======================== STATE ========================
 let APP = {
-  currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
+  currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false, sidebarCollapsed: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
   permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
@@ -269,9 +269,14 @@ function buildSidebar() {
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
   if (p.teacherDirectory) items.push({ id: 'teacherDirectory', icon: 'award', label: 'ทำเนียบอาจารย์' });
-  if (p.tracking) items.push({ id: 'tracking', icon: 'file-check', label: 'ติดตามการส่งรายละเอียดรายวิชา' });
-  if (p.gradeTracking) items.push({ id: 'gradeTracking', icon: 'clipboard-check', label: 'ติดตามการส่งเกรดรายวิชา' });
-  if (p.fileTracking) items.push({ id: 'fileTracking', icon: 'folder-check', label: 'ติดตามการส่งแฟ้มรายวิชา' });
+
+  // Tracking dropdown
+  let trackSub = [];
+  if (p.tracking) trackSub.push({ id: 'tracking', label: 'ส่งรายละเอียดรายวิชา' });
+  if (p.gradeTracking) trackSub.push({ id: 'gradeTracking', label: 'ส่งเกรดรายวิชา' });
+  if (p.fileTracking) trackSub.push({ id: 'fileTracking', label: 'ส่งแฟ้มรายวิชา' });
+  if (trackSub.length) items.push({ id: 'trackingGroup', icon: 'clipboard-list', label: 'ติดตามการส่ง', sub: trackSub });
+
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
 
@@ -280,16 +285,25 @@ function buildSidebar() {
     if (it.sub) {
       return `<div class="dropdown-item">
         <button onclick="toggleDropdown(this)" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-surface transition">
-          <span class="flex items-center gap-3"><i data-lucide="${it.icon}" class="w-5 h-5"></i>${it.label}</span>
-          <i data-lucide="chevron-down" class="w-4 h-4 transition-transform"></i>
+          <span class="flex items-center gap-3"><i data-lucide="${it.icon}" class="w-5 h-5 flex-shrink-0"></i><span class="sidebar-label">${it.label}</span></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 transition-transform sidebar-label"></i>
         </button>
         <div class="dropdown-menu ml-8 mt-1 space-y-1">
-          ${it.sub.map(s => `<button onclick="navigateTo('${s.id}')" class="nav-item w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-surface hover:text-primary transition" data-page="${s.id}">${s.label}</button>`).join('')}
+          ${it.sub.map(s => `<button onclick="navigateTo('${s.id}')" class="nav-item w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-surface hover:text-primary transition" data-page="${s.id}"><span class="sidebar-label">${s.label}</span></button>`).join('')}
         </div>
       </div>`;
     }
-    return `<button onclick="navigateTo('${it.id}')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-surface hover:text-primary transition" data-page="${it.id}"><i data-lucide="${it.icon}" class="w-5 h-5"></i>${it.label}</button>`;
+    return `<button onclick="navigateTo('${it.id}')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-surface hover:text-primary transition" data-page="${it.id}"><i data-lucide="${it.icon}" class="w-5 h-5 flex-shrink-0"></i><span class="sidebar-label">${it.label}</span></button>`;
   }).join('');
+
+  // Add collapse button at bottom
+  nav.innerHTML += `<div class="mt-4 pt-3 border-t border-blue-100 hidden lg:block">
+    <button onclick="toggleSidebarCollapse()" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-400 hover:bg-surface hover:text-primary transition" title="ยุบ/ขยายแถบเมนู">
+      <i data-lucide="${APP.sidebarCollapsed ? 'chevrons-right' : 'chevrons-left'}" class="w-5 h-5 flex-shrink-0"></i>
+      <span class="sidebar-label">${APP.sidebarCollapsed ? 'ขยายเมนู' : 'ยุบเมนู'}</span>
+    </button>
+  </div>`;
+
   lucide.createIcons();
 }
 
@@ -306,6 +320,28 @@ function toggleSidebar() {
   APP.sidebarOpen = !APP.sidebarOpen;
   if (APP.sidebarOpen) { sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden') }
   else { sb.classList.add('-translate-x-full'); ov.classList.add('hidden') }
+}
+
+function toggleSidebarCollapse() {
+  APP.sidebarCollapsed = !APP.sidebarCollapsed;
+  const sb = document.getElementById('sidebar');
+  if (APP.sidebarCollapsed) {
+    sb.classList.remove('w-64');
+    sb.classList.add('w-16');
+    sb.querySelectorAll('.sidebar-label').forEach(el => el.classList.add('hidden'));
+    sb.querySelectorAll('.dropdown-menu').forEach(el => el.classList.add('hidden'));
+  } else {
+    sb.classList.remove('w-16');
+    sb.classList.add('w-64');
+    sb.querySelectorAll('.sidebar-label').forEach(el => el.classList.remove('hidden'));
+  }
+  buildSidebar();
+  // Re-highlight active page
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('bg-primaryLight', n.dataset.page === APP.currentPage);
+    n.classList.toggle('text-primary', n.dataset.page === APP.currentPage);
+    n.classList.toggle('font-semibold', n.dataset.page === APP.currentPage);
+  });
 }
 
 // ======================== NAVIGATION ========================
