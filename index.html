@@ -111,20 +111,28 @@
           <button type="button" onclick="handleLogin()"
             class="w-full mt-4 bg-primary hover:bg-primaryDark text-white font-semibold py-3 rounded-xl transition shadow-md hover:shadow-lg">เข้าสู่ระบบ</button>
       </div>
-        <div class="mt-6 bg-white/80 rounded-2xl p-4 border border-blue-100 backdrop-blur-sm">
-          <h3 class="font-semibold text-gray-700 mb-2 text-sm flex items-center gap-2">
-            <span class="w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-xs font-bold">?</span>
+      </div>
+
+      <!-- Floating ? button + popup -->
+      <button onclick="document.getElementById('contactPopup').classList.toggle('hidden')"
+        class="fixed bottom-6 right-6 w-12 h-12 bg-primary hover:bg-primaryDark text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-xl font-bold transition-all z-50 animate-bounce hover:animate-none"
+        title="ติดต่อสอบถาม" style="animation-iteration-count:3">?</button>
+      <div id="contactPopup" class="hidden fixed bottom-20 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-blue-200 p-5 z-50 fade-in">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2">
+            <span class="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">?</span>
             ติดต่อสอบถาม
           </h3>
-          <p class="text-sm text-gray-600 mb-2">โทร. <a href="tel:023542320" class="font-semibold text-primary hover:underline">02 354 2320</a></p>
-          <div class="grid grid-cols-2 gap-1.5 text-xs text-gray-600">
-            <span>• งานวิชาการ (admin) ต่อ <b>310</b></span>
-            <span>• งานบริหารหลักสูตร ต่อ <b>311</b></span>
-            <span>• งานข้อสอบและวัดประเมินผล ต่อ <b>320</b></span>
-            <span>• งานดิจิตอล ต่อ <b>322</b></span>
-            <span>• งานเลขา ต่อ <b>330</b></span>
-            <span>• งานทะเบียน ต่อ <b>340</b></span>
-          </div>
+          <button onclick="document.getElementById('contactPopup').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+        </div>
+        <p class="text-sm text-gray-600 mb-3">📞 โทร. <a href="tel:023542320" class="font-semibold text-primary hover:underline">02 354 2320</a></p>
+        <div class="space-y-1.5 text-sm text-gray-700">
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-primary rounded-full"></span>งานวิชาการ (admin) ต่อ <b>310</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span>งานบริหารหลักสูตร ต่อ <b>311</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-amber-500 rounded-full"></span>งานข้อสอบและวัดประเมินผล ต่อ <b>320</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-purple-500 rounded-full"></span>งานดิจิตอล ต่อ <b>322</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-pink-500 rounded-full"></span>งานเลขา ต่อ <b>330</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>งานทะเบียน ต่อ <b>340</b></div>
         </div>
       </div>
     </div>
