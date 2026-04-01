@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการวิชาการ', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, tracking: 1, gradeTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -270,6 +270,7 @@ function buildSidebar() {
 
   if (p.tracking) items.push({ id: 'tracking', icon: 'file-check', label: 'ติดตามรายละเอียดรายวิชา' });
   if (p.gradeTracking) items.push({ id: 'gradeTracking', icon: 'clipboard-check', label: 'ติดตามการส่งเกรด' });
+  if (p.fileTracking) items.push({ id: 'fileTracking', icon: 'folder-check', label: 'ติดตามการส่งแฟ้มรายวิชา' });
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลา' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
 
@@ -404,12 +405,14 @@ function paginationHTML(total, perPage, page, onChange) {
   const pages = Math.ceil(total / perPage) || 1;
   if (pages <= 1) return '';
   let h = '<div class="flex items-center justify-center gap-1 mt-4">';
-  h += `<button onclick="${onChange}(${Math.max(1, page - 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === 1 ? 'opacity-40' : ''}">‹</button>`;
+  h += `<button onclick="${onChange}(1)" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === 1 ? 'opacity-40' : ''}" title="หน้าแรก">«</button>`;
+  h += `<button onclick="${onChange}(${Math.max(1, page - 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === 1 ? 'opacity-40' : ''}" title="ก่อนหน้า">‹</button>`;
   for (let i = 1; i <= Math.min(pages, 7); i++) {
     const pg = pages <= 7 ? i : i <= 3 ? i : i <= 5 ? page - 3 + i : pages - 7 + i;
     h += `<button onclick="${onChange}(${Math.min(pages, Math.max(1, pg))})" class="px-3 py-1 rounded-lg text-sm ${pg === page ? 'bg-primary text-white' : 'border hover:bg-gray-50'}">${Math.min(pages, Math.max(1, pg))}</button>`;
   }
-  h += `<button onclick="${onChange}(${Math.min(pages, page + 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === pages ? 'opacity-40' : ''}">›</button>`;
+  h += `<button onclick="${onChange}(${Math.min(pages, page + 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === pages ? 'opacity-40' : ''}" title="ถัดไป">›</button>`;
+  h += `<button onclick="${onChange}(${pages})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === pages ? 'opacity-40' : ''}" title="หน้าสุดท้าย">»</button>`;
   h += '</div>';
   return h;
 }
@@ -481,6 +484,7 @@ function getPageContent(page, role) {
     case 'services': return servicesPage();
     case 'tracking': return trackingPage();
     case 'gradeTracking': return gradeTrackingPage();
+    case 'fileTracking': return fileTrackingPage();
     case 'leave': return leavePage();
     case 'settings': return settingsPage();
     default: return '<p>ไม่พบหน้าที่ต้องการ</p>';
@@ -563,6 +567,18 @@ function dashboardPage() {
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
       <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="megaphone" class="w-5 h-5 text-primary"></i>ประกาศ</h3>
       ${announcements.length ? announcements.map(a => `<div class="p-3 bg-surface rounded-xl mb-2"><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500">${a.announcement_date || ''}</p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content || '').substring(0, 100)}</p></div>`).join('') : '<p class="text-gray-400 text-sm text-center py-8">ยังไม่มีประกาศ</p>'}
+    </div>
+  </div>
+  <div class="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl p-5 border border-blue-200 mt-6">
+    <h3 class="font-bold mb-3 flex items-center gap-2 text-primary"><i data-lucide="phone" class="w-5 h-5"></i>ติดต่อสอบถาม</h3>
+    <p class="text-sm text-gray-700 mb-3"><i data-lucide="phone-call" class="w-4 h-4 inline mr-1"></i>โทร. <a href="tel:023542320" class="font-semibold text-primary hover:underline">02 354 2320</a></p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-primary rounded-full"></span><span class="text-sm">งานวิชาการ (admin) ต่อ <b>310</b></span></div>
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span><span class="text-sm">งานบริหารหลักสูตร ต่อ <b>311</b></span></div>
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-amber-500 rounded-full"></span><span class="text-sm">งานข้อสอบและวัดประเมินผล ต่อ <b>320</b></span></div>
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-purple-500 rounded-full"></span><span class="text-sm">งานดิจิตอล ต่อ <b>322</b></span></div>
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-pink-500 rounded-full"></span><span class="text-sm">งานเลขา ต่อ <b>330</b></span></div>
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-100"><span class="w-2 h-2 bg-red-500 rounded-full"></span><span class="text-sm">งานทะเบียน ต่อ <b>340</b></span></div>
     </div>
   </div>`;
 }
