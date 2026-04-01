@@ -603,17 +603,17 @@ function studentsPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
   </div>
-  ${filterBar({ yearLevel: true })}
+  ${filterBar({ semester: false, year: false, yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3"></th></tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showStudentDetail('${s.__backendId}')">
-        <td class="px-4 py-3">${s.name || ''}</td><td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td>
+        <td class="px-4 py-3">${s.name || ''}</td><td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3">${s.batch || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3">${s.advisor || ''}</td><td class="px-4 py-3">${s.phone || ''}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -626,12 +626,11 @@ function studentInfoPage() {
   return `<h2 class="text-xl font-bold text-gray-800 mb-4">ข้อมูลนักศึกษา</h2>
   <div class="bg-white rounded-2xl p-6 border border-blue-100">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      ${infoRow('ชื่อ-สกุล', stu.name)}${infoRow('รหัสนักศึกษา', stu.student_id)}${infoRow('สถานภาพ', stu.status)}
+      ${infoRow('ชื่อ-สกุล', stu.name)}${infoRow('รหัสนักศึกษา', stu.student_id)}${infoRow('รุ่นที่', stu.batch)}${infoRow('สถานภาพ', stu.status)}
       ${infoRow('ชั้นปี', stu.year_level)}${infoRow('ห้อง', stu.room)}${infoRow('โทร', stu.phone)}
       ${infoRow('E-mail', stu.email)}${infoRow('ผู้ปกครอง', stu.parent_name)}${infoRow('โทรผู้ปกครอง', stu.parent_phone)}
       ${infoRow('อาจารย์ที่ปรึกษา', stu.advisor)}
     </div>
-    <div class="mt-3">${infoRow('ที่อยู่', stu.address)}</div>
     </div>
   </div>`;
 }
@@ -647,6 +646,7 @@ function showAddStudentModal() {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา *</label><input name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -657,7 +657,6 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -677,11 +676,10 @@ function showStudentDetail(id) {
   const s = APP.allData.find(d => d.__backendId === id);
   if (!s) return;
   showModal('ข้อมูลนักศึกษา', `<div class="grid grid-cols-2 gap-3">
-    ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('สถานภาพ', s.status)}
+    ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('รุ่นที่', s.batch)}${infoRow('สถานภาพ', s.status)}
     ${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}
     ${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
-  </div>
-  <div class="mt-3">${infoRow('ที่อยู่', s.address)}</div>`);
+  </div>`);
 }
 
 // ======================== SUBJECTS ========================
@@ -1448,42 +1446,67 @@ function showPromoteYearModal() {
     <div class="space-y-4">
       <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
         <p class="font-semibold mb-1">⚠️ คำเตือน</p>
-        <p>การเลื่อนชั้นปีจะปรับข้อมูลนักศึกษาที่มีสถานภาพ "กำลังศึกษา" ทั้งหมด</p>
-        <p class="mt-1">• ชั้นปี 4 → สำเร็จการศึกษา</p>
-        <p>• ชั้นปี 3 → ชั้นปี 4</p>
-        <p>• ชั้นปี 2 → ชั้นปี 3</p>
-        <p>• ชั้นปี 1 → ชั้นปี 2</p>
+        <p>เลือกเลื่อนทีละชั้นปี หรือเลื่อนทั้งหมดพร้อมกัน (เฉพาะสถานภาพ "กำลังศึกษา")</p>
       </div>
-      <div class="grid grid-cols-4 gap-2 text-center">
-        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 1</p><p class="text-xl font-bold text-primary">${y1}</p></div>
-        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 2</p><p class="text-xl font-bold text-primary">${y2}</p></div>
-        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 3</p><p class="text-xl font-bold text-primary">${y3}</p></div>
-        <div class="bg-blue-50 rounded-xl p-3"><p class="text-xs text-gray-500">ปี 4</p><p class="text-xl font-bold text-primary">${y4}</p></div>
+
+      <div class="space-y-2">
+        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
+          <div><p class="font-medium text-sm">ชั้นปี 1 → ชั้นปี 2</p><p class="text-xs text-gray-500">${y1} คน</p></div>
+          <button onclick="executePromoteYear('1')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y1 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 1→2</button>
+        </div>
+        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
+          <div><p class="font-medium text-sm">ชั้นปี 2 → ชั้นปี 3</p><p class="text-xs text-gray-500">${y2} คน</p></div>
+          <button onclick="executePromoteYear('2')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y2 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 2→3</button>
+        </div>
+        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
+          <div><p class="font-medium text-sm">ชั้นปี 3 → ชั้นปี 4</p><p class="text-xs text-gray-500">${y3} คน</p></div>
+          <button onclick="executePromoteYear('3')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y3 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 3→4</button>
+        </div>
+        <div class="flex items-center justify-between bg-amber-50 rounded-xl p-3">
+          <div><p class="font-medium text-sm">ชั้นปี 4 → สำเร็จการศึกษา</p><p class="text-xs text-gray-500">${y4} คน</p></div>
+          <button onclick="executePromoteYear('4')" class="px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 text-sm" ${y4 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>จบการศึกษา</button>
+        </div>
       </div>
-      <div class="flex gap-2">
-        <button onclick="executePromoteYear()" class="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl hover:bg-emerald-600 font-semibold">ยืนยันเลื่อนชั้นปี</button>
-        <button onclick="closeModal()" class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl hover:bg-gray-300">ยกเลิก</button>
+
+      <div class="border-t pt-3">
+        <button onclick="executePromoteYear('all')" class="w-full bg-emerald-500 text-white py-2.5 rounded-xl hover:bg-emerald-600 font-semibold">เลื่อนทั้งหมดพร้อมกัน (ปี 1→2→3→4→จบ)</button>
       </div>
+      <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl hover:bg-gray-300">ยกเลิก</button>
     </div>
   `);
 }
 
-async function executePromoteYear() {
+async function executePromoteYear(targetYear) {
   const students = getDataByType('student').filter(s => s.status === 'กำลังศึกษา');
-  if (!students.length) { showToast('ไม่มีนักศึกษาที่ต้องเลื่อนชั้นปี', 'error'); closeModal(); return; }
+
+  let batch = [];
+  if (targetYear === 'all') {
+    batch = students;
+  } else {
+    batch = students.filter(s => norm(s.year_level) === targetYear);
+  }
+
+  if (!batch.length) { showToast('ไม่มีนักศึกษาที่ต้องเลื่อนชั้นปี', 'error'); return; }
+
+  const label = targetYear === 'all' ? 'ทั้งหมด' : targetYear === '4' ? 'ชั้นปี 4 → สำเร็จการศึกษา' : `ชั้นปี ${targetYear} → ${parseInt(targetYear) + 1}`;
+  if (!confirm(`ยืนยันเลื่อนชั้นปี: ${label} (${batch.length} คน)?`)) return;
 
   let successCount = 0; let errorCount = 0;
   showToast('กำลังเลื่อนชั้นปี... กรุณารอสักครู่');
 
-  // Process from year 4 down to year 1 to avoid conflicts
-  for (const yr of ['4', '3', '2', '1']) {
-    const batch = students.filter(s => norm(s.year_level) === yr);
-    for (const s of batch) {
-      if (yr === '4') {
-        s.status = 'สำเร็จการศึกษา';
-      } else {
-        s.year_level = String(parseInt(yr) + 1);
+  if (targetYear === 'all') {
+    // Process from year 4 down to year 1
+    for (const yr of ['4', '3', '2', '1']) {
+      const yrBatch = batch.filter(s => norm(s.year_level) === yr);
+      for (const s of yrBatch) {
+        if (yr === '4') { s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(parseInt(yr) + 1); }
+        const r = await GSheetDB.update(s);
+        if (r.isOk) successCount++; else errorCount++;
       }
+    }
+  } else {
+    for (const s of batch) {
+      if (targetYear === '4') { s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(parseInt(targetYear) + 1); }
       const r = await GSheetDB.update(s);
       if (r.isOk) successCount++; else errorCount++;
     }
@@ -1544,7 +1567,6 @@ function exportTeacherDirectoryExcel() {
   const activeTab = APP._directoryTab || 'all';
   if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
   else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
-  else if (activeTab === 'responsible') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร');
 
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
@@ -1567,7 +1589,7 @@ function exportTeacherDirectoryExcel() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'ประจำหลักสูตร' : activeTab === 'regular' ? 'ประจำ' : 'ผู้รับผิดชอบหลักสูตร';
+  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'ประจำหลักสูตร' : 'ประจำ';
   a.href = url;
   a.download = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);
@@ -1587,13 +1609,11 @@ function teacherDirectoryPage() {
   const catAll = data.length;
   const catCurriculum = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร').length;
   const catRegular = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ').length;
-  const catResponsible = data.filter(d => (d.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร').length;
 
   // Tab filter
   const activeTab = APP._directoryTab || 'all';
   if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
   else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
-  else if (activeTab === 'responsible') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร');
 
   const total = data.length; const paged = paginate(data);
 
@@ -1610,7 +1630,7 @@ function teacherDirectoryPage() {
     </div>
   </div>
 
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+  <div class="grid grid-cols-3 gap-3 mb-4">
     <div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ${activeTab === 'all' ? 'ring-2 ring-primary' : ''}" onclick="APP._directoryTab='all';APP.pagination.page=1;renderCurrentPage()">
       <p class="text-2xl font-bold text-primary">${catAll}</p><p class="text-xs text-gray-500">ทั้งหมด</p>
     </div>
@@ -1619,9 +1639,6 @@ function teacherDirectoryPage() {
     </div>
     <div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ${activeTab === 'regular' ? 'ring-2 ring-blue-500' : ''}" onclick="APP._directoryTab='regular';APP.pagination.page=1;renderCurrentPage()">
       <p class="text-2xl font-bold text-blue-600">${catRegular}</p><p class="text-xs text-gray-500">อ.ประจำ</p>
-    </div>
-    <div class="card-stat bg-white rounded-2xl p-4 border border-amber-100 text-center cursor-pointer ${activeTab === 'responsible' ? 'ring-2 ring-amber-500' : ''}" onclick="APP._directoryTab='responsible';APP.pagination.page=1;renderCurrentPage()">
-      <p class="text-2xl font-bold text-amber-600">${catResponsible}</p><p class="text-xs text-gray-500">อ.ผู้รับผิดชอบหลักสูตร</p>
     </div>
   </div>
 
@@ -1639,7 +1656,7 @@ function teacherDirectoryPage() {
         ${isAdmin ? '<th class="px-4 py-3"></th>' : ''}
       </tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-        const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : (t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+        const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
         return `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showTeacherDirectoryDetail('${t.__backendId}')">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td>
         <td class="px-4 py-3">${t.academic_position || '-'}</td>
@@ -1660,7 +1677,7 @@ function teacherDirectoryPage() {
 
 function showTeacherDirectoryDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
-  const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : (t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+  const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
 
   function detailList(val) {
     if (!val) return '<span class="text-gray-400">-</span>';
@@ -1698,7 +1715,6 @@ function showAddTeacherDirectoryModal() {
           <option value="">-- เลือกประเภท --</option>
           <option>อาจารย์ประจำหลักสูตร</option>
           <option>อาจารย์ประจำ</option>
-          <option>อาจารย์ผู้รับผิดชอบหลักสูตร</option>
         </select>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -1734,7 +1750,6 @@ function showEditTeacherDirectoryModal(id) {
           <option value="">-- เลือกประเภท --</option>
           <option ${(t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'selected' : ''}>อาจารย์ประจำหลักสูตร</option>
           <option ${(t.teacher_category || '') === 'อาจารย์ประจำ' ? 'selected' : ''}>อาจารย์ประจำ</option>
-          <option ${(t.teacher_category || '') === 'อาจารย์ผู้รับผิดชอบหลักสูตร' ? 'selected' : ''}>อาจารย์ผู้รับผิดชอบหลักสูตร</option>
         </select>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
@@ -2668,6 +2683,7 @@ function showEditStudentModal(id) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${s.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
@@ -2678,7 +2694,6 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" value="${s.parent_phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${s.address || ''}</textarea></div>
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
