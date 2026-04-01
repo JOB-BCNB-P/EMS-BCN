@@ -129,11 +129,22 @@ function readOnlyNotice() {
   showToast('ระบบเป็นแบบอ่านอย่างเดียว — แก้ไขข้อมูลใน Google Sheet', 'error');
 }
 
-// Boot: Hardcoded config
+// Default config (hardcoded fallback)
+const DEFAULT_SPREADSHEET_ID = '1SjucS8W7syfiS7I9PyQQonwSYbHT5TwSHeo9B1cGQ9U';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzyTFKNmxCzEpqz-BNOTe3N3DREkHKhwMnsWjlU0AmM0YqaVrWrqFARHAI88MEKPulrMQ/exec';
+
+function getActiveConfig() {
+  const stored = GSheetDB.getStoredConfig();
+  return {
+    spreadsheetId: (stored && stored.spreadsheetId) ? stored.spreadsheetId : DEFAULT_SPREADSHEET_ID,
+    scriptUrl: (stored && stored.scriptUrl) ? stored.scriptUrl : DEFAULT_SCRIPT_URL
+  };
+}
+
+// Boot
 (() => {
-  const HARDCODED_SPREADSHEET_ID = '1SjucS8W7syfiS7I9PyQQonwSYbHT5TwSHeo9B1cGQ9U';
-  const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzyTFKNmxCzEpqz-BNOTe3N3DREkHKhwMnsWjlU0AmM0YqaVrWrqFARHAI88MEKPulrMQ/exec';
-  initGSheet(HARDCODED_SPREADSHEET_ID, HARDCODED_SCRIPT_URL);
+  const cfg = getActiveConfig();
+  initGSheet(cfg.spreadsheetId, cfg.scriptUrl);
 })();
 
 // ======================== LOGIN ========================
@@ -1850,7 +1861,45 @@ function settingsPage() {
       <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold" style="width: 20%;">โมดูล</th>${roles.map(r => `<th class="px-3 py-2 text-center font-semibold" style="width: 20%;">${roleLabels[r]}</th>`).join('')}</tr></thead>
       <tbody>${modules.map(m => `<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r => `<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m] ? 'checked' : ''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>
-  </div>`;
+  </div>
+  ${APP.currentRole === 'admin' ? `
+  <div class="bg-white rounded-2xl p-5 border border-orange-200 mt-6">
+    <h3 class="font-bold mb-1 flex items-center gap-2"><i data-lucide="database" class="w-5 h-5 text-orange-500"></i>เชื่อมต่อฐานข้อมูล</h3>
+    <p class="text-xs text-gray-400 mb-4">เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่เปลี่ยนได้</p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Google Sheet URL หรือ Spreadsheet ID</label>
+        <input id="adminSheetUrl" value="${getActiveConfig().spreadsheetId || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="https://docs.google.com/spreadsheets/d/xxxxx/edit">
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-3">
+        <label class="block text-xs text-green-700 font-semibold mb-1">Apps Script URL (สำหรับแก้ไขข้อมูลผ่านเว็บ)</label>
+        <input id="adminScriptUrl" value="${getActiveConfig().scriptUrl || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+        <p class="text-xs text-gray-400 mt-1">ถ้าไม่กรอก = อ่านอย่างเดียว | กรอก = เพิ่ม/แก้ไข/ลบข้อมูลได้</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="saveAdminGSheetConfig()" class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 text-sm"><i data-lucide="save" class="w-4 h-4"></i>บันทึกและเชื่อมต่อใหม่</button>
+        <button onclick="resetToDefaultConfig()" class="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 text-sm"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>คืนค่าเริ่มต้น</button>
+      </div>
+    </div>
+  </div>` : ''}`;
+}
+
+function saveAdminGSheetConfig() {
+  const urlInput = document.getElementById('adminSheetUrl');
+  const scriptInput = document.getElementById('adminScriptUrl');
+  if (!urlInput) return;
+  const sheetId = GSheetDB.extractSheetId(urlInput.value) || urlInput.value.trim();
+  if (!sheetId) { showToast('กรุณากรอก Google Sheet URL หรือ Spreadsheet ID', 'error'); return }
+  const scriptUrl = scriptInput ? scriptInput.value.trim() : '';
+  if (!confirm('ต้องการเปลี่ยนการเชื่อมต่อ Google Sheet ใช่ไหม?\nระบบจะโหลดข้อมูลใหม่ทั้งหมด')) return;
+  GSheetDB.storeConfig({ spreadsheetId: sheetId, scriptUrl: scriptUrl });
+  location.reload();
+}
+
+function resetToDefaultConfig() {
+  if (!confirm('ต้องการคืนค่าเริ่มต้นของการเชื่อมต่อ Google Sheet ใช่ไหม?')) return;
+  GSheetDB.clearConfig();
+  location.reload();
 }
 
 function showAddUserModal() {
