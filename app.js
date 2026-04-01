@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการวิชาการ', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, services: 1, tracking: 1, gradeTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, tracking: 1, gradeTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -134,6 +134,7 @@ function normalizeRole(role) {
   if (r === 'teacher' || r === 'อาจารย์') return 'teacher';
   if (r === 'classteacher' || r === 'อาจารย์ประจำชั้น') return 'classTeacher';
   if (r === 'student' || r === 'นักศึกษา') return 'student';
+  if (r === 'executive' || r === 'ผู้บริหาร') return 'executive';
   return r;
 }
 function updateLoginFields() {
@@ -182,7 +183,7 @@ function handleLogin() {
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     const t = getDataByType('teacher').find(x => x.email === em);
     APP.currentUser = t ? { name: t.name, role: 'teacher', data: t } : { name: user.name || em, role: 'teacher', email: em };
-  } else {
+  } else if (role === 'classTeacher') {
     const em = document.getElementById('teacherEmail').value;
     const pw = document.getElementById('teacherPass').value;
     if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
@@ -191,11 +192,19 @@ function handleLogin() {
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     const t = getDataByType('teacher').find(x => x.email === em);
     APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || user.responsible_year || '1' } : { name: user.name || em, role: 'classTeacher', email: em, responsible_year: user.responsible_year || '1' };
+  } else if (role === 'executive') {
+    const em = document.getElementById('teacherEmail').value;
+    const pw = document.getElementById('teacherPass').value;
+    if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
+    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && String(u.password).replace(/\.0$/, '').trim() === pw);
+    if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
+    APP.currentUser = { name: user.name || em, role: 'executive', email: em };
   }
   APP.currentRole = APP.currentUser.role;
   showScreen('mainApp');
   document.getElementById('currentUserName').textContent = APP.currentUser.name;
-  document.getElementById('currentUserRole').textContent = { admin: 'ผู้ดูแลระบบ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา' }[APP.currentRole];
+  document.getElementById('currentUserRole').textContent = { admin: 'ผู้ดูแลระบบ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร' }[APP.currentRole];
   buildSidebar();
   navigateTo('dashboard');
   lucide.createIcons();
@@ -551,12 +560,12 @@ function studentsPage() {
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-3 font-semibold">โทร</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showStudentDetail('${s.__backendId}')">
         <td class="px-4 py-3">${s.name || ''}</td><td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3">${s.advisor || ''}</td><td class="px-4 py-3">${s.phone || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -573,6 +582,8 @@ function studentInfoPage() {
       ${infoRow('ชั้นปี', stu.year_level)}${infoRow('ห้อง', stu.room)}${infoRow('โทร', stu.phone)}
       ${infoRow('E-mail', stu.email)}${infoRow('ผู้ปกครอง', stu.parent_name)}${infoRow('โทรผู้ปกครอง', stu.parent_phone)}
       ${infoRow('อาจารย์ที่ปรึกษา', stu.advisor)}
+    </div>
+    <div class="mt-3">${infoRow('ที่อยู่', stu.address)}</div>
     </div>
   </div>`;
 }
@@ -598,6 +609,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -620,7 +632,8 @@ function showStudentDetail(id) {
     ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('สถานภาพ', s.status)}
     ${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}
     ${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
-  </div>`);
+  </div>
+  <div class="mt-3">${infoRow('ที่อยู่', s.address)}</div>`);
 }
 
 // ======================== SUBJECTS ========================
@@ -1299,23 +1312,54 @@ function showAddEvalModal() {
 
 // ======================== TEACHERS ========================
 function teachersPage() {
+  const isAdmin = APP.currentRole === 'admin';
+  const isExecutive = APP.currentRole === 'executive';
   let data = applyFilters(getDataByType('teacher'));
   const total = data.length; const paged = paginate(data);
+
+  // Executive sees basic info only
+  if (isExecutive) {
+    return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-xl font-bold text-gray-800"><i data-lucide="briefcase" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์</h2>
+    </div>
+    ${filterBar({ semester: false, year: false })}
+    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th></tr></thead>
+        <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
+          <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td></tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  }
+
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="briefcase" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์</h2>
-    <div class="flex gap-2"><button onclick="showAddTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button></div>
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button></div>` : ''}
   </div>
   ${filterBar({ semester: false, year: false })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th><th class="px-4 py-3"></th></tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th>${isAdmin ? '<th class="px-4 py-3 font-semibold">เลขประจำตัวประชาชน</th><th class="px-4 py-3 font-semibold">เลขบัญชีธนาคาร</th><th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
         <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3 font-mono text-xs">${t.national_id || '-'}</td><td class="px-4 py-3 font-mono text-xs">${t.bank_account || '-'}</td>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 8 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function showTeacherDetail(id) {
+  const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  showModal('ข้อมูลอาจารย์', `<div class="grid grid-cols-2 gap-3">
+    ${infoRow('ชื่อ-สกุล', t.name)}${infoRow('ตำแหน่ง', t.position)}${infoRow('สาขาวิชา', t.department)}
+    ${infoRow('โทร', t.phone)}${infoRow('E-mail', t.email)}${infoRow('ชั้นปีที่รับผิดชอบ', t.responsible_year)}
+    ${infoRow('เลขประจำตัวประชาชน', t.national_id)}${infoRow('เลขบัญชีธนาคาร', t.bank_account)}
+  </div>
+  <div class="mt-3">${infoRow('ที่อยู่', t.address)}</div>`);
 }
 
 function showAddTeacherModal() {
@@ -1328,7 +1372,10 @@ function showAddTeacherModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ (ถ้ามี)</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขประจำตัวประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -1402,6 +1449,8 @@ async function updateDocStatus(id, status) {
 // ======================== TRACKING ========================
 function trackingPage() {
   const isAdmin = APP.currentRole === 'admin';
+  const isExecutive = APP.currentRole === 'executive';
+  const canApprove = isAdmin || isExecutive;
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('tracking');
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
@@ -1412,14 +1461,32 @@ function trackingPage() {
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
 
-  // Find subjects not yet in tracking
-  const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-  const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+  // Only show not-submitted and stats when year is selected
+  let statsSection = '';
+  let notSubmittedSection = '';
+  if (selectedYear) {
+    // Find subjects not yet in tracking
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
 
-  // Status counts
-  const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-  const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
-  const pending = dataForStats.length - completed - inProgress;
+    // Status counts
+    const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
+    const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
+    const pending = dataForStats.length - completed - inProgress;
+
+    statsSection = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+      ${statCard('alert-circle', 'ยังไม่ส่ง', notSubmitted.length, 'วิชา', 'bg-red-500')}
+      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
+      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
+      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+    </div>`;
+    if (notSubmitted.length) {
+      notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
+        <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา)</h3>
+        <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+      </div>`;
+    }
+  }
 
   // Year options
   const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
@@ -1440,17 +1507,9 @@ function trackingPage() {
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      ${statCard('alert-circle', 'ยังไม่ส่ง', notSubmitted.length, 'วิชา', 'bg-red-500')}
-      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
-      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
-      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
-    </div>
+    ${statsSection}
   </div>
-  ${notSubmitted.length ? `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
-    <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา)</h3>
-    <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''}/${s.academic_year || ''})</span></span>`).join('')}</div>
-  </div>` : ''}
+  ${notSubmittedSection}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -1461,9 +1520,9 @@ function trackingPage() {
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
         <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td><td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
-        <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.class_teacher_check)}</td>
-        <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.academic_propose)}</td>
-        <td class="px-4 py-3">${isAdmin ? `<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.deputy_sign)}</td>
+        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.class_teacher_check)}</td>
+        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.academic_propose)}</td>
+        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.deputy_sign)}</td>
         <td class="px-4 py-3">${t.approved_date || '-'}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
@@ -1519,14 +1578,30 @@ function gradeTrackingPage() {
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
 
-  // Find subjects not yet in grade tracking
-  const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-  const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+  // Only show not-submitted and stats when year is selected
+  let statsSection = '';
+  let notSubmittedSection = '';
+  if (selectedYear) {
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
 
-  // Status counts
-  const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-  const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
-  const pending = dataForStats.length - completed - inProgress;
+    const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
+    const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
+    const pending = dataForStats.length - completed - inProgress;
+
+    statsSection = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+      ${statCard('alert-circle', 'ยังไม่ส่งเกรด', notSubmitted.length, 'วิชา', 'bg-red-500')}
+      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
+      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
+      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
+    </div>`;
+    if (notSubmitted.length) {
+      notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
+        <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งเกรด (${notSubmitted.length} วิชา)</h3>
+        <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+      </div>`;
+    }
+  }
 
   // Year options
   const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
@@ -1547,17 +1622,9 @@ function gradeTrackingPage() {
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      ${statCard('alert-circle', 'ยังไม่ส่งเกรด', notSubmitted.length, 'วิชา', 'bg-red-500')}
-      ${statCard('clock', 'รอดำเนินการ', pending, 'วิชา', 'bg-yellow-500')}
-      ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
-      ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
-    </div>
+    ${statsSection}
   </div>
-  ${notSubmitted.length ? `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
-    <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งเกรด (${notSubmitted.length} วิชา)</h3>
-    <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''}/${s.academic_year || ''})</span></span>`).join('')}</div>
-  </div>` : ''}
+  ${notSubmittedSection}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -1727,10 +1794,10 @@ function showAddLeaveModal() {
 
 // ======================== SETTINGS ========================
 function settingsPage() {
-  const roles = ['admin', 'teacher', 'classTeacher', 'student'];
+  const roles = ['admin', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'services', 'tracking', 'gradeTracking', 'leave'];
   const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามรายวิชา', gradeTracking: 'ติดตามส่งเกรด', leave: 'ระบบการลา' };
-  const roleLabels = { admin: 'ผู้ดูแลระบบ', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
+  const roleLabels = { admin: 'ผู้ดูแลระบบ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
   const total = users.length; const paged = paginate(users);
@@ -1774,6 +1841,7 @@ function showAddUserModal() {
         <select name="role" required onchange="onUserRoleChange(this.value)" class="w-full border rounded-xl px-3 py-2 text-sm">
           <option value="">เลือกบทบาท</option>
           <option value="admin">ผู้ดูแลระบบ</option>
+          <option value="executive">ผู้บริหาร</option>
           <option value="teacher">อาจารย์</option>
           <option value="classTeacher">อาจารย์ประจำชั้น</option>
           <option value="student">นักศึกษา</option>
@@ -1822,7 +1890,7 @@ function onUserRoleChange(role) {
   } else if (role === 'student') {
     fieldsDiv.innerHTML = `<div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน 13 หลัก *</label>
       <input name="national_id" maxlength="13" pattern="[0-9]{13}" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="13 หลัก"></div>`;
-  } else if (role === 'teacher' || role === 'classTeacher') {
+  } else if (role === 'teacher' || role === 'classTeacher' || role === 'executive') {
     fieldsDiv.innerHTML = `<div><label class="block text-xs text-gray-600 mb-1">E-mail *</label>
       <input name="email" type="email" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน (ถ้าไม่ระบุจะเป็น 123456)</label>
@@ -2088,6 +2156,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" value="${s.parent_phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${s.address || ''}</textarea></div>
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
@@ -2197,7 +2266,10 @@ function showEditTeacherModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${t.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${t.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(t.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(t.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(t.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(t.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขประจำตัวประชาชน</label><input name="national_id" value="${t.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" value="${t.bank_account || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.address || ''}</textarea></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
@@ -2262,11 +2334,11 @@ function showEditLeaveModal(id) {
 
 function showEditUserModal(id) {
   const u = APP.allData.find(d => d.__backendId === id); if (!u) return;
-  const roleLabels = { admin: 'ผู้ดูแลระบบ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา' };
+  const roleLabels = { admin: 'ผู้ดูแลระบบ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา' };
   showModal('แก้ไขผู้ใช้งาน', `
     <form id="editUserForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${u.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">บทบาท</label><select name="role" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ</option><option value="teacher" ${u.role === 'teacher' ? 'selected' : ''}>อาจารย์</option><option value="classTeacher" ${u.role === 'classTeacher' ? 'selected' : ''}>อาจารย์ประจำชั้น</option><option value="student" ${u.role === 'student' ? 'selected' : ''}>นักศึกษา</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">บทบาท</label><select name="role" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ</option><option value="executive" ${u.role === 'executive' ? 'selected' : ''}>ผู้บริหาร</option><option value="teacher" ${u.role === 'teacher' ? 'selected' : ''}>อาจารย์</option><option value="classTeacher" ${u.role === 'classTeacher' ? 'selected' : ''}>อาจารย์ประจำชั้น</option><option value="student" ${u.role === 'student' ? 'selected' : ''}>นักศึกษา</option></select></div>
       <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${u.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
