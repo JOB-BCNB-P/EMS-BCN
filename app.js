@@ -10,6 +10,20 @@ let APP = {
 
 function getDataByType(t) { return APP.allData.filter(d => d.type === t) }
 
+// Look up student name from student_id
+function getStudentName(studentId) {
+  if (!studentId) return '';
+  const stu = getDataByType('student').find(s => s.student_id === studentId);
+  return stu ? stu.name : '';
+}
+
+// Build student <option> list for forms
+function studentOptionsHTML(selectedId) {
+  const students = getDataByType('student');
+  return `<option value="">-- เลือกนักศึกษา --</option>` +
+    students.map(s => `<option value="${s.student_id || ''}" ${(s.student_id || '') === (selectedId || '') ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('');
+}
+
 // ======================== GOOGLE SHEET INIT ========================
 function saveGSheetConfig() {
   const input = document.getElementById('gsheetUrlInput');
@@ -467,7 +481,7 @@ function dashboardPage() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${[1, 2, 3, 4].map(yr => {
       const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
-      const yrEngPass = engPass.filter(e => yrStudents.some(s => s.name === e.name));
+      const yrEngPass = engPass.filter(e => yrStudents.some(s => s.student_id === e.student_id));
       return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
           <div class="flex gap-3 mt-2">
@@ -479,7 +493,7 @@ function dashboardPage() {
     </div>`;
   } else if (r === 'teacher') {
     const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
-    const myEngPass = getDataByType('eng_result').filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.name === e.name));
+    const myEngPass = getDataByType('eng_result').filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id));
     stats = `
     <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">ข้อมูลตนเอง</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -489,7 +503,7 @@ function dashboardPage() {
   } else if (r === 'classTeacher') {
     const yr = APP.currentUser.responsible_year || '1';
     const myStudents = students.filter(s => norm(s.year_level) === norm(yr));
-    const myEngPass = getDataByType('eng_result').filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.name === e.name));
+    const myEngPass = getDataByType('eng_result').filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id));
     stats = `
     <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">อาจารย์ประจำชั้นปีที่ ${yr}</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -749,17 +763,12 @@ function gradesPage() {
     </div>`;
   }
 
-  // Filter data — match by student_id or name
+  // Filter data — match by student_id
   let data;
   if (isStudent && APP.currentUser.data) {
-    data = allGrades.filter(g => g.name === APP.currentUser.data.name || g.student_id === APP.currentUser.data.student_id);
+    data = allGrades.filter(g => g.student_id === APP.currentUser.data.student_id);
   } else if (selectedStudentName) {
-    const selStu = getDataByType('student').find(s => s.student_id === selectedStudentName || s.name === selectedStudentName);
-    if (selStu) {
-      data = allGrades.filter(g => g.name === selStu.name || g.student_id === selStu.student_id);
-    } else {
-      data = allGrades.filter(g => g.name === selectedStudentName || g.student_id === selectedStudentName);
-    }
+    data = allGrades.filter(g => g.student_id === selectedStudentName);
   } else {
     data = [];
   }
@@ -787,7 +796,7 @@ function gradesPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-text" class="w-6 h-6 inline mr-2"></i>ผลการเรียน</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddGradeModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลการเรียน</button>${csvUploadBtn('grade', 'name,student_id,subject_name,grade,credits,semester,academic_year')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddGradeModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลการเรียน</button>${csvUploadBtn('grade', 'student_id,subject_code,subject_name,grade,credits,semester,academic_year')}</div>` : ''}
   </div>
   ${studentSelector}
   ${noSelectionMsg || `${filterBar()}
@@ -808,9 +817,9 @@ function gradesPage() {
 function showAddGradeModal() {
   showModal('เพิ่มผลการเรียน', `
     <form id="addGradeForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา *</label><select name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML()}</select></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="3" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -842,7 +851,7 @@ function showTranscriptForStudent(studentKey) {
 }
 
 function _renderTranscript(stu) {
-  const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
+  const grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
   const semesters = {};
@@ -912,7 +921,7 @@ function _renderTranscript(stu) {
 async function downloadTranscriptPDF(studentKey) {
   const stu = getDataByType('student').find(s => s.student_id === studentKey || s.name === studentKey) || (APP.currentUser.data && (APP.currentUser.data.name === studentKey || APP.currentUser.data.student_id === studentKey) ? APP.currentUser.data : null);
   if (!stu) return;
-  const grades = getDataByType('grade').filter(g => g.name === stu.name || g.student_id === stu.student_id);
+  const grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
   const semesters = {};
@@ -995,17 +1004,12 @@ function engResultsPage() {
     </div>`;
   }
 
-  // Filter data — match by student_id or name
+  // Filter data — match by student_id
   let data;
   if (isStudent && APP.currentUser.data) {
-    data = allEng.filter(e => e.name === APP.currentUser.data.name || e.student_id === APP.currentUser.data.student_id);
+    data = allEng.filter(e => e.student_id === APP.currentUser.data.student_id);
   } else if (selectedStudentName) {
-    const selStu = getDataByType('student').find(s => s.student_id === selectedStudentName || s.name === selectedStudentName);
-    if (selStu) {
-      data = allEng.filter(e => e.name === selStu.name || e.student_id === selStu.student_id);
-    } else {
-      data = allEng.filter(e => e.name === selectedStudentName || e.student_id === selectedStudentName);
-    }
+    data = allEng.filter(e => e.student_id === selectedStudentName);
   } else {
     data = [];
   }
@@ -1020,7 +1024,7 @@ function engResultsPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="languages" class="w-6 h-6 inline mr-2"></i>ผลสอบภาษาอังกฤษ</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'name,eng_score,eng_type,eng_status')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_status')}</div>` : ''}
   </div>
   ${studentSelector}
   ${noSelectionMsg || `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -1042,7 +1046,7 @@ function engResultsPage() {
 function showAddEngModal() {
   showModal('เพิ่มผลสอบภาษาอังกฤษ', `
     <form id="addEngForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา *</label><select name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML()}</select></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input name="eng_score" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ</label><input name="eng_type" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
@@ -2074,9 +2078,8 @@ function showEditGradeModal(id) {
   const g = APP.allData.find(d => d.__backendId === id); if (!g) return;
   showModal('แก้ไขผลการเรียน', `
     <form id="editGradeForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(g.student_id)}</select></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${g.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${g.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${g.subject_code || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${g.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${g.grade === 'A' ? 'selected' : ''}>A</option><option ${g.grade === 'B+' ? 'selected' : ''}>B+</option><option ${g.grade === 'B' ? 'selected' : ''}>B</option><option ${g.grade === 'C+' ? 'selected' : ''}>C+</option><option ${g.grade === 'C' ? 'selected' : ''}>C</option><option ${g.grade === 'D+' ? 'selected' : ''}>D+</option><option ${g.grade === 'D' ? 'selected' : ''}>D</option><option ${g.grade === 'F' ? 'selected' : ''}>F</option></select></div>
@@ -2094,7 +2097,7 @@ function showEditEngModal(id) {
   const e = APP.allData.find(d => d.__backendId === id); if (!e) return;
   showModal('แก้ไขผลสอบภาษาอังกฤษ', `
     <form id="editEngForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${e.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(e.student_id)}</select></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input name="eng_score" type="number" value="${e.eng_score || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบ</label><input name="eng_type" value="${e.eng_type || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
