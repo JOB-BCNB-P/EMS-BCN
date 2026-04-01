@@ -1358,7 +1358,7 @@ function showAddEvalModal() {
 
 // ======================== TEACHERS ========================
 function teachersPage() {
-  const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const isAdmin = APP.currentRole === 'admin';
   const isExecutive = APP.currentRole === 'executive';
   let data = applyFilters(getDataByType('teacher'));
   const total = data.length; const paged = paginate(data);
@@ -1387,12 +1387,12 @@ function teachersPage() {
   ${filterBar({ semester: false, year: false })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th>${isAdmin ? '<th class="px-4 py-3 font-semibold">เลขประจำตัวประชาชน</th><th class="px-4 py-3 font-semibold">เลขบัญชีธนาคาร</th><th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th>${isAdmin ? '<th class="px-4 py-3 font-semibold">เลขบัญชีธนาคาร</th><th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
         <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3 font-mono text-xs">${t.national_id || '-'}</td><td class="px-4 py-3 font-mono text-xs">${t.bank_account || '-'}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 8 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3 font-mono text-xs">${t.bank_account || '-'}</td>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 7 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -1403,7 +1403,7 @@ function showTeacherDetail(id) {
   showModal('ข้อมูลอาจารย์', `<div class="grid grid-cols-2 gap-3">
     ${infoRow('ชื่อ-สกุล', t.name)}${infoRow('ตำแหน่ง', t.position)}${infoRow('สาขาวิชา', t.department)}
     ${infoRow('โทร', t.phone)}${infoRow('E-mail', t.email)}${infoRow('ชั้นปีที่รับผิดชอบ', t.responsible_year)}
-    ${infoRow('เลขประจำตัวประชาชน', t.national_id)}${infoRow('เลขบัญชีธนาคาร', t.bank_account)}
+    ${infoRow('เลขบัญชีธนาคาร', t.bank_account)}
   </div>
   <div class="mt-3">${infoRow('ที่อยู่', t.address)}</div>`);
 }
@@ -1418,7 +1418,6 @@ function showAddTeacherModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ (ถ้ามี)</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">เลขประจำตัวประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
