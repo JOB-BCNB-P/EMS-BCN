@@ -269,8 +269,8 @@ function buildSidebar() {
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
   if (p.teacherDirectory) items.push({ id: 'teacherDirectory', icon: 'award', label: 'ทำเนียบอาจารย์' });
-  if (p.tracking) items.push({ id: 'tracking', icon: 'file-check', label: 'ติดตามสถานะการส่งรายละเอียดรายวิชา' });
-  if (p.gradeTracking) items.push({ id: 'gradeTracking', icon: 'clipboard-check', label: 'ติดตามสถานะการส่งเกรดรายวิชา' });
+  if (p.tracking) items.push({ id: 'tracking', icon: 'file-check', label: 'ติดตามการส่งรายละเอียดรายวิชา' });
+  if (p.gradeTracking) items.push({ id: 'gradeTracking', icon: 'clipboard-check', label: 'ติดตามการส่งเกรดรายวิชา' });
   if (p.fileTracking) items.push({ id: 'fileTracking', icon: 'folder-check', label: 'ติดตามการส่งแฟ้มรายวิชา' });
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
@@ -1993,7 +1993,7 @@ function gradeTrackingPage() {
   const total = data.length; const paged = paginate(data);
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามสถานะการส่งเกรดรายวิชา</h2>
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="clipboard-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งเกรดรายวิชา</h2>
     ${canEdit ? `<button onclick="showAddGradeTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
   </div>
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
@@ -2043,7 +2043,7 @@ function gradeTrackingPage() {
 }
 
 function showAddGradeTrackingModal() {
-  showModal('เพิ่มข้อมูลติดตามสถานะการส่งเกรดรายวิชา', `
+  showModal('เพิ่มข้อมูลติดตามการส่งเกรดรายวิชา', `
     <form id="addGradeTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div class="grid grid-cols-2 gap-3">
@@ -2294,7 +2294,7 @@ function showAddLeaveModal() {
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'teacherDirectory', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามสถานะการส่งรายละเอียดรายวิชา', gradeTracking: 'ติดตามสถานะการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
