@@ -1498,7 +1498,7 @@ function trackingPage() {
   const isExecutive = APP.currentRole === 'executive';
   const canApprove = isAdmin || isExecutive;
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
-  let data = getDataByType('tracking');
+  let data = getDataByType('tracking').filter(t => t.subject_name && t.subject_name.trim());
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
 
   // Year filter for stats
@@ -1615,7 +1615,7 @@ async function updateTrackingField(id, field, value) {
 function gradeTrackingPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
-  let data = getDataByType('grade_tracking');
+  let data = getDataByType('grade_tracking').filter(t => t.subject_name && t.subject_name.trim());
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
 
   // Year filter for stats
@@ -1734,7 +1734,7 @@ function showAddGradeTrackingModal() {
 function fileTrackingPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
-  let data = getDataByType('file_tracking');
+  let data = getDataByType('file_tracking').filter(t => t.subject_name && t.subject_name.trim());
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
 
   // Year filter for stats
