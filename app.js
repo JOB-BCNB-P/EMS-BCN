@@ -603,7 +603,7 @@ function studentsPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
   </div>
   ${filterBar({ semester: false, year: false, yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
