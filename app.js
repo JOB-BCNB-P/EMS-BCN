@@ -346,6 +346,7 @@ function navigateTo(page) {
   APP.filters._gradeTrackingYear = '';
   APP.filters._evalTeacher = '';
   APP._directoryTab = 'all';
+  APP.filters._directoryYear = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -1617,14 +1618,16 @@ function maskNationalId(nid) {
 function exportTeacherDirectoryExcel() {
   let data = getDataByType('teacher_directory');
   const activeTab = APP._directoryTab || 'all';
+  const selectedYear = APP.filters._directoryYear || '';
+  if (selectedYear) data = data.filter(d => (d.academic_year || '') === selectedYear);
   if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
   else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
 
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
   // Build CSV with BOM for Excel Thai support
-  const headers = ['ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์สอนทางการพยาบาล', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ประสบการณ์ปฏิบัติการพยาบาล', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
-  const fields = ['name', 'national_id', 'license_no', 'academic_position', 'education', 'nursing_teaching_years', 'nursing_teaching_exp', 'nursing_practice_years', 'nursing_practice_exp', 'academic_work', 'teacher_category'];
+  const headers = ['ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์สอนทางการพยาบาล', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ประสบการณ์ปฏิบัติการพยาบาล', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ปีการศึกษา', 'ประเภทอาจารย์'];
+  const fields = ['name', 'national_id', 'license_no', 'academic_position', 'education', 'nursing_teaching_years', 'nursing_teaching_exp', 'nursing_practice_years', 'nursing_practice_exp', 'academic_work', 'academic_year', 'teacher_category'];
 
   function csvEscape(val) {
     const s = (val || '').replace(/\|\|/g, ', ');
@@ -1656,7 +1659,13 @@ function exportTeacherDirectoryExcel() {
 
 function teacherDirectoryPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
-  let data = applyFilters(getDataByType('teacher_directory'));
+  let allData = applyFilters(getDataByType('teacher_directory'));
+
+  // Academic year filter
+  const allYears = [...new Set(allData.map(d => d.academic_year).filter(Boolean))].sort().reverse();
+  const selectedYear = APP.filters._directoryYear || '';
+  if (selectedYear) allData = allData.filter(d => (d.academic_year || '') === selectedYear);
+  let data = allData;
 
   // Counts by category
   const catAll = data.length;
@@ -1679,7 +1688,18 @@ function teacherDirectoryPage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
     <div class="flex gap-2">
       <button onclick="exportTeacherDirectoryExcel()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="download" class="w-4 h-4"></i>ส่งออก Excel</button>
-      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,teacher_category')}` : ''}
+      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._directoryYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">ทั้งหมด</option>
+        ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+      ${selectedYear ? `<span class="text-xs text-gray-500">แสดงข้อมูลปีการศึกษา ${selectedYear}</span>` : ''}
     </div>
   </div>
 
@@ -1739,6 +1759,7 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('เลขบัตรประชาชน', maskNationalId(t.national_id))}
         ${infoRow('เลขใบประกอบวิชาชีพ', t.license_no)}
         ${infoRow('ตำแหน่งทางวิชาการ', t.academic_position)}
+        ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">วุฒิการศึกษา</p>${detailList(t.education)}</div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล ${t.nursing_teaching_years ? '<span class="text-primary font-bold">(' + t.nursing_teaching_years + ' ปี)</span>' : ''}</p>${detailList(t.nursing_teaching_exp)}</div>
@@ -1769,12 +1790,15 @@ function showAddTeacherDirectoryModal() {
         ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', '')}
       </div>
       ${multiInputField('academic_work', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'เช่น บทความวิจัยเรื่อง...', '')}
-      <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์ *</label>
-        <select name="teacher_category" required class="w-full border rounded-xl px-3 py-2 text-sm">
-          <option value="">-- เลือกประเภท --</option>
-          <option>อาจารย์ประจำหลักสูตร</option>
-          <option>อาจารย์ประจำ</option>
-        </select>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="2568"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์ *</label>
+          <select name="teacher_category" required class="w-full border rounded-xl px-3 py-2 text-sm">
+            <option value="">-- เลือกประเภท --</option>
+            <option>อาจารย์ประจำหลักสูตร</option>
+            <option>อาจารย์ประจำ</option>
+          </select>
+        </div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
@@ -1792,6 +1816,7 @@ function showAddTeacherDirectoryModal() {
     obj.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
     obj.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
     obj.academic_work = collectMultiInputs(form, 'academic_work');
+    obj.academic_year = form.querySelector('[name="academic_year"]').value;
     obj.teacher_category = form.querySelector('[name="teacher_category"]').value;
     const r = await GSheetDB.create(obj);
     if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
@@ -1820,12 +1845,15 @@ function showEditTeacherDirectoryModal(id) {
         ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', t.nursing_practice_exp || '')}
       </div>
       ${multiInputField('academic_work', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'เช่น บทความวิจัยเรื่อง...', t.academic_work || '')}
-      <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์</label>
-        <select name="teacher_category" class="w-full border rounded-xl px-3 py-2 text-sm">
-          <option value="">-- เลือกประเภท --</option>
-          <option ${(t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'selected' : ''}>อาจารย์ประจำหลักสูตร</option>
-          <option ${(t.teacher_category || '') === 'อาจารย์ประจำ' ? 'selected' : ''}>อาจารย์ประจำ</option>
-        </select>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${t.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์</label>
+          <select name="teacher_category" class="w-full border rounded-xl px-3 py-2 text-sm">
+            <option value="">-- เลือกประเภท --</option>
+            <option ${(t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'selected' : ''}>อาจารย์ประจำหลักสูตร</option>
+            <option ${(t.teacher_category || '') === 'อาจารย์ประจำ' ? 'selected' : ''}>อาจารย์ประจำ</option>
+          </select>
+        </div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
@@ -1843,6 +1871,7 @@ function showEditTeacherDirectoryModal(id) {
     rec.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
     rec.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
     rec.academic_work = collectMultiInputs(form, 'academic_work');
+    rec.academic_year = form.querySelector('[name="academic_year"]').value;
     rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
     const r = await GSheetDB.update(rec);
     if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
