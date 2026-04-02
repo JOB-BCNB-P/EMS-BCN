@@ -48,7 +48,7 @@ function resetGSheetConfig() {
   if (hasAdmin) {
     const p = prompt("กรุณากรอกรหัสผ่านผู้ดูแลระบบ (Admin) 6 หลัก เพื่อเปลี่ยน Google Sheet:");
     if (!p) return;
-    const adminUser = allUsers.find(u => normalizeRole(u.role) === 'admin' && String(u.password).replace(/\\.0$/, '').trim() === p.trim());
+    const adminUser = allUsers.find(u => normalizeRole(u.role) === 'admin' && cleanPassword(u.password) === p.trim());
     if (!adminUser) {
       alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง");
       return;
@@ -159,6 +159,14 @@ function normalizeRole(role) {
   if (r === 'executive' || r === 'ผู้บริหาร') return 'executive';
   return r;
 }
+
+// Clean password value from Google Sheet (handles .0, scientific notation, etc.)
+function cleanPassword(val) {
+  let s = String(val || '').trim();
+  s = s.replace(/\.0$/, '');
+  if (s.includes('E') || s.includes('e')) { try { s = String(Math.round(Number(s))); } catch(_) {} }
+  return s;
+}
 function updateLoginFields() {
   const role = document.getElementById('loginRole').value;
   const f = document.getElementById('loginFields');
@@ -179,13 +187,21 @@ function handleLogin() {
   if (role === 'admin') {
     const p = document.getElementById('adminPass').value;
     if (!/^\d{6}$/.test(p)) { err.textContent = 'กรุณากรอกรหัสผ่าน 6 หลัก (ตัวเลขเท่านั้น)'; err.classList.remove('hidden'); return }
-    const adminUser = getDataByType('user').find(u => normalizeRole(u.role) === 'admin' && String(u.password).replace(/\.0$/, '').trim() === p);
+    const adminUser = getDataByType('user').find(u => {
+      if (normalizeRole(u.role) !== 'admin') return false;
+      return cleanPassword(u.password) === p;
+    });
     if (!adminUser) {
       const allUsers = getDataByType('user');
       if (allUsers.length === 0) {
         err.innerHTML = 'ไม่พบข้อมูลผู้ใช้ — ตรวจสอบว่า Google Sheet มี tab ชื่อ "user" และ Share เป็น Public แล้ว<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button>';
       } else {
-        err.textContent = 'รหัสผ่านไม่ถูกต้อง (พบ user ' + allUsers.length + ' คน)';
+        const adminUsers = allUsers.filter(u => normalizeRole(u.role) === 'admin');
+        if (adminUsers.length === 0) {
+          err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
+        } else {
+          err.textContent = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน จาก user ทั้งหมด ' + allUsers.length + ' คน)';
+        }
       }
       err.classList.remove('hidden'); return
     }
@@ -201,7 +217,7 @@ function handleLogin() {
     const pw = document.getElementById('teacherPass').value;
     if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'teacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && String(u.password).replace(/\.0$/, '').trim() === pw);
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'teacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     const t = getDataByType('teacher').find(x => x.email === em);
     APP.currentUser = t ? { name: t.name, role: 'teacher', data: t } : { name: user.name || em, role: 'teacher', email: em };
@@ -210,7 +226,7 @@ function handleLogin() {
     const pw = document.getElementById('teacherPass').value;
     if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'academic' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && String(u.password).replace(/\\.0$/, '').trim() === pw);
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'academic' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: user.name || em, role: 'academic', email: em };
   } else if (role === 'classTeacher') {
@@ -218,7 +234,7 @@ function handleLogin() {
     const pw = document.getElementById('teacherPass').value;
     if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'classTeacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && String(u.password).replace(/\.0$/, '').trim() === pw);
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'classTeacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     const t = getDataByType('teacher').find(x => x.email === em);
     APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || user.responsible_year || '1' } : { name: user.name || em, role: 'classTeacher', email: em, responsible_year: user.responsible_year || '1' };
@@ -227,7 +243,7 @@ function handleLogin() {
     const pw = document.getElementById('teacherPass').value;
     if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && String(u.password).replace(/\.0$/, '').trim() === pw);
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: user.name || em, role: 'executive', email: em };
   }
