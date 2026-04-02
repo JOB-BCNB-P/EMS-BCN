@@ -200,7 +200,8 @@ function handleLogin() {
         if (adminUsers.length === 0) {
           err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
         } else {
-          err.textContent = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน จาก user ทั้งหมด ' + allUsers.length + ' คน)';
+          const debugPwds = adminUsers.map(u => '"' + String(u.password || '') + '"→"' + cleanPassword(u.password) + '"').join(', ');
+          err.textContent = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน, ค่าที่กรอก="' + p + '", ค่าในระบบ: ' + debugPwds + ')';
         }
       }
       err.classList.remove('hidden'); return
