@@ -1657,6 +1657,39 @@ function exportTeacherDirectoryExcel() {
   showToast('ส่งออกไฟล์สำเร็จ');
 }
 
+function renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) {
+  let html = '<div class="grid grid-cols-3 gap-3 mb-4">';
+  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ' + (activeTab === 'all' ? 'ring-2 ring-primary' : '') + '" onclick="APP._directoryTab=\'all\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-primary">' + catAll + '</p><p class="text-xs text-gray-500">ทั้งหมด</p></div>';
+  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-purple-100 text-center cursor-pointer ' + (activeTab === 'curriculum' ? 'ring-2 ring-purple-500' : '') + '" onclick="APP._directoryTab=\'curriculum\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-purple-600">' + catCurriculum + '</p><p class="text-xs text-gray-500">อ.ประจำหลักสูตร</p></div>';
+  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ' + (activeTab === 'regular' ? 'ring-2 ring-blue-500' : '') + '" onclick="APP._directoryTab=\'regular\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-blue-600">' + catRegular + '</p><p class="text-xs text-gray-500">อ.ประจำ</p></div>';
+  html += '</div>';
+  html += filterBar({ semester: false, year: false });
+  html += '<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm">';
+  html += '<thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่งทางวิชาการ</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3"></th></tr></thead>';
+  html += '<tbody>';
+  if (paged.length) {
+    paged.forEach(t => {
+      const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+      html += '<tr class="border-t hover:bg-gray-50">';
+      html += '<td class="px-4 py-3 font-medium">' + (t.name || '') + '</td>';
+      html += '<td class="px-4 py-3">' + (t.academic_position || '-') + '</td>';
+      html += '<td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ' + catColor + '">' + (t.teacher_category || '-') + '</span></td>';
+      html += '<td class="px-4 py-3"><div class="flex gap-1">';
+      html += '<button onclick="showTeacherDirectoryDetail(\'' + t.__backendId + '\')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>';
+      if (isAdmin) {
+        html += '<button onclick="showEditTeacherDirectoryModal(\'' + t.__backendId + '\')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>';
+        html += '<button onclick="deleteRecord(\'' + t.__backendId + '\')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>';
+      }
+      html += '</div></td></tr>';
+    });
+  } else {
+    html += '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
+  }
+  html += '</tbody></table></div></div>';
+  html += paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage');
+  return html;
+}
+
 function teacherDirectoryPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   let allData = applyFilters(getDataByType('teacher_directory'));
@@ -1703,41 +1736,7 @@ function teacherDirectoryPage() {
     </div>
   </div>
 
-  <div class="grid grid-cols-3 gap-3 mb-4">
-    <div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ${activeTab === 'all' ? 'ring-2 ring-primary' : ''}" onclick="APP._directoryTab='all';APP.pagination.page=1;renderCurrentPage()">
-      <p class="text-2xl font-bold text-primary">${catAll}</p><p class="text-xs text-gray-500">ทั้งหมด</p>
-    </div>
-    <div class="card-stat bg-white rounded-2xl p-4 border border-purple-100 text-center cursor-pointer ${activeTab === 'curriculum' ? 'ring-2 ring-purple-500' : ''}" onclick="APP._directoryTab='curriculum';APP.pagination.page=1;renderCurrentPage()">
-      <p class="text-2xl font-bold text-purple-600">${catCurriculum}</p><p class="text-xs text-gray-500">อ.ประจำหลักสูตร</p>
-    </div>
-    <div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ${activeTab === 'regular' ? 'ring-2 ring-blue-500' : ''}" onclick="APP._directoryTab='regular';APP.pagination.page=1;renderCurrentPage()">
-      <p class="text-2xl font-bold text-blue-600">${catRegular}</p><p class="text-xs text-gray-500">อ.ประจำ</p>
-    </div>
-  </div>
-
-  ${filterBar({ semester: false, year: false })}
-  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
-    <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left">
-        <th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>
-        <th class="px-4 py-3 font-semibold">ตำแหน่งทางวิชาการ</th>
-        <th class="px-4 py-3 font-semibold">ประเภท</th>
-        <th class="px-4 py-3"></th>
-      </tr></thead>
-      <tbody>${paged.length ? paged.map(t => {
-        const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
-        return `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3 font-medium">${t.name || ''}</td>
-        <td class="px-4 py-3">${t.academic_position || '-'}</td>
-        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></td>
-        <td class="px-4 py-3"><div class="flex gap-1">
-          <button onclick="showTeacherDirectoryDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>
-          ${isAdmin ? `<button onclick="showEditTeacherDirectoryModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-        </div></td>
-      </tr>`}).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
-    </table></div>
-  </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${selectedYear ? renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) : '<div class="bg-blue-50 rounded-2xl p-8 text-center text-blue-600 mt-4"><i data-lucide="info" class="w-6 h-6 inline mr-2"></i>กรุณาเลือกปีการศึกษาเพื่อดูข้อมูลทำเนียบอาจารย์</div>'}`;
 }
 
 function showTeacherDirectoryDetail(id) {
