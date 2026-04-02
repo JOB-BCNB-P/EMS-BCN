@@ -60,6 +60,8 @@ const GSheetDB = (() => {
           if (cols[i]) {
             let val = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
             if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
+            // Handle scientific notation from Google Sheets (e.g. 1.40932E5)
+            if (val.match(/^[\d.]+[Ee][+\-]?\d+$/)) { try { val = String(BigInt(Math.round(Number(val)))); } catch(_) { val = String(Math.round(Number(val))); } }
             obj[cols[i]] = val;
           }
         });
