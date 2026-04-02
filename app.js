@@ -318,12 +318,17 @@ function navigateTo(page) {
   APP.currentPage = page;
   APP.pagination.page = 1;
   APP.filters.search = '';
+  APP.filters.semester = '';
+  APP.filters.academicYear = '';
+  APP.filters.yearLevel = '';
   APP.filters._gradeStudent = '';
   APP.filters._engStudent = '';
   APP.filters._gradeSearch = '';
   APP.filters._engSearch = '';
   APP.filters._trackingYear = '';
   APP.filters._gradeTrackingYear = '';
+  APP.filters._evalTeacher = '';
+  APP._directoryTab = 'all';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -424,11 +429,21 @@ function paginationHTML(total, perPage, page, onChange) {
 }
 
 function filterBar(opts = {}) {
+  const searchVal = APP.filters.search || '';
   let h = '<div class="flex flex-wrap gap-3 mb-4">';
-  h += `<div class="flex-1 min-w-[200px] relative"><i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหา..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" onkeyup="APP.filters.search=this.value;APP.pagination.page=1;renderCurrentPage()"></div>`;
-  if (opts.semester !== false) h += `<select onchange="APP.filters.semester=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกภาคการศึกษา</option><option value="1">ภาคการศึกษาที่ 1</option><option value="2">ภาคการศึกษาที่ 2</option><option value="3">ภาคฤดูร้อน</option></select>`;
-  if (opts.year !== false) h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option><option value="2567">2567</option><option value="2568">2568</option></select>`;
-  if (opts.yearLevel) h += `<select onchange="APP.filters.yearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกชั้นปี</option><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option></select>`;
+  h += `<div class="flex-1 min-w-[200px] relative"><i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหา..." value="${searchVal}" class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" oninput="APP.filters.search=this.value;APP.pagination.page=1;clearTimeout(window._searchTimer);window._searchTimer=setTimeout(()=>renderCurrentPage(),300)"></div>`;
+  if (opts.semester !== false) {
+    const sem = APP.filters.semester || '';
+    h += `<select onchange="APP.filters.semester=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกภาคการศึกษา</option><option value="1" ${sem==='1'?'selected':''}>ภาคการศึกษาที่ 1</option><option value="2" ${sem==='2'?'selected':''}>ภาคการศึกษาที่ 2</option><option value="3" ${sem==='3'?'selected':''}>ภาคฤดูร้อน</option></select>`;
+  }
+  if (opts.year !== false) {
+    const yr = APP.filters.academicYear || '';
+    h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option><option value="2567" ${yr==='2567'?'selected':''}>2567</option><option value="2568" ${yr==='2568'?'selected':''}>2568</option><option value="2569" ${yr==='2569'?'selected':''}>2569</option></select>`;
+  }
+  if (opts.yearLevel) {
+    const yl = APP.filters.yearLevel || '';
+    h += `<select onchange="APP.filters.yearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกชั้นปี</option><option value="1" ${yl==='1'?'selected':''}>ชั้นปี 1</option><option value="2" ${yl==='2'?'selected':''}>ชั้นปี 2</option><option value="3" ${yl==='3'?'selected':''}>ชั้นปี 3</option><option value="4" ${yl==='4'?'selected':''}>ชั้นปี 4</option></select>`;
+  }
   h += '</div>';
   return h;
 }
@@ -1196,7 +1211,8 @@ function evalTeacherPage() {
       byTeacher[tname].count++;
     });
 
-    const teacherFilter = `<select onchange="APP.filters._evalTeacher=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกอาจารย์</option>${[...new Set(data.map(e => e.teacher_name || e.name).filter(Boolean))].map(t => `<option>${t}</option>`).join('')}</select>`;
+    const selEvalTeacher = APP.filters._evalTeacher || '';
+    const teacherFilter = `<select onchange="APP.filters._evalTeacher=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">-- เลือกอาจารย์ --</option>${[...new Set(data.map(e => e.teacher_name || e.name).filter(Boolean))].map(t => `<option ${t === selEvalTeacher ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
 
     return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="star" class="w-6 h-6 inline mr-2"></i>ระบบประเมินอาจารย์ผู้สอน</h2>
     
@@ -1612,9 +1628,7 @@ function exportTeacherDirectoryExcel() {
 
 function teacherDirectoryPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
-  let data = getDataByType('teacher_directory');
-  const search = APP.filters.search ? APP.filters.search.toLowerCase() : '';
-  if (search) data = data.filter(d => (d.name || '').toLowerCase().includes(search) || (d.academic_position || '').toLowerCase().includes(search));
+  let data = applyFilters(getDataByType('teacher_directory'));
 
   // Counts by category
   const catAll = data.length;
