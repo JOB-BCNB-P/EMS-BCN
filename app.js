@@ -1700,33 +1700,21 @@ function teacherDirectoryPage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left">
         <th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>
-        <th class="px-4 py-3 font-semibold">เลขบัตรประชาชน</th>
-        <th class="px-4 py-3 font-semibold">เลขใบประกอบวิชาชีพ</th>
         <th class="px-4 py-3 font-semibold">ตำแหน่งทางวิชาการ</th>
-        <th class="px-4 py-3 font-semibold">วุฒิการศึกษา</th>
-        <th class="px-4 py-3 font-semibold">ประสบการณ์สอน</th>
-        <th class="px-4 py-3 font-semibold">ประสบการณ์ปฏิบัติการ</th>
-        <th class="px-4 py-3 font-semibold">ผลงานวิชาการ (5 ปี)</th>
         <th class="px-4 py-3 font-semibold">ประเภท</th>
-        ${isAdmin ? '<th class="px-4 py-3"></th>' : ''}
+        <th class="px-4 py-3"></th>
       </tr></thead>
       <tbody>${paged.length ? paged.map(t => {
         const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
-        return `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showTeacherDirectoryDetail('${t.__backendId}')">
+        return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td>
-        <td class="px-4 py-3 text-xs font-mono">${maskNationalId(t.national_id)}</td>
-        <td class="px-4 py-3 text-xs">${t.license_no || '-'}</td>
         <td class="px-4 py-3">${t.academic_position || '-'}</td>
-        <td class="px-4 py-3 text-xs">${multiValList(t.education)}</td>
-        <td class="px-4 py-3 text-xs">${multiValList((t.nursing_teaching_exp || '').substring(0, 80))}</td>
-        <td class="px-4 py-3 text-xs">${multiValList((t.nursing_practice_exp || '').substring(0, 80))}</td>
-        <td class="px-4 py-3 text-xs">${multiValList((t.academic_work || '').substring(0, 80))}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1">
-          <button onclick="event.stopPropagation();showEditTeacherDirectoryModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-          <button onclick="event.stopPropagation();deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-        </div></td>` : ''}
-      </tr>`}).join('') : `<tr><td colspan="${isAdmin ? 10 : 9}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1">
+          <button onclick="showTeacherDirectoryDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          ${isAdmin ? `<button onclick="showEditTeacherDirectoryModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+        </div></td>
+      </tr>`}).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
