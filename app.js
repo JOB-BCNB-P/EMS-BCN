@@ -613,12 +613,11 @@ function studentsPage() {
   ${filterBar({ semester: false, year: false, yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3"></th></tr></thead>
-      <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showStudentDetail('${s.__backendId}')">
-        <td class="px-4 py-3">${s.name || ''}</td><td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3">${s.batch || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
+      <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
-        <td class="px-4 py-3">${s.advisor || ''}</td><td class="px-4 py-3">${s.phone || ''}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="event.stopPropagation();showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="event.stopPropagation();showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="event.stopPropagation();deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -1131,6 +1130,20 @@ function showAddEngModal() {
 }
 
 // ======================== EVAL TEACHER ========================
+function renderEvalTeacherFiltered(data, byTeacher, teacherName) {
+  const filtered = data.filter(e => (e.teacher_name || e.name) === teacherName);
+  const selTeacher = byTeacher[teacherName];
+  let html = '';
+  if (selTeacher) {
+    html += `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4"><p class="font-bold">${teacherName}</p><p class="text-sm text-gray-500">${selTeacher.subject || ''}</p><div class="flex items-center gap-2 mt-2"><span class="text-2xl font-bold text-primary">${(selTeacher.total / selTeacher.count).toFixed(1)}</span><span class="text-gray-400">/5 (${selTeacher.count} ผลประเมิน)</span></div></div>`;
+  }
+  html += `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">อาจารย์</th><th class="px-4 py-3 font-semibold">นักศึกษา</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
+    <tbody>${filtered.length ? filtered.slice(0, 30).map(e => '<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">' + (e.subject_name || '') + '</td><td class="px-4 py-3">' + (e.teacher_name || e.name || '') + '</td><td class="px-4 py-3">' + (e.student_name || '') + '</td><td class="px-4 py-3 font-bold">' + (e.eval_score || '') + '/5</td><td class="px-4 py-3">' + (e.semester || '') + '/' + (e.academic_year || '') + '</td></tr>').join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
+  </table></div></div>`;
+  return html;
+}
+
 function evalTeacherPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const isStudent = APP.currentRole === 'student';
@@ -1210,13 +1223,7 @@ function evalTeacherPage() {
 
     <h3 class="font-bold mb-3">ผลประเมินรวม</h3>
     <div class="flex flex-wrap gap-3 mb-4">${teacherFilter}</div>
-    ${Object.keys(byTeacher).length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${Object.entries(byTeacher).map(([name, d]) => `<div class="bg-white rounded-2xl p-4 border border-blue-100"><p class="font-bold">${name}</p><p class="text-sm text-gray-500">${d.subject || ''}</p><div class="flex items-center gap-2 mt-2"><span class="text-2xl font-bold text-primary">${(d.total / d.count).toFixed(1)}</span><span class="text-gray-400">/5 (${d.count} ผลประเมิน)</span></div></div>`).join('')}</div>` : ''}
-    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
-      <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">อาจารย์</th><th class="px-4 py-3 font-semibold">นักศึกษา</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
-        <tbody>${data.length ? data.slice(0, 30).map(e => `<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name || ''}</td><td class="px-4 py-3">${e.teacher_name || e.name || ''}</td><td class="px-4 py-3">${e.student_name || ''}</td><td class="px-4 py-3 font-bold">${e.eval_score || ''}/5</td><td class="px-4 py-3">${e.semester || ''}/${e.academic_year || ''}</td></tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
-      </table></div>
-    </div>`;
+    ${APP.filters._evalTeacher ? renderEvalTeacherFiltered(data, byTeacher, APP.filters._evalTeacher) : '<div class="bg-blue-50 rounded-2xl p-6 text-center text-blue-600"><i data-lucide="info" class="w-5 h-5 inline mr-1"></i>กรุณาเลือกอาจารย์เพื่อดูผลประเมิน</div>'}`;
   }
 
   // ===== Teacher view: see own results =====
@@ -1393,12 +1400,11 @@ function teachersPage() {
   ${filterBar({ semester: false, year: false })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th>${isAdmin ? '<th class="px-4 py-3 font-semibold">เลขบัญชีธนาคาร</th><th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
-        <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3 font-mono text-xs">${t.bank_account || '-'}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button><button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 7 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        <td class="px-4 py-3">${t.department || ''}</td>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
