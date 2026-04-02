@@ -1623,8 +1623,8 @@ function exportTeacherDirectoryExcel() {
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
   // Build CSV with BOM for Excel Thai support
-  const headers = ['ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอนทางการพยาบาล', 'ประสบการณ์ปฏิบัติการพยาบาล', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
-  const fields = ['name', 'national_id', 'license_no', 'academic_position', 'education', 'nursing_teaching_exp', 'nursing_practice_exp', 'academic_work', 'teacher_category'];
+  const headers = ['ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์สอนทางการพยาบาล', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ประสบการณ์ปฏิบัติการพยาบาล', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
+  const fields = ['name', 'national_id', 'license_no', 'academic_position', 'education', 'nursing_teaching_years', 'nursing_teaching_exp', 'nursing_practice_years', 'nursing_practice_exp', 'academic_work', 'teacher_category'];
 
   function csvEscape(val) {
     const s = (val || '').replace(/\|\|/g, ', ');
@@ -1679,7 +1679,7 @@ function teacherDirectoryPage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
     <div class="flex gap-2">
       <button onclick="exportTeacherDirectoryExcel()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="download" class="w-4 h-4"></i>ส่งออก Excel</button>
-      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_exp,nursing_practice_exp,academic_work,teacher_category')}` : ''}
+      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,teacher_category')}` : ''}
     </div>
   </div>
 
@@ -1741,8 +1741,8 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('ตำแหน่งทางวิชาการ', t.academic_position)}
       </div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">วุฒิการศึกษา</p>${detailList(t.education)}</div>
-      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล</p>${detailList(t.nursing_teaching_exp)}</div>
-      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์ปฏิบัติการพยาบาล</p>${detailList(t.nursing_practice_exp)}</div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล ${t.nursing_teaching_years ? '<span class="text-primary font-bold">(' + t.nursing_teaching_years + ' ปี)</span>' : ''}</p>${detailList(t.nursing_teaching_exp)}</div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์ปฏิบัติการพยาบาล ${t.nursing_practice_years ? '<span class="text-primary font-bold">(' + t.nursing_practice_years + ' ปี)</span>' : ''}</p>${detailList(t.nursing_practice_exp)}</div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ผลงานวิชาการ (ย้อนหลัง 5 ปี)</p>${detailList(t.academic_work)}</div>
     </div>
   `);
@@ -1758,8 +1758,16 @@ function showAddTeacherDirectoryModal() {
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ผศ.ดร., รศ."></div>
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', '')}
-      ${multiInputField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่ 10 ปี', '')}
-      ${multiInputField('nursing_practice_exp', 'ประสบการณ์ปฏิบัติการพยาบาล', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี 5 ปี', '')}
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
+        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">จำนวนปี</span><input name="nursing_teaching_years" type="number" min="0" class="w-20 border rounded-xl px-3 py-2 text-sm" placeholder="ปี"></div>
+        ${multiInputField('nursing_teaching_exp', 'รายละเอียด', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', '')}
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
+        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">จำนวนปี</span><input name="nursing_practice_years" type="number" min="0" class="w-20 border rounded-xl px-3 py-2 text-sm" placeholder="ปี"></div>
+        ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', '')}
+      </div>
       ${multiInputField('academic_work', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'เช่น บทความวิจัยเรื่อง...', '')}
       <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์ *</label>
         <select name="teacher_category" required class="w-full border rounded-xl px-3 py-2 text-sm">
@@ -1779,7 +1787,9 @@ function showAddTeacherDirectoryModal() {
     obj.license_no = form.querySelector('[name="license_no"]').value;
     obj.academic_position = form.querySelector('[name="academic_position"]').value;
     obj.education = collectMultiInputs(form, 'education');
+    obj.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
     obj.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
+    obj.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
     obj.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
     obj.academic_work = collectMultiInputs(form, 'academic_work');
     obj.teacher_category = form.querySelector('[name="teacher_category"]').value;
@@ -1799,8 +1809,16 @@ function showEditTeacherDirectoryModal(id) {
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" value="${t.academic_position || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', t.education || '')}
-      ${multiInputField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่ 10 ปี', t.nursing_teaching_exp || '')}
-      ${multiInputField('nursing_practice_exp', 'ประสบการณ์ปฏิบัติการพยาบาล', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี 5 ปี', t.nursing_practice_exp || '')}
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
+        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">จำนวนปี</span><input name="nursing_teaching_years" type="number" min="0" value="${t.nursing_teaching_years || ''}" class="w-20 border rounded-xl px-3 py-2 text-sm" placeholder="ปี"></div>
+        ${multiInputField('nursing_teaching_exp', 'รายละเอียด', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', t.nursing_teaching_exp || '')}
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
+        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">จำนวนปี</span><input name="nursing_practice_years" type="number" min="0" value="${t.nursing_practice_years || ''}" class="w-20 border rounded-xl px-3 py-2 text-sm" placeholder="ปี"></div>
+        ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', t.nursing_practice_exp || '')}
+      </div>
       ${multiInputField('academic_work', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'เช่น บทความวิจัยเรื่อง...', t.academic_work || '')}
       <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์</label>
         <select name="teacher_category" class="w-full border rounded-xl px-3 py-2 text-sm">
@@ -1820,7 +1838,9 @@ function showEditTeacherDirectoryModal(id) {
     rec.license_no = form.querySelector('[name="license_no"]').value;
     rec.academic_position = form.querySelector('[name="academic_position"]').value;
     rec.education = collectMultiInputs(form, 'education');
+    rec.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
     rec.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
+    rec.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
     rec.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
     rec.academic_work = collectMultiInputs(form, 'academic_work');
     rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
