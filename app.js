@@ -201,7 +201,7 @@ function handleLogin() {
           err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
         } else {
           const debugPwds = adminUsers.map(u => '"' + String(u.password || '') + '"→"' + cleanPassword(u.password) + '"').join(', ');
-          err.textContent = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน, ค่าที่กรอก="' + p + '", ค่าในระบบ: ' + debugPwds + ')';
+          err.innerHTML = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน, ค่าที่กรอก="' + p + '", ค่าในระบบ: ' + debugPwds + ')<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
         }
       }
       err.classList.remove('hidden'); return
