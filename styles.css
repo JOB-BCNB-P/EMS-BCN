@@ -14,19 +14,7 @@ body,
 }
 
 .sidebar {
-    transition: transform .3s ease, width .3s ease
-}
-
-.sidebar.w-16 .dropdown-item .dropdown-menu {
-    display: none !important
-}
-
-.sidebar.w-16 button {
-    justify-content: center
-}
-
-.sidebar.w-16 button span.flex {
-    gap: 0
+    transition: transform .3s ease
 }
 
 .sidebar-hidden {
