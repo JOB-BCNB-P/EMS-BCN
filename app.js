@@ -44,7 +44,7 @@ function saveGSheetConfig() {
 function resetGSheetConfig() {
   const allUsers = getDataByType('user');
   const hasAdmin = allUsers.some(u => normalizeRole(u.role) === 'admin');
-  
+
   if (hasAdmin) {
     const p = prompt("กรุณากรอกรหัสผ่านผู้ดูแลระบบ (Admin) 6 หลัก เพื่อเปลี่ยน Google Sheet:");
     if (!p) return;
@@ -164,7 +164,7 @@ function normalizeRole(role) {
 function cleanPassword(val) {
   let s = String(val || '').trim();
   s = s.replace(/\.0$/, '');
-  if (s.includes('E') || s.includes('e')) { try { s = String(Math.round(Number(s))); } catch(_) {} }
+  if (s.includes('E') || s.includes('e')) { try { s = String(Math.round(Number(s))); } catch (_) { } }
   return s;
 }
 function updateLoginFields() {
@@ -489,15 +489,15 @@ function filterBar(opts = {}) {
   h += `<div class="flex-1 min-w-[200px] relative"><i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหา..." value="${searchVal}" class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" oninput="APP.filters.search=this.value;APP.pagination.page=1;clearTimeout(window._searchTimer);window._searchTimer=setTimeout(()=>renderCurrentPage(),300)"></div>`;
   if (opts.semester !== false) {
     const sem = APP.filters.semester || '';
-    h += `<select onchange="APP.filters.semester=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกภาคการศึกษา</option><option value="1" ${sem==='1'?'selected':''}>ภาคการศึกษาที่ 1</option><option value="2" ${sem==='2'?'selected':''}>ภาคการศึกษาที่ 2</option><option value="3" ${sem==='3'?'selected':''}>ภาคฤดูร้อน</option></select>`;
+    h += `<select onchange="APP.filters.semester=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกภาคการศึกษา</option><option value="1" ${sem === '1' ? 'selected' : ''}>ภาคการศึกษาที่ 1</option><option value="2" ${sem === '2' ? 'selected' : ''}>ภาคการศึกษาที่ 2</option><option value="3" ${sem === '3' ? 'selected' : ''}>ภาคฤดูร้อน</option></select>`;
   }
   if (opts.year !== false) {
     const yr = APP.filters.academicYear || '';
-    h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option><option value="2567" ${yr==='2567'?'selected':''}>2567</option><option value="2568" ${yr==='2568'?'selected':''}>2568</option><option value="2569" ${yr==='2569'?'selected':''}>2569</option></select>`;
+    h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option><option value="2567" ${yr === '2567' ? 'selected' : ''}>2567</option><option value="2568" ${yr === '2568' ? 'selected' : ''}>2568</option><option value="2569" ${yr === '2569' ? 'selected' : ''}>2569</option></select>`;
   }
   if (opts.yearLevel) {
     const yl = APP.filters.yearLevel || '';
-    h += `<select onchange="APP.filters.yearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกชั้นปี</option><option value="1" ${yl==='1'?'selected':''}>ชั้นปี 1</option><option value="2" ${yl==='2'?'selected':''}>ชั้นปี 2</option><option value="3" ${yl==='3'?'selected':''}>ชั้นปี 3</option><option value="4" ${yl==='4'?'selected':''}>ชั้นปี 4</option></select>`;
+    h += `<select onchange="APP.filters.yearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกชั้นปี</option><option value="1" ${yl === '1' ? 'selected' : ''}>ชั้นปี 1</option><option value="2" ${yl === '2' ? 'selected' : ''}>ชั้นปี 2</option><option value="3" ${yl === '3' ? 'selected' : ''}>ชั้นปี 3</option><option value="4" ${yl === '4' ? 'selected' : ''}>ชั้นปี 4</option></select>`;
   }
   h += '</div>';
   return h;
@@ -1073,7 +1073,7 @@ function _renderTranscript(stu) {
   showModal('ใบรายงานผลการเรียน', `
     <div id="transcriptContent" class="bg-white p-4" style="max-width:700px;margin:auto;">
       <div class="text-center mb-3">
-        <img src="Logo_Thai.png" alt="Logo" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="this.style.display='none'">
+        <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="this.style.display='none'">
         <p class="font-bold text-sm">${APP.config.college_name}</p>
         <p class="text-xs text-gray-600">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</p>
         <p class="text-xs text-gray-600">${studentProgram} ระดับ ${studentLevel}${studentBatch ? ' รุ่นที่ ' + studentBatch : ''}${studentYearLevel ? ' ชั้นปีที่ ' + studentYearLevel : ''}</p>
@@ -1133,7 +1133,7 @@ async function downloadTranscriptPDF(studentKey) {
   const gpax = totalCreditsAll ? (totalPointsAll / totalCreditsAll).toFixed(2) : 'N/A';
 
   let logoBase64 = '';
-  try { const resp = await fetch('Logo_Thai.png'); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } } catch (e) { }
+  try { const resp = await fetch('https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png'); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } } catch (e) { }
 
   const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
   const studentLevel = stu.level || 'ปริญญาตรี';
@@ -1735,7 +1735,7 @@ function exportTeacherDirectoryExcel() {
   const a = document.createElement('a');
   const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'ประจำหลักสูตร' : 'ประจำ';
   a.href = url;
-  a.download = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
