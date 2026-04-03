@@ -345,6 +345,7 @@ function navigateTo(page) {
   APP.filters._trackingYear = '';
   APP.filters._gradeTrackingYear = '';
   APP.filters._fileTrackingYear = '';
+  APP.filters._studentYearLevel = '';
   APP.filters._evalTeacher = '';
   APP._directoryTab = 'all';
   APP.filters._directoryYear = '';
@@ -656,17 +657,29 @@ function studentsPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || isClassTeacher;
   const allStudents = getDataByType('student');
-  const selectedYear = APP.filters._pageYear || '';
+  const selectedYearLevel = APP.filters._studentYearLevel || '';
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,academic_year')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+  </div>
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
+      <select onchange="APP.filters._studentYearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- เลือกชั้นปี --</option>
+        <option value="1" ${selectedYearLevel === '1' ? 'selected' : ''}>ชั้นปี 1</option>
+        <option value="2" ${selectedYearLevel === '2' ? 'selected' : ''}>ชั้นปี 2</option>
+        <option value="3" ${selectedYearLevel === '3' ? 'selected' : ''}>ชั้นปี 3</option>
+        <option value="4" ${selectedYearLevel === '4' ? 'selected' : ''}>ชั้นปี 4</option>
+      </select>
+      ${selectedYearLevel ? '<span class="text-xs text-gray-500">แสดงข้อมูลชั้นปี ' + selectedYearLevel + '</span>' : ''}
+    </div>
   </div>`;
-  headerHtml += yearPickerBar(allStudents, 'ปีการศึกษา');
 
-  if (!selectedYear) return headerHtml + noYearSelectedMsg('นักศึกษา');
+  if (!selectedYearLevel) return headerHtml + noYearSelectedMsg('นักศึกษา (กรุณาเลือกชั้นปี)');
 
-  let data = allStudents.filter(s => (s.academic_year || '') === selectedYear);
+  let data = allStudents.filter(s => norm(s.year_level) === selectedYearLevel);
   if (isClassTeacher) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'teacher') data = data.filter(s => s.advisor === APP.currentUser.name);
   data = applyFilters(data);
@@ -674,7 +687,7 @@ function studentsPage() {
   const paged = paginate(data);
 
   return headerHtml + `
-  ${filterBar({ semester: false, year: false, yearLevel: true })}
+  ${filterBar({ semester: false, year: false, yearLevel: false })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
