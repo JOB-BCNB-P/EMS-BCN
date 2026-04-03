@@ -1841,7 +1841,7 @@ function teacherDirectoryPage() {
     </div>
   </div>
 
-  ${selectedYear ? renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) : '<div class="bg-blue-50 rounded-2xl p-8 text-center text-blue-600 mt-4"><i data-lucide="info" class="w-6 h-6 inline mr-2"></i>กรุณาเลือกปีการศึกษาเพื่อดูข้อมูลทำเนียบอาจารย์</div>'}`;
+  ${renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin)}`;
 }
 
 function showTeacherDirectoryDetail(id) {
