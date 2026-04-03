@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="th" class="h-full">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,11 +32,8 @@
       class="h-full w-full hidden items-center justify-center bg-gradient-to-br from-sky-50 via-white to-blue-50">
       <div class="w-full max-w-lg mx-4 fade-in">
         <div class="text-center mb-6">
-          <div class="w-20 h-20 mx-auto mb-4 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-            <svg width="40" height="40" viewbox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+          <div class="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden bg-white">
+            <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" class="w-full h-full object-contain p-1">
           </div>
           <h1 class="text-2xl font-bold text-gray-800">เชื่อมต่อ Google Sheet</h1>
           <p class="text-gray-500 mt-1">วาง URL หรือ Spreadsheet ID</p>
@@ -80,11 +78,8 @@
       class="h-full w-full hidden items-center justify-center bg-gradient-to-br from-sky-50 via-white to-blue-50">
       <div class="w-full max-w-md mx-4 fade-in">
         <div class="text-center mb-8">
-          <div class="w-20 h-20 mx-auto mb-4 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-            <svg width="40" height="40" viewbox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+          <div class="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden bg-white">
+            <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" class="w-full h-full object-contain p-1">
           </div>
           <h1 class="text-2xl font-bold text-gray-800" id="loginTitle">ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)</h1>
           <p class="text-gray-500 mt-1" id="loginCollege">วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ</p>
@@ -109,29 +104,39 @@
           <div id="loginError" class="text-red-500 text-sm mt-2 hidden"></div>
           <button type="button" onclick="handleLogin()"
             class="w-full mt-4 bg-primary hover:bg-primaryDark text-white font-semibold py-3 rounded-xl transition shadow-md hover:shadow-lg">เข้าสู่ระบบ</button>
-      </div>
+        </div>
       </div>
 
       <!-- Floating ? button + popup -->
       <button onclick="document.getElementById('contactPopup').classList.toggle('hidden')"
         class="fixed bottom-6 right-6 w-12 h-12 bg-primary hover:bg-primaryDark text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-xl font-bold transition-all z-50 animate-bounce hover:animate-none"
         title="ติดต่อสอบถาม" style="animation-iteration-count:3">?</button>
-      <div id="contactPopup" class="hidden fixed bottom-20 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-blue-200 p-5 z-50 fade-in">
+      <div id="contactPopup"
+        class="hidden fixed bottom-20 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-blue-200 p-5 z-50 fade-in">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold text-gray-800 flex items-center gap-2">
-            <span class="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">?</span>
+            <span
+              class="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">?</span>
             ติดต่อสอบถาม
           </h3>
-          <button onclick="document.getElementById('contactPopup').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+          <button onclick="document.getElementById('contactPopup').classList.add('hidden')"
+            class="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
         </div>
-        <p class="text-sm text-gray-600 mb-3">📞 โทร. <a href="tel:023542320" class="font-semibold text-primary hover:underline">02 354 2320</a></p>
+        <p class="text-sm text-gray-600 mb-3">📞 โทร. <a href="tel:023542320"
+            class="font-semibold text-primary hover:underline">02 354 2320</a></p>
         <div class="space-y-1.5 text-sm text-gray-700">
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-primary rounded-full"></span>งานวิชาการ (admin) ต่อ <b>310</b></div>
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span>งานบริหารหลักสูตร ต่อ <b>311</b></div>
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-amber-500 rounded-full"></span>งานข้อสอบและวัดประเมินผล ต่อ <b>320</b></div>
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-purple-500 rounded-full"></span>งานดิจิตอล ต่อ <b>322</b></div>
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-pink-500 rounded-full"></span>งานเลขา ต่อ <b>330</b></div>
-          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>งานทะเบียน ต่อ <b>340</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-primary rounded-full"></span>งานวิชาการ (admin)
+            ต่อ <b>310</b></div>
+          <div class="flex items-center gap-2"><span
+              class="w-2 h-2 bg-emerald-500 rounded-full"></span>งานบริหารหลักสูตร ต่อ <b>311</b></div>
+          <div class="flex items-center gap-2"><span
+              class="w-2 h-2 bg-amber-500 rounded-full"></span>งานข้อสอบและวัดประเมินผล ต่อ <b>320</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-purple-500 rounded-full"></span>งานดิจิตอล ต่อ
+            <b>322</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-pink-500 rounded-full"></span>งานเลขา ต่อ
+            <b>330</b></div>
+          <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>งานทะเบียน ต่อ
+            <b>340</b></div>
         </div>
       </div>
     </div>
@@ -144,14 +149,12 @@
         <div class="flex items-center gap-3">
           <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100"><i data-lucide="menu"
               class="w-5 h-5"></i></button>
-          <div class="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-            <svg width="20" height="20" viewbox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden bg-white border border-blue-100">
+            <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" class="w-full h-full object-contain">
           </div>
           <div>
-            <h1 class="text-sm font-bold text-gray-800 leading-tight" id="headerTitle">ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)</h1>
+            <h1 class="text-sm font-bold text-gray-800 leading-tight" id="headerTitle">ระบบบริหารจัดการงานวิชาการ
+              (EMS-BCNB)</h1>
             <p class="text-xs text-gray-500 hidden sm:block" id="headerCollege">วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ</p>
           </div>
         </div>
