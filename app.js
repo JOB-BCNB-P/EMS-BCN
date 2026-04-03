@@ -344,9 +344,11 @@ function navigateTo(page) {
   APP.filters._engSearch = '';
   APP.filters._trackingYear = '';
   APP.filters._gradeTrackingYear = '';
+  APP.filters._fileTrackingYear = '';
   APP.filters._evalTeacher = '';
   APP._directoryTab = 'all';
   APP.filters._directoryYear = '';
+  APP.filters._pageYear = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -464,6 +466,27 @@ function filterBar(opts = {}) {
   }
   h += '</div>';
   return h;
+}
+
+// Reusable academic year picker bar
+function yearPickerBar(allData, label) {
+  const allYears = [...new Set(allData.map(d => d.academic_year).filter(Boolean))].sort().reverse();
+  if (!allYears.length) allYears.push('2568');
+  const sel = APP.filters._pageYear || '';
+  return `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-medium text-gray-700">${label || 'ปีการศึกษา'}:</label>
+      <select onchange="APP.filters._pageYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- เลือกปีการศึกษา --</option>
+        ${allYears.map(y => '<option value="' + y + '"' + (sel === y ? ' selected' : '') + '>' + y + '</option>').join('')}
+      </select>
+      ${sel ? '<span class="text-xs text-gray-500">แสดงข้อมูลปีการศึกษา ' + sel + '</span>' : ''}
+    </div>
+  </div>`;
+}
+
+function noYearSelectedMsg(pageName) {
+  return '<div class="bg-blue-50 rounded-2xl p-8 text-center text-blue-600 mt-4"><i data-lucide="info" class="w-6 h-6 inline mr-2"></i>กรุณาเลือกปีการศึกษาเพื่อดูข้อมูล' + pageName + '</div>';
 }
 
 function applyFilters(data) {
@@ -632,17 +655,25 @@ function studentsPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || isClassTeacher;
-  let data = getDataByType('student');
+  const allStudents = getDataByType('student');
+  const selectedYear = APP.filters._pageYear || '';
+
+  let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
+    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,academic_year')}</div>` : ''}
+  </div>`;
+  headerHtml += yearPickerBar(allStudents, 'ปีการศึกษา');
+
+  if (!selectedYear) return headerHtml + noYearSelectedMsg('นักศึกษา');
+
+  let data = allStudents.filter(s => (s.academic_year || '') === selectedYear);
   if (isClassTeacher) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'teacher') data = data.filter(s => s.advisor === APP.currentUser.name);
   data = applyFilters(data);
   const total = data.length;
   const paged = paginate(data);
 
-  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
-  </div>
+  return headerHtml + `
   ${filterBar({ semester: false, year: false, yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -723,16 +754,24 @@ function showStudentDetail(id) {
 function subjectsPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
-  let data = applyFilters(getDataByType('subject'));
+  const allSubjects = getDataByType('subject');
+  const selectedYear = APP.filters._pageYear || '';
+
+  let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="book-open" class="w-6 h-6 inline mr-2"></i>รายวิชาที่เปิดสอน</h2>
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_name,coordinator,year_level,room,credits,semester,academic_year')}</div>` : ''}
+  </div>`;
+  headerHtml += yearPickerBar(allSubjects, 'ปีการศึกษา');
+
+  if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
+
+  let data = applyFilters(allSubjects.filter(s => (s.academic_year || '') === selectedYear));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'student' && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
   const total = data.length; const paged = paginate(data);
 
-  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="book-open" class="w-6 h-6 inline mr-2"></i>รายวิชาที่เปิดสอน</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_name,coordinator,year_level,room,credits,semester,academic_year')}</div>` : ''}
-  </div>
-  ${filterBar({ yearLevel: true })}
+  return headerHtml + `
+  ${filterBar({ semester: true, year: false, yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
@@ -1992,13 +2031,13 @@ function trackingPage() {
     <div class="flex items-center gap-3 mb-3">
       <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
       <select onchange="APP.filters._trackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
-        <option value="">ทั้งหมด</option>
+        <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
     ${statsSection}
   </div>
-  ${notSubmittedSection}
+  ${selectedYear ? `${notSubmittedSection}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -2018,7 +2057,7 @@ function trackingPage() {
   }).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งรายละเอียดรายวิชา')}`;
 }
 
 function showAddTrackingModal() {
@@ -2107,13 +2146,13 @@ function gradeTrackingPage() {
     <div class="flex items-center gap-3 mb-3">
       <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
       <select onchange="APP.filters._gradeTrackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
-        <option value="">ทั้งหมด</option>
+        <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
     ${statsSection}
   </div>
-  ${notSubmittedSection}
+  ${selectedYear ? `${notSubmittedSection}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -2146,7 +2185,7 @@ function gradeTrackingPage() {
       </tr>`}).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งเกรดรายวิชา')}`;
 }
 
 function showAddGradeTrackingModal() {
@@ -2223,13 +2262,13 @@ function fileTrackingPage() {
     <div class="flex items-center gap-3 mb-3">
       <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
       <select onchange="APP.filters._fileTrackingYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
-        <option value="">ทั้งหมด</option>
+        <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
     ${statsSection}
   </div>
-  ${notSubmittedSection}
+  ${selectedYear ? `${notSubmittedSection}
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -2262,7 +2301,7 @@ function fileTrackingPage() {
       </tr>`}).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งแฟ้มรายวิชา')}`;
 }
 
 function showAddFileTrackingModal() {
