@@ -395,13 +395,33 @@ function hideLoading() {
 
 function showToast(msg, type = 'success') {
   const c = document.getElementById('toastContainer');
-  const colors = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+  const colors = type === 'success' ? 'bg-green-500' : type === 'loading' ? 'bg-blue-500' : 'bg-red-500';
+  const icon = type === 'success' ? 'check-circle' : type === 'loading' ? 'loader' : 'alert-circle';
   const d = document.createElement('div');
-  d.className = `toast ${colors} text-white px-4 py-3 rounded-xl shadow-lg text-sm flex items-center gap-2`;
-  d.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-4 h-4"></i>${msg}`;
+  d.className = `toast ${colors} text-white px-5 py-3.5 rounded-xl shadow-lg text-sm flex items-center gap-2`;
+  d.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 ${type === 'loading' ? 'animate-spin' : ''}"></i>${msg}`;
+  if (type === 'loading') d.id = 'loadingToast';
   c.appendChild(d);
   lucide.createIcons();
-  setTimeout(() => d.remove(), 3000);
+  if (type !== 'loading') setTimeout(() => { d.style.transition = 'opacity .3s, transform .3s'; d.style.opacity = '0'; d.style.transform = 'translateX(30px)'; setTimeout(() => d.remove(), 300) }, 2500);
+  return d;
+}
+
+function hideLoadingToast() {
+  const t = document.getElementById('loadingToast');
+  if (t) { t.style.transition = 'opacity .2s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 200) }
+}
+
+// Wrap save action with loading state on button
+async function withLoading(btnOrForm, asyncFn) {
+  const btn = btnOrForm.tagName === 'FORM' ? btnOrForm.querySelector('[type="submit"]') : btnOrForm;
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline mr-1"></i>กำลังบันทึก...'; lucide.createIcons(); }
+  try {
+    await asyncFn();
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; lucide.createIcons(); }
+  }
 }
 
 function showModal(title, content, onConfirm, maxWidth) {
@@ -409,17 +429,31 @@ function showModal(title, content, onConfirm, maxWidth) {
   mc.classList.remove('hidden');
   window._modalConfirm = onConfirm || null;
   const mw = maxWidth || 'max-w-lg';
-  mc.innerHTML = `<div class="modal-overlay fixed inset-0 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-2xl w-full ${mw} max-h-[85vh] overflow-auto fade-in">
+  mc.innerHTML = `<div class="modal-overlay fixed inset-0 flex items-center justify-center p-4 z-50" onclick="if(event.target===this)closeModal()">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl w-full ${mw} max-h-[85vh] overflow-auto">
       <div class="p-5 border-b flex items-center justify-between"><h3 class="font-bold text-lg">${title}</h3><button onclick="closeModal()" class="p-1 rounded hover:bg-gray-100"><i data-lucide="x" class="w-5 h-5"></i></button></div>
       <div class="p-5">${content}</div>
       ${onConfirm ? `<div class="p-4 border-t flex justify-end gap-2"><button onclick="closeModal()" class="px-4 py-2 rounded-xl border hover:bg-gray-50">ยกเลิก</button><button onclick="if(window._modalConfirm)window._modalConfirm()" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primaryDark">ยืนยัน</button></div>` : ''}
     </div>
   </div>`;
+  // Animate in
+  requestAnimationFrame(() => {
+    const overlay = mc.querySelector('.modal-overlay');
+    const box = mc.querySelector('.modal-content');
+    if (overlay) { overlay.style.opacity = '0'; overlay.style.transition = 'opacity .25s ease'; requestAnimationFrame(() => overlay.style.opacity = '1') }
+    if (box) { box.style.transform = 'scale(0.95) translateY(10px)'; box.style.opacity = '0'; box.style.transition = 'transform .25s ease, opacity .25s ease'; requestAnimationFrame(() => { box.style.transform = 'scale(1) translateY(0)'; box.style.opacity = '1' }) }
+  });
   lucide.createIcons();
 }
 
-function closeModal() { document.getElementById('modalContainer').classList.add('hidden'); document.getElementById('modalContainer').innerHTML = '' }
+function closeModal() {
+  const mc = document.getElementById('modalContainer');
+  const overlay = mc.querySelector('.modal-overlay');
+  const box = mc.querySelector('.modal-content');
+  if (box) { box.style.transition = 'transform .2s ease, opacity .2s ease'; box.style.transform = 'scale(0.95) translateY(10px)'; box.style.opacity = '0' }
+  if (overlay) { overlay.style.transition = 'opacity .2s ease'; overlay.style.opacity = '0' }
+  setTimeout(() => { mc.classList.add('hidden'); mc.innerHTML = '' }, 220);
+}
 
 function showNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(0)'; renderNotifications() }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
@@ -2816,11 +2850,11 @@ function changePage(p) { APP.pagination.page = p; renderCurrentPage() }
 
 async function deleteRecord(id) {
   const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
-  // Inline confirmation
   showModal('ยืนยันการลบ', '<p class="text-center text-gray-600">คุณต้องการลบรายการนี้หรือไม่?</p>', async () => {
-
+    showToast('กำลังลบข้อมูล...', 'loading');
     const r = await GSheetDB.delete(rec);
-    if (r.isOk) { showToast('ลบสำเร็จ'); closeModal() } else { showToast('เกิดข้อผิดพลาด', 'error'); closeModal() }
+    hideLoadingToast();
+    if (r.isOk) { showToast('ลบสำเร็จ'); closeModal(); renderCurrentPage() } else { showToast('เกิดข้อผิดพลาด', 'error'); closeModal() }
   });
 }
 
@@ -2828,9 +2862,13 @@ async function deleteRecord(id) {
 async function editRecord(id, formId) {
   const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
   const form = document.getElementById(formId); if (!form) return;
+  const btn = form.querySelector('[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i>กำลังบันทึก...</span>'; lucide.createIcons() }
   const fd = new FormData(form);
   fd.forEach((v, k) => { if (k !== '__backendId') rec[k] = v });
   const r = await GSheetDB.update(rec);
+  if (btn) { btn.disabled = false; btn.innerHTML = origText; lucide.createIcons() }
   if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
 }
 
