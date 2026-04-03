@@ -778,13 +778,14 @@ function showAddStudentModal() {
   `);
   document.getElementById('addStudentForm').onsubmit = async (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const obj = { type: 'student', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = v);
-    if (APP.allData.filter(d => d.type === 'student').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มนักศึกษาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'student', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = v);
+      if (APP.allData.filter(d => d.type === 'student').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มนักศึกษาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -849,13 +850,15 @@ function showAddSubjectModal() {
     </form>
   `);
   document.getElementById('addSubjectForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'subject', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
-    if (APP.allData.filter(d => d.type === 'subject').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มรายวิชาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'subject', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
+      if (APP.allData.filter(d => d.type === 'subject').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มรายวิชาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -900,11 +903,13 @@ function showAddScheduleModal() {
     </form>
   `);
   document.getElementById('addScheduleForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มตารางสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มตารางสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1015,11 +1020,13 @@ function showAddGradeModal() {
     </form>
   `);
   document.getElementById('addGradeForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'grade', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มผลการเรียนสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'grade', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มผลการเรียนสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1241,11 +1248,13 @@ function showAddEngModal() {
     </form>
   `);
   document.getElementById('addEngForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'eng_result', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = k === 'eng_score' ? Number(v) : v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มผลสอบสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'eng_result', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = k === 'eng_score' ? Number(v) : v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มผลสอบสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1396,11 +1405,14 @@ function showCreateEvalFormModal() {
     </form>
   `);
   document.getElementById('createEvalFormForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'eval_form', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = v);
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('สร้างแบบประเมินสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'eval_form', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('สร้างแบบประเมินสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1452,27 +1464,26 @@ function showStudentEvalForm(formId) {
       if (s > 0) { total += s; count++ }
     });
     if (count < items.length) { showToast('กรุณาให้คะแนนทุกหัวข้อ', 'error'); return }
-    const avg = (total / count).toFixed(1);
-
-    // Build score detail string
-    const scoreDetail = items.map((item, idx) => `${item}:${fd.get('score_' + idx)}`).join('|');
-
-    const obj = {
-      type: 'evaluation',
-      eval_form_id: fd.get('eval_form_id'),
-      subject_name: fd.get('subject_name'),
-      subject_code: fd.get('subject_code'),
-      teacher_name: fd.get('teacher_name'),
-      name: fd.get('teacher_name'),
-      student_name: APP.currentUser.data?.name || '',
-      eval_score: avg,
-      eval_detail: scoreDetail,
-      semester: fd.get('semester'),
-      academic_year: fd.get('academic_year'),
-      created_at: new Date().toISOString()
-    };
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('ส่งผลประเมินสำเร็จ'); closeModal(); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด', 'error');
+    await withLoading(ev.target, async () => {
+      const avg = (total / count).toFixed(1);
+      const scoreDetail = items.map((item, idx) => `${item}:${fd.get('score_' + idx)}`).join('|');
+      const obj = {
+        type: 'evaluation',
+        eval_form_id: fd.get('eval_form_id'),
+        subject_name: fd.get('subject_name'),
+        subject_code: fd.get('subject_code'),
+        teacher_name: fd.get('teacher_name'),
+        name: fd.get('teacher_name'),
+        student_name: APP.currentUser.data?.name || '',
+        eval_score: avg,
+        eval_detail: scoreDetail,
+        semester: fd.get('semester'),
+        academic_year: fd.get('academic_year'),
+        created_at: new Date().toISOString()
+      };
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('ส่งผลประเมินสำเร็จ'); closeModal(); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1597,11 +1608,13 @@ function showAddTeacherModal() {
     </form>
   `);
   document.getElementById('addTeacherForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'teacher', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'teacher', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1929,22 +1942,25 @@ function showAddTeacherDirectoryModal() {
     </form>
   `);
   document.getElementById('addTeacherDirForm').onsubmit = async (e) => {
-    e.preventDefault(); const form = e.target;
-    const obj = { type: 'teacher_directory', created_at: new Date().toISOString() };
-    obj.name = form.querySelector('[name="name"]').value;
-    obj.national_id = form.querySelector('[name="national_id"]').value;
-    obj.license_no = form.querySelector('[name="license_no"]').value;
-    obj.academic_position = form.querySelector('[name="academic_position"]').value;
-    obj.education = collectMultiInputs(form, 'education');
-    obj.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
-    obj.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
-    obj.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
-    obj.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
-    obj.academic_work = collectMultiInputs(form, 'academic_work');
-    obj.academic_year = form.querySelector('[name="academic_year"]').value;
-    obj.teacher_category = form.querySelector('[name="teacher_category"]').value;
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const form = e.target;
+      const obj = { type: 'teacher_directory', created_at: new Date().toISOString() };
+      obj.name = form.querySelector('[name="name"]').value;
+      obj.national_id = form.querySelector('[name="national_id"]').value;
+      obj.license_no = form.querySelector('[name="license_no"]').value;
+      obj.academic_position = form.querySelector('[name="academic_position"]').value;
+      obj.education = collectMultiInputs(form, 'education');
+      obj.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
+      obj.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
+      obj.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
+      obj.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
+      obj.academic_work = collectMultiInputs(form, 'academic_work');
+      obj.academic_year = form.querySelector('[name="academic_year"]').value;
+      obj.teacher_category = form.querySelector('[name="teacher_category"]').value;
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มอาจารย์สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -1984,22 +2000,25 @@ function showEditTeacherDirectoryModal(id) {
     </form>
   `);
   document.getElementById('editTeacherDirForm').onsubmit = async (e) => {
-    e.preventDefault(); const form = e.target;
-    const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
-    rec.name = form.querySelector('[name="name"]').value;
-    rec.national_id = form.querySelector('[name="national_id"]').value;
-    rec.license_no = form.querySelector('[name="license_no"]').value;
-    rec.academic_position = form.querySelector('[name="academic_position"]').value;
-    rec.education = collectMultiInputs(form, 'education');
-    rec.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
-    rec.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
-    rec.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
-    rec.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
-    rec.academic_work = collectMultiInputs(form, 'academic_work');
-    rec.academic_year = form.querySelector('[name="academic_year"]').value;
-    rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
-    const r = await GSheetDB.update(rec);
-    if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const form = e.target;
+      const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+      rec.name = form.querySelector('[name="name"]').value;
+      rec.national_id = form.querySelector('[name="national_id"]').value;
+      rec.license_no = form.querySelector('[name="license_no"]').value;
+      rec.academic_position = form.querySelector('[name="academic_position"]').value;
+      rec.education = collectMultiInputs(form, 'education');
+      rec.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
+      rec.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
+      rec.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
+      rec.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
+      rec.academic_work = collectMultiInputs(form, 'academic_work');
+      rec.academic_year = form.querySelector('[name="academic_year"]').value;
+      rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
+      const r = await GSheetDB.update(rec);
+      if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
   };
 }
 
@@ -2046,11 +2065,13 @@ function showAddAnnouncementModal() {
     </form>
   `);
   document.getElementById('addAnnForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'announcement', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มประกาศสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'announcement', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มประกาศสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -2162,12 +2183,14 @@ function showAddTrackingModal() {
     </form>
   `);
   document.getElementById('addTrackingForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = v);
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -2291,11 +2314,14 @@ function showAddGradeTrackingModal() {
     </form>
   `);
   document.getElementById('addGradeTrackingForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'grade_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = v);
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'grade_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -2407,11 +2433,14 @@ function showAddFileTrackingModal() {
     </form>
   `);
   document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
-    fd.forEach((v, k) => obj[k] = v);
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
+      fd.forEach((v, k) => obj[k] = v);
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -2511,15 +2540,17 @@ function showAddLeaveModal() {
     </form>
   `);
   document.getElementById('addLeaveForm').onsubmit = async (e) => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const obj = { type: 'leave', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = (k === 'leave_hours' || k === 'leave_percent') ? Number(v) : v);
-    obj.leave_status = 'รออนุมัติ';
-    obj.coordinator_approval = 'รอ';
-    obj.class_teacher_approval = 'รอ';
-    obj.deputy_approval = 'รอ';
-
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มข้อมูลการลาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const fd = new FormData(e.target);
+      const obj = { type: 'leave', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = (k === 'leave_hours' || k === 'leave_percent') ? Number(v) : v);
+      obj.leave_status = 'รออนุมัติ';
+      obj.coordinator_approval = 'รอ';
+      obj.class_teacher_approval = 'รอ';
+      obj.deputy_approval = 'รอ';
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มข้อมูลการลาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
@@ -2805,18 +2836,19 @@ function initPageScripts(page) {
       }
 
       if (valEl) valEl.classList.add('hidden');
-      const obj = { type: 'leave', created_at: new Date().toISOString() };
-      ['name', 'subject_name', 'leave_hours', 'semester', 'academic_year', 'leave_date', 'leave_type', 'leave_reason', 'coordinator'].forEach(k => {
-        const v = fd.get(k); if (v) obj[k] = k === 'leave_hours' ? Number(v) : v;
+      await withLoading(leaveForm, async () => {
+        const obj = { type: 'leave', created_at: new Date().toISOString() };
+        ['name', 'subject_name', 'leave_hours', 'semester', 'academic_year', 'leave_date', 'leave_type', 'leave_reason', 'coordinator'].forEach(k => {
+          const v = fd.get(k); if (v) obj[k] = k === 'leave_hours' ? Number(v) : v;
+        });
+        obj.leave_status = 'รออนุมัติ';
+        obj.coordinator_approval = 'รอ';
+        obj.class_teacher_approval = 'รอ';
+        obj.deputy_approval = 'รอ';
+        if (APP.allData.filter(d => d.type === 'leave').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+        const r = await GSheetDB.create(obj);
+        if (r.isOk) { showToast('ส่งใบลาสำเร็จ'); leaveForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
       });
-      obj.leave_status = 'รออนุมัติ';
-      obj.coordinator_approval = 'รอ';
-      obj.class_teacher_approval = 'รอ';
-      obj.deputy_approval = 'รอ';
-      if (APP.allData.filter(d => d.type === 'leave').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
-
-      const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('ส่งใบลาสำเร็จ'); leaveForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
     };
   }
 
@@ -2825,12 +2857,12 @@ function initPageScripts(page) {
   if (evalForm) {
     evalForm.onsubmit = async (e) => {
       e.preventDefault();
-
-      const obj = { type: 'evaluation', student_name: APP.currentUser.data?.name || '', created_at: new Date().toISOString() };
-      fd.forEach((v, k) => { if (k !== 'medical_cert' && k !== 'appointment_doc') obj[k] = k === 'eval_score' ? Number(v) : v });
-
-      const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('ส่งผลประเมินสำเร็จ'); evalForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
+      await withLoading(evalForm, async () => {
+        const obj = { type: 'evaluation', student_name: APP.currentUser.data?.name || '', created_at: new Date().toISOString() };
+        fd.forEach((v, k) => { if (k !== 'medical_cert' && k !== 'appointment_doc') obj[k] = k === 'eval_score' ? Number(v) : v });
+        const r = await GSheetDB.create(obj);
+        if (r.isOk) { showToast('ส่งผลประเมินสำเร็จ'); evalForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
+      });
     };
   }
 }
