@@ -1494,12 +1494,12 @@ function teachersPage() {
   const isAdmin = APP.currentRole === 'admin';
   const isExecutive = APP.currentRole === 'executive';
   const isAcademic = APP.currentRole === 'academic';
-  let data = applyFilters(getDataByType('teacher'));
+  let allTeachers = applyFilters(getDataByType('teacher'));
 
   // Department filter
-  const allDepts = [...new Set(data.map(t => t.department).filter(Boolean))].sort();
+  const allDepts = [...new Set(allTeachers.map(t => t.department).filter(Boolean))].sort();
   const selectedDept = APP.filters._teacherDept || '';
-  if (selectedDept) data = data.filter(t => (t.department || '') === selectedDept);
+  let data = selectedDept ? allTeachers.filter(t => (t.department || '') === selectedDept) : [];
 
   const total = data.length; const paged = paginate(data);
 
@@ -1507,7 +1507,7 @@ function teachersPage() {
     <div class="flex items-center gap-3">
       <label class="text-sm font-medium text-gray-700">สาขาวิชา:</label>
       <select onchange="APP.filters._teacherDept=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
-        <option value="">-- ทั้งหมด --</option>
+        <option value="">-- เลือกสาขาวิชา --</option>
         ${allDepts.map(d => `<option value="${d}" ${selectedDept === d ? 'selected' : ''}>${d}</option>`).join('')}
       </select>
       ${selectedDept ? `<span class="text-xs text-gray-500">แสดงสาขา: ${selectedDept}</span>` : ''}
@@ -1516,6 +1516,13 @@ function teachersPage() {
 
   // Executive & Academic sees basic info only (ชื่อ-สกุล, ตำแหน่ง, สาขาวิชา, โทร, E-mail)
   if (isExecutive || isAcademic) {
+    if (!selectedDept) {
+      return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 class="text-xl font-bold text-gray-800"><i data-lucide="briefcase" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์</h2>
+      </div>
+      ${deptFilter}
+      ${noYearSelectedMsg('อาจารย์ (กรุณาเลือกสาขาวิชา)')}`;
+    }
     return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-xl font-bold text-gray-800"><i data-lucide="briefcase" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์</h2>
     </div>
@@ -1530,6 +1537,15 @@ function teachersPage() {
       </table></div>
     </div>
     ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  }
+
+  if (!selectedDept) {
+    return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-xl font-bold text-gray-800"><i data-lucide="briefcase" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์</h2>
+      ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button></div>` : ''}
+    </div>
+    ${deptFilter}
+    ${noYearSelectedMsg('อาจารย์ (กรุณาเลือกสาขาวิชา)')}`;
   }
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -1839,14 +1855,14 @@ function teacherDirectoryPage() {
     <div class="flex items-center gap-3">
       <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
       <select onchange="APP.filters._directoryYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
-        <option value="">ทั้งหมด</option>
+        <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
       ${selectedYear ? `<span class="text-xs text-gray-500">แสดงข้อมูลปีการศึกษา ${selectedYear}</span>` : ''}
     </div>
   </div>
 
-  ${renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin)}`;
+  ${selectedYear ? renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) : noYearSelectedMsg('ทำเนียบอาจารย์')}`;
 }
 
 function showTeacherDirectoryDetail(id) {
