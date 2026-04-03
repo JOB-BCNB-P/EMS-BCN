@@ -282,7 +282,6 @@ function buildSidebar() {
   if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
   if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
-  if (p.services) regSub.push({ id: 'services', label: 'บริการอื่นๆ' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
   if (p.teacherDirectory) items.push({ id: 'teacherDirectory', icon: 'award', label: 'ทำเนียบอาจารย์' });
@@ -295,6 +294,7 @@ function buildSidebar() {
   if (trackSub.length) items.push({ id: 'trackingGroup', icon: 'clipboard-list', label: 'ติดตามการส่ง', sub: trackSub });
 
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
+  if (p.services) items.push({ id: 'services', icon: 'grid', label: 'บริการอื่นๆ' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
 
   const nav = document.getElementById('sidebarNav');
