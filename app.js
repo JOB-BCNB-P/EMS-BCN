@@ -347,6 +347,9 @@ function navigateTo(page) {
   APP.filters._fileTrackingYear = '';
   APP.filters._studentYearLevel = '';
   APP.filters._evalTeacher = '';
+  APP.filters._engAdvisor = '';
+  APP.filters._gradeAdvisor = '';
+  APP.filters._engYear = '';
   APP._directoryTab = 'all';
   APP.filters._directoryYear = '';
   APP.filters._pageYear = '';
@@ -916,8 +919,10 @@ function showAddScheduleModal() {
 // ======================== GRADES ========================
 function gradesPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const isExecutive = APP.currentRole === 'executive';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   const isStudent = APP.currentRole === 'student';
+  const canFilterByAdvisor = isAdmin || isExecutive;
   let allGrades = getDataByType('grade');
 
   // Build student list for non-student roles
@@ -933,6 +938,25 @@ function gradesPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+
+    // Advisor filter for admin/academic/executive
+    let advisorSelector = '';
+    if (canFilterByAdvisor) {
+      const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
+      const selectedAdvisor = APP.filters._gradeAdvisor || '';
+      if (selectedAdvisor) {
+        studentList = studentList.filter(s => (s.advisor || '') === selectedAdvisor);
+      }
+      advisorSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>กรองตามอาจารย์ที่ปรึกษา</label>
+        <select onchange="APP.filters._gradeAdvisor=this.value;APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+          <option value="">-- แสดงนักศึกษาทั้งหมด --</option>
+          ${allAdvisors.map(a => `<option value="${a}" ${selectedAdvisor === a ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+        ${selectedAdvisor ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาในความดูแลของ ${selectedAdvisor} (${studentList.length} คน)</p>` : ''}
+      </div>`;
+    }
+
     // Store student list for search
     window._gradeStudentList = studentList;
     const searchVal = APP.filters._gradeSearch || '';
@@ -941,10 +965,10 @@ function gradesPage() {
       const q = searchVal.toLowerCase();
       filteredList = studentList.filter(s => (s.name || '').toLowerCase().includes(q) || (s.student_id || '').toLowerCase().includes(q));
     }
-    studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    studentSelector = `${advisorSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
       <div class="flex gap-2 mb-2">
-        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" onkeyup="APP.filters._gradeSearch=this.value;APP.filters._gradeStudent='';APP.pagination.page=1;renderCurrentPage()"></div>
+        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._gradeSearchTimer);window._gradeSearchTimer=setTimeout(()=>{APP.filters._gradeSearch=this.value;APP.filters._gradeStudent='';APP.pagination.page=1;renderCurrentPage()},300)"></div>
       </div>
       <select onchange="APP.filters._gradeStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
         <option value="">-- กรุณาเลือกนักศึกษา (${filteredList.length} คน) --</option>
@@ -1161,9 +1185,31 @@ async function downloadTranscriptPDF(studentKey) {
 // ======================== ENG RESULTS ========================
 function engResultsPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const isExecutive = APP.currentRole === 'executive';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   const isStudent = APP.currentRole === 'student';
+  const canFilterByAdvisor = isAdmin || isExecutive;
   let allEng = getDataByType('eng_result');
+
+  // Academic year picker
+  const allEngYears = [...new Set(allEng.map(e => e.academic_year).filter(Boolean))].sort().reverse();
+  if (!allEngYears.length) allEngYears.push('2568');
+  const selectedEngYear = APP.filters._engYear || '';
+  let yearPickerHtml = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._engYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- ทุกปีการศึกษา --</option>
+        ${allEngYears.map(y => '<option value="' + y + '"' + (selectedEngYear === y ? ' selected' : '') + '>' + y + '</option>').join('')}
+      </select>
+      ${selectedEngYear ? '<span class="text-xs text-gray-500">แสดงข้อมูลปีการศึกษา ' + selectedEngYear + '</span>' : ''}
+    </div>
+  </div>`;
+
+  // Filter eng results by academic year
+  if (selectedEngYear) {
+    allEng = allEng.filter(e => (e.academic_year || '') === selectedEngYear);
+  }
 
   // Build student selector for non-student roles
   let studentSelector = '';
@@ -1178,16 +1224,35 @@ function engResultsPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+
+    // Advisor filter for admin/academic/executive
+    let advisorSelector = '';
+    if (canFilterByAdvisor) {
+      const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
+      const selectedAdvisor = APP.filters._engAdvisor || '';
+      if (selectedAdvisor) {
+        studentList = studentList.filter(s => (s.advisor || '') === selectedAdvisor);
+      }
+      advisorSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>กรองตามอาจารย์ที่ปรึกษา</label>
+        <select onchange="APP.filters._engAdvisor=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+          <option value="">-- แสดงนักศึกษาทั้งหมด --</option>
+          ${allAdvisors.map(a => `<option value="${a}" ${selectedAdvisor === a ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+        ${selectedAdvisor ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาในความดูแลของ ${selectedAdvisor} (${studentList.length} คน)</p>` : ''}
+      </div>`;
+    }
+
     const searchVal = APP.filters._engSearch || '';
     let filteredList = studentList;
     if (searchVal) {
       const q = searchVal.toLowerCase();
       filteredList = studentList.filter(s => (s.name || '').toLowerCase().includes(q) || (s.student_id || '').toLowerCase().includes(q));
     }
-    studentSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    studentSelector = `${advisorSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
       <div class="flex gap-2 mb-2">
-        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" onkeyup="APP.filters._engSearch=this.value;APP.filters._engStudent='';APP.pagination.page=1;renderCurrentPage()"></div>
+        <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._engSearchTimer);window._engSearchTimer=setTimeout(()=>{APP.filters._engSearch=this.value;APP.filters._engStudent='';APP.pagination.page=1;renderCurrentPage()},300)"></div>
       </div>
       <select onchange="APP.filters._engStudent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
         <option value="">-- กรุณาเลือกนักศึกษา (${filteredList.length} คน) --</option>
@@ -1216,8 +1281,9 @@ function engResultsPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="languages" class="w-6 h-6 inline mr-2"></i>ผลสอบภาษาอังกฤษ</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_status')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_status,academic_year')}</div>` : ''}
   </div>
+  ${yearPickerHtml}
   ${studentSelector}
   ${noSelectionMsg || `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
     ${statCard('check-circle', 'ผ่าน', data.filter(e => e.eng_status === 'ผ่าน').length, 'คน', 'bg-green-500')}
@@ -1225,11 +1291,12 @@ function engResultsPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">รูปแบบ</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">รูปแบบ</th><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(e => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${e.eng_score || ''}</td><td class="px-4 py-3">${e.eng_type || ''}</td>
+        <td class="px-4 py-3">${e.academic_year || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
@@ -1244,6 +1311,7 @@ function showAddEngModal() {
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ</label><input name="eng_type" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="eng_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ผ่าน</option><option>ไม่ผ่าน</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -3036,6 +3104,7 @@ function showEditEngModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบ</label><input name="eng_type" value="${e.eng_type || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="eng_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${e.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
