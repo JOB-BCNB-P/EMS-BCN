@@ -1282,7 +1282,7 @@ function engResultsPage() {
     noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400"><i data-lucide="user-search" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i><p>กรุณาเลือกนักศึกษาเพื่อดูผลสอบภาษาอังกฤษ</p></div>`;
   }
 
-  // Build summary table of all students with their eng results
+  // Build summary stats (pass/fail counts only)
   let summaryTableHtml = '';
   if (!isStudent) {
     // Get students list for summary
@@ -1300,80 +1300,18 @@ function engResultsPage() {
       summaryStudents = summaryStudents.filter(s => (s.advisor || '') === selectedAdvisor);
     }
 
-    // For each student, find their pass record (only count first/latest pass) and total attempts
-    const summaryRows = summaryStudents.map(s => {
-      const studentResults = allEng.filter(e => e.student_id === s.student_id);
-      const passRecord = studentResults.find(e => e.eng_status === 'ผ่าน');
-      const totalAttempts = studentResults.length;
-      return {
-        student_id: s.student_id || '',
-        name: s.name || '',
-        year_level: s.year_level || '',
-        totalAttempts,
-        passed: !!passRecord,
-        passAttempt: passRecord ? (passRecord.eng_attempt || '-') : '-',
-        passDate: passRecord && passRecord.eng_date ? new Date(passRecord.eng_date).toLocaleDateString('th-TH') : '-',
-        passScore: passRecord ? (passRecord.eng_score || '-') : '-',
-        passType: passRecord ? (passRecord.eng_type || '-') : '-'
-      };
-    }).sort((a, b) => a.passed === b.passed ? 0 : a.passed ? -1 : 1);
-
-    const totalStudents = summaryRows.length;
-    const passedCount = summaryRows.filter(r => r.passed).length;
-    const notPassedCount = totalStudents - passedCount;
-
-    // Summary search filter
-    const summarySearch = APP.filters._engSummarySearch || '';
-    let filteredSummary = summaryRows;
-    if (summarySearch) {
-      const sq = summarySearch.toLowerCase();
-      filteredSummary = summaryRows.filter(r => r.name.toLowerCase().includes(sq) || r.student_id.toLowerCase().includes(sq));
-    }
-
-    // Summary tab filter (all/passed/not passed)
-    const summaryTab = APP.filters._engSummaryTab || 'all';
-    if (summaryTab === 'passed') filteredSummary = filteredSummary.filter(r => r.passed);
-    else if (summaryTab === 'notpassed') filteredSummary = filteredSummary.filter(r => !r.passed);
+    // Count unique students who passed / not passed
+    const passedIds = new Set(allEng.filter(e => e.eng_status === 'ผ่าน').map(e => e.student_id));
+    const passedCount = summaryStudents.filter(s => passedIds.has(s.student_id)).length;
+    const notPassedCount = summaryStudents.length - passedCount;
 
     summaryTableHtml = `
     <div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-      <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ตารางสรุปผลสอบภาษาอังกฤษ</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        ${statCard('users', 'นักศึกษาทั้งหมด', totalStudents, 'คน', 'bg-blue-500')}
+      <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>สรุปผลสอบภาษาอังกฤษ</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         ${statCard('check-circle', 'สอบผ่าน', passedCount, 'คน', 'bg-green-500')}
         ${statCard('x-circle', 'ยังไม่ผ่าน', notPassedCount, 'คน', 'bg-red-500')}
       </div>
-      <div class="flex flex-wrap items-center gap-2 mb-3">
-        <button onclick="APP.filters._engSummaryTab='all';renderCurrentPage()" class="px-3 py-1.5 rounded-lg text-sm ${summaryTab === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ทั้งหมด (${totalStudents})</button>
-        <button onclick="APP.filters._engSummaryTab='passed';renderCurrentPage()" class="px-3 py-1.5 rounded-lg text-sm ${summaryTab === 'passed' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">สอบผ่าน (${passedCount})</button>
-        <button onclick="APP.filters._engSummaryTab='notpassed';renderCurrentPage()" class="px-3 py-1.5 rounded-lg text-sm ${summaryTab === 'notpassed' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ยังไม่ผ่าน (${notPassedCount})</button>
-        <div class="flex-1"></div>
-        <div class="relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหาชื่อ/รหัส..." value="${summarySearch}" class="pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-48" oninput="clearTimeout(window._engSumSearchTimer);window._engSumSearchTimer=setTimeout(()=>{APP.filters._engSummarySearch=this.value;renderCurrentPage()},300)"></div>
-      </div>
-      <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead><tr class="bg-surface text-left">
-          <th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th>
-          <th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th>
-          <th class="px-4 py-3 font-semibold">ชั้นปี</th>
-          <th class="px-4 py-3 font-semibold">สอบทั้งหมด</th>
-          <th class="px-4 py-3 font-semibold">ผ่านครั้งที่</th>
-          <th class="px-4 py-3 font-semibold">วันที่สอบผ่าน</th>
-          <th class="px-4 py-3 font-semibold">คะแนนที่ผ่าน</th>
-          <th class="px-4 py-3 font-semibold">รูปแบบ</th>
-          <th class="px-4 py-3 font-semibold">สถานะ</th>
-        </tr></thead>
-        <tbody>${filteredSummary.length ? filteredSummary.map(r => `<tr class="border-t hover:bg-gray-50${r.passed ? '' : ' bg-red-50'}">
-          <td class="px-4 py-3">${r.student_id}</td>
-          <td class="px-4 py-3">${r.name}</td>
-          <td class="px-4 py-3 text-center">${r.year_level}</td>
-          <td class="px-4 py-3 text-center">${r.totalAttempts}</td>
-          <td class="px-4 py-3 text-center">${r.passAttempt}</td>
-          <td class="px-4 py-3">${r.passDate}</td>
-          <td class="px-4 py-3">${r.passScore}</td>
-          <td class="px-4 py-3">${r.passType}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${r.passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${r.passed ? 'ผ่าน' : 'ยังไม่ผ่าน'}</span></td>
-        </tr>`).join('') : '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
-      </table></div>
     </div>`;
   }
 
