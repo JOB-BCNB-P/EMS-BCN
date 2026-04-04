@@ -539,9 +539,9 @@ function applyFilters(data) {
   if (APP.filters.semester) {
     const semVal = APP.filters.semester;
     if (semVal === '3') {
-      d = d.filter(x => { const s = norm(x.semester).toLowerCase(); return s === '3' || s === 'ฤดูร้อน' || s === 'ภาคฤดูร้อน' || s === 'summer'; });
+      d = d.filter(x => { const s = norm(x.semester); return s === '3' || s.includes('ร้อน') || s.includes('summer') || s.includes('Summer'); });
     } else {
-      d = d.filter(x => norm(x.semester) === semVal);
+      d = d.filter(x => { const s = norm(x.semester); return s === semVal || (semVal === '1' && !s.includes('ร้อน') && s.includes('1')) || (semVal === '2' && !s.includes('ร้อน') && s.includes('2')); });
     }
   }
   if (APP.filters.academicYear) d = d.filter(x => norm(x.academic_year) === APP.filters.academicYear);
