@@ -536,7 +536,14 @@ function applyFilters(data) {
   let d = data;
 
   if (APP.filters.search) { const s = APP.filters.search.toLowerCase(); d = d.filter(x => Object.values(x).some(v => String(v).toLowerCase().includes(s))) }
-  if (APP.filters.semester) d = d.filter(x => norm(x.semester) === APP.filters.semester);
+  if (APP.filters.semester) {
+    const semVal = APP.filters.semester;
+    if (semVal === '3') {
+      d = d.filter(x => { const s = norm(x.semester).toLowerCase(); return s === '3' || s === 'ฤดูร้อน' || s === 'ภาคฤดูร้อน' || s === 'summer'; });
+    } else {
+      d = d.filter(x => norm(x.semester) === semVal);
+    }
+  }
   if (APP.filters.academicYear) d = d.filter(x => norm(x.academic_year) === APP.filters.academicYear);
   if (APP.filters.yearLevel) d = d.filter(x => norm(x.year_level) === APP.filters.yearLevel);
   return d;
