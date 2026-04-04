@@ -1363,16 +1363,76 @@ function engResultsPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">รูปแบบ</th><th class="px-4 py-3 font-semibold">สอบครั้งที่</th><th class="px-4 py-3 font-semibold">วันที่สอบ</th><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
-      <tbody>${paged.length ? paged.map(e => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${e.eng_score || ''}</td><td class="px-4 py-3">${e.eng_type || ''}</td>
-        <td class="px-4 py-3">${e.eng_attempt || ''}</td><td class="px-4 py-3">${e.eng_date ? new Date(e.eng_date).toLocaleDateString('th-TH') : ''}</td>
-        <td class="px-4 py-3">${e.academic_year || ''}</td>
-        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+      <thead><tr class="bg-surface text-left">
+        <th class="px-4 py-3 font-semibold">รูปแบบ</th>
+        <th class="px-4 py-3 font-semibold">Listening</th>
+        <th class="px-4 py-3 font-semibold">Grammar</th>
+        <th class="px-4 py-3 font-semibold">Reading</th>
+        <th class="px-4 py-3 font-semibold">คะแนนรวม</th>
+        <th class="px-4 py-3 font-semibold">ระดับ</th>
+        <th class="px-4 py-3 font-semibold">สอบครั้งที่</th>
+        <th class="px-4 py-3 font-semibold">วันที่สอบ</th>
+        <th class="px-4 py-3 font-semibold">ปีการศึกษา</th>
+        <th class="px-4 py-3 font-semibold">สถานะ</th>
+        ${isAdmin ? '<th class="px-4 py-3"></th>' : ''}
+      </tr></thead>
+      <tbody>${paged.length ? paged.map(e => {
+        const isSbch = e.eng_type === 'สบช.';
+        const level = e.eng_level || (isSbch ? getEngLevel(Number(e.eng_score) || 0) : '');
+        return `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${e.eng_type || ''}</td>
+          <td class="px-4 py-3 text-center">${isSbch ? (e.eng_listening || '-') : '-'}</td>
+          <td class="px-4 py-3 text-center">${isSbch ? (e.eng_grammar || '-') : '-'}</td>
+          <td class="px-4 py-3 text-center">${isSbch ? (e.eng_reading || '-') : '-'}</td>
+          <td class="px-4 py-3 text-center font-semibold">${e.eng_score || ''}</td>
+          <td class="px-4 py-3"><span class="text-xs ${isSbch ? 'font-medium text-blue-700' : 'text-gray-400'}">${level || '-'}</span></td>
+          <td class="px-4 py-3 text-center">${e.eng_attempt || ''}</td>
+          <td class="px-4 py-3">${e.eng_date ? new Date(e.eng_date).toLocaleDateString('th-TH') : ''}</td>
+          <td class="px-4 py-3">${e.academic_year || ''}</td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
+          ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
+        </tr>`;
+      }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
+}
+
+// ---- Eng helpers ----
+function getEngLevel(score) {
+  const s = Number(score) || 0;
+  if (s >= 91) return 'Proficiency';
+  if (s >= 81) return 'Advanced';
+  if (s >= 61) return 'Upper Intermediate';
+  if (s >= 41) return 'Intermediate';
+  if (s >= 21) return 'Elementary';
+  return 'Beginner';
+}
+function updateEngTypeForm(prefix) {
+  const type = document.getElementById(prefix + 'EngType').value;
+  const sbch = document.getElementById(prefix + 'EngSbch');
+  const other = document.getElementById(prefix + 'EngOther');
+  if (sbch) sbch.style.display = type === 'สบช.' ? 'block' : 'none';
+  if (other) other.style.display = type === 'สบช.' ? 'none' : 'block';
+}
+function calcEngSbchTotal(prefix) {
+  const l = Number(document.getElementById(prefix + 'EngL').value) || 0;
+  const g = Number(document.getElementById(prefix + 'EngG').value) || 0;
+  const r = Number(document.getElementById(prefix + 'EngR').value) || 0;
+  const total = l + g + r;
+  const totalEl = document.getElementById(prefix + 'EngTotal');
+  const levelEl = document.getElementById(prefix + 'EngLevel');
+  const statusEl = document.getElementById(prefix + 'EngStatus');
+  if (totalEl) totalEl.value = total;
+  if (levelEl) levelEl.value = getEngLevel(total);
+  if (statusEl) {
+    statusEl.textContent = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+    statusEl.className = 'inline-block px-3 py-1 rounded-full text-sm font-semibold ' + (total >= 41 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+  }
+}
+const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL', 'TU-GET'];
+function engTypeOptions(selected) {
+  return `<option value="">-- เลือกรูปแบบ --</option>` + ENG_TYPES.map(t => `<option value="${t}" ${selected === t ? 'selected' : ''}>${t}</option>`).join('');
 }
 
 function showAddEngModal() {
@@ -1380,23 +1440,61 @@ function showAddEngModal() {
     <form id="addEngForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา *</label><select name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML()}</select></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input name="eng_score" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ</label><input name="eng_type" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input name="eng_attempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input name="eng_date" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ *</label>
+          <select id="addEngType" onchange="updateEngTypeForm('add')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions('')}</select>
+        </div>
+        <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="addEngAttempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input id="addEngDate" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="eng_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ผ่าน</option><option>ไม่ผ่าน</option></select></div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
+      <!-- สบช. fields -->
+      <div id="addEngSbch" style="display:none">
+        <p class="text-xs font-semibold text-blue-700 mb-2">คะแนนรายทักษะ (สบช.)</p>
+        <div class="grid grid-cols-3 gap-2 mb-2">
+          <div><label class="block text-xs text-gray-600 mb-1">Listening</label><input id="addEngL" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">Grammar</label><input id="addEngG" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">Reading</label><input id="addEngR" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม (อัตโนมัติ)</label><input id="addEngTotal" type="number" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">ระดับผลการสอบ (อัตโนมัติ)</label><input id="addEngLevel" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+        </div>
+        <div class="mt-2"><label class="block text-xs text-gray-600 mb-1">สถานะ (อัตโนมัติ)</label><div class="border rounded-xl px-3 py-2 bg-gray-50 min-h-[36px] flex items-center"><span id="addEngStatus" class="text-sm text-gray-400">-</span></div></div>
+      </div>
+      <!-- Other type fields -->
+      <div id="addEngOther" style="display:none">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input id="addEngOtherScore" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="addEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน">ผ่าน</option><option value="ไม่ผ่าน">ไม่ผ่าน</option></select></div>
+        </div>
+      </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
-  document.getElementById('addEngForm').onsubmit = async (e) => {
-    e.preventDefault();
-    await withLoading(e.target, async () => {
-      const fd = new FormData(e.target);
-      const obj = { type: 'eng_result', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = (k === 'eng_score' || k === 'eng_attempt') ? Number(v) : v);
-      const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('เพิ่มผลสอบสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+  document.getElementById('addEngForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    await withLoading(ev.target, async () => {
+      const engType = document.getElementById('addEngType').value;
+      if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
+      const studentId = ev.target.querySelector('[name="student_id"]').value;
+      const attempt = document.getElementById('addEngAttempt').value;
+      const date = document.getElementById('addEngDate').value;
+      const year = document.getElementById('addEngYear').value;
+      const obj = { type: 'eng_result', created_at: new Date().toISOString(), student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
+      if (engType === 'สบช.') {
+        const l = Number(document.getElementById('addEngL').value) || 0;
+        const g = Number(document.getElementById('addEngG').value) || 0;
+        const r = Number(document.getElementById('addEngR').value) || 0;
+        const total = l + g + r;
+        obj.eng_listening = l; obj.eng_grammar = g; obj.eng_reading = r;
+        obj.eng_score = total; obj.eng_level = getEngLevel(total);
+        obj.eng_status = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+      } else {
+        obj.eng_score = Number(document.getElementById('addEngOtherScore').value) || '';
+        obj.eng_status = document.getElementById('addEngOtherStatus').value;
+      }
+      const res = await GSheetDB.create(obj);
+      if (res.isOk) { showToast('เพิ่มผลสอบสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
     });
   };
 }
@@ -3171,21 +3269,72 @@ function showEditGradeModal(id) {
 
 function showEditEngModal(id) {
   const e = APP.allData.find(d => d.__backendId === id); if (!e) return;
+  const isSbch = e.eng_type === 'สบช.';
+  const initTotal = Number(e.eng_score) || 0;
+  const initLevel = e.eng_level || (isSbch ? getEngLevel(initTotal) : '');
+  const initStatus = e.eng_status || (isSbch ? (initTotal >= 41 ? 'ผ่าน' : 'ไม่ผ่าน') : '');
   showModal('แก้ไขผลสอบภาษาอังกฤษ', `
     <form id="editEngForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(e.student_id)}</select></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input name="eng_score" type="number" value="${e.eng_score || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รูปแบบ</label><input name="eng_type" value="${e.eng_type || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="TOEIC, IELTS..."></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input name="eng_attempt" type="number" value="${e.eng_attempt || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input name="eng_date" type="date" value="${e.eng_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ *</label>
+          <select id="editEngType" onchange="updateEngTypeForm('edit')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions(e.eng_type || '')}</select>
+        </div>
+        <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="editEngAttempt" type="number" value="${e.eng_attempt || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input id="editEngDate" type="date" value="${e.eng_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" value="${e.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="eng_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${e.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <!-- สบช. fields -->
+      <div id="editEngSbch" style="display:${isSbch ? 'block' : 'none'}">
+        <p class="text-xs font-semibold text-blue-700 mb-2">คะแนนรายทักษะ (สบช.)</p>
+        <div class="grid grid-cols-3 gap-2 mb-2">
+          <div><label class="block text-xs text-gray-600 mb-1">Listening</label><input id="editEngL" type="number" min="0" max="100" value="${e.eng_listening || ''}" oninput="calcEngSbchTotal('edit')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">Grammar</label><input id="editEngG" type="number" min="0" max="100" value="${e.eng_grammar || ''}" oninput="calcEngSbchTotal('edit')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">Reading</label><input id="editEngR" type="number" min="0" max="100" value="${e.eng_reading || ''}" oninput="calcEngSbchTotal('edit')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม (อัตโนมัติ)</label><input id="editEngTotal" type="number" value="${initTotal || ''}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">ระดับผลการสอบ (อัตโนมัติ)</label><input id="editEngLevel" value="${initLevel}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+        </div>
+        <div class="mt-2"><label class="block text-xs text-gray-600 mb-1">สถานะ (อัตโนมัติ)</label><div class="border rounded-xl px-3 py-2 bg-gray-50 min-h-[36px] flex items-center"><span id="editEngStatus" class="inline-block px-3 py-1 rounded-full text-sm font-semibold ${initStatus === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${initStatus || '-'}</span></div></div>
+      </div>
+      <!-- Other type fields -->
+      <div id="editEngOther" style="display:${isSbch ? 'none' : 'block'}">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input id="editEngOtherScore" type="number" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="editEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน" ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option value="ไม่ผ่าน" ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
+        </div>
+      </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
-  document.getElementById('editEngForm').onsubmit = (ev) => { ev.preventDefault(); editRecord(id, 'editEngForm') };
+  document.getElementById('editEngForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    await withLoading(ev.target, async () => {
+      const engType = document.getElementById('editEngType').value;
+      if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
+      const studentId = ev.target.querySelector('[name="student_id"]').value;
+      const attempt = document.getElementById('editEngAttempt').value;
+      const date = document.getElementById('editEngDate').value;
+      const year = document.getElementById('editEngYear').value;
+      const obj = { ...e, student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
+      if (engType === 'สบช.') {
+        const l = Number(document.getElementById('editEngL').value) || 0;
+        const g = Number(document.getElementById('editEngG').value) || 0;
+        const r = Number(document.getElementById('editEngR').value) || 0;
+        const total = l + g + r;
+        obj.eng_listening = l; obj.eng_grammar = g; obj.eng_reading = r;
+        obj.eng_score = total; obj.eng_level = getEngLevel(total);
+        obj.eng_status = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+      } else {
+        obj.eng_score = Number(document.getElementById('editEngOtherScore').value) || '';
+        obj.eng_status = document.getElementById('editEngOtherStatus').value;
+        obj.eng_listening = ''; obj.eng_grammar = ''; obj.eng_reading = ''; obj.eng_level = '';
+      }
+      const res = await GSheetDB.update(obj);
+      if (res.isOk) { showToast('แก้ไขสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
 }
 
 function showEditEvalFormModal(id) {
