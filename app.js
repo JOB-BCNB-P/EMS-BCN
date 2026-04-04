@@ -23,6 +23,10 @@ function studentOptionsHTML(selectedId) {
   return `<option value="">-- เลือกนักศึกษา --</option>` +
     students.map(s => `<option value="${s.student_id || ''}" ${(s.student_id || '') === (selectedId || '') ? 'selected' : ''}>${s.student_id || ''} — ${s.name || ''}</option>`).join('');
 }
+function studentDatalistHTML(listId) {
+  const students = getDataByType('student');
+  return `<datalist id="${listId}">${students.map(s => `<option value="${s.student_id || ''}">${s.student_id || ''} — ${s.name || ''}</option>`).join('')}</datalist>`;
+}
 
 // ======================== GOOGLE SHEET INIT ========================
 function saveGSheetConfig() {
@@ -174,6 +178,8 @@ function updateLoginFields() {
     f.innerHTML = `<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน 6 หลัก</label><input type="password" id="adminPass" maxlength="6" pattern="[0-9]{6}" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="กรอกรหัสผ่าน 6 หลัก" onkeypress="if(event.key==='Enter')handleLogin()"></div>`;
   } else if (role === 'student') {
     f.innerHTML = `<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">เลขบัตรประชาชน 13 หลัก</label><input type="text" id="studentNID" maxlength="13" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="กรอกเลขบัตรประชาชน 13 หลัก" onkeypress="if(event.key==='Enter')handleLogin()"></div>`;
+  } else if (role === 'executive' || role === 'classTeacher') {
+    f.innerHTML = `<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">Username</label><input type="text" id="loginUsername" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="กรอก Username"></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label><input type="password" id="loginUserPass" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="รหัสผ่าน" onkeypress="if(event.key==='Enter')handleLogin()"></div>`;
   } else {
     f.innerHTML = `<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">E-mail</label><input type="email" id="teacherEmail" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="E-mail"></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label><input type="password" id="teacherPass" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="รหัสผ่าน" onkeypress="if(event.key==='Enter')handleLogin()"></div>`;
   }
@@ -231,22 +237,22 @@ function handleLogin() {
     if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: user.name || em, role: 'academic', email: em };
   } else if (role === 'classTeacher') {
-    const em = document.getElementById('teacherEmail').value;
-    const pw = document.getElementById('teacherPass').value;
-    if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
+    const uname = document.getElementById('loginUsername').value.trim();
+    const pw = document.getElementById('loginUserPass').value;
+    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'classTeacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    const t = getDataByType('teacher').find(x => x.email === em);
-    APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || user.responsible_year || '1' } : { name: user.name || em, role: 'classTeacher', email: em, responsible_year: user.responsible_year || '1' };
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'classTeacher' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
+    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
+    const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === (user.name || '').trim().toLowerCase() || (x.email || '') === (user.email || ''));
+    APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || user.responsible_year || '1' } : { name: user.name || uname, role: 'classTeacher', responsible_year: user.responsible_year || '1' };
   } else if (role === 'executive') {
-    const em = document.getElementById('teacherEmail').value;
-    const pw = document.getElementById('teacherPass').value;
-    if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
+    const uname = document.getElementById('loginUsername').value.trim();
+    const pw = document.getElementById('loginUserPass').value;
+    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
     if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    APP.currentUser = { name: user.name || em, role: 'executive', email: em };
+    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
+    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
+    APP.currentUser = { name: user.name || uname, role: 'executive' };
   }
   APP.currentRole = APP.currentUser.role;
   showScreen('mainApp');
@@ -644,21 +650,47 @@ function dashboardPage() {
   } else if (r === 'teacher') {
     const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
     const myEngPassUnique = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const teacherYrBreakdown = ['1','2','3','4'].map(yr => {
+      const yrStu = myStudents.filter(s => norm(s.year_level) === yr);
+      const yrPass = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && yrStu.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+      return { yr, count: yrStu.length, pass: yrPass.length };
+    }).filter(x => x.count > 0);
+    const teacherTooltip = teacherYrBreakdown.map(x => `<div class="flex justify-between gap-4"><span>ชั้นปี ${x.yr}:</span><span>${x.count} คน (ผ่าน ENG ${x.pass})</span></div>`).join('');
     stats = `
     <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">ข้อมูลตนเอง</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      ${statCard('users', 'นักศึกษาในที่ปรึกษา', myStudents.length, 'คน', 'bg-blue-500')}
+      <div class="group relative card-stat bg-white rounded-2xl p-5 border border-blue-100 cursor-pointer">
+        <div class="flex items-center gap-4"><div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center"><i data-lucide="users" class="w-6 h-6 text-white"></i></div><div><p class="text-sm text-gray-500">นักศึกษาในที่ปรึกษา</p><p class="text-2xl font-bold text-gray-800">${myStudents.length} <span class="text-sm font-normal text-gray-500">คน</span></p></div></div>
+        ${teacherYrBreakdown.length ? `<div class="hidden group-hover:block absolute left-0 top-full mt-1 z-20 bg-gray-800 text-white text-xs rounded-xl p-3 shadow-lg w-64">${teacherTooltip}</div>` : ''}
+      </div>
       ${statCard('check-circle', 'นักศึกษาสอบผ่านภาษาอังกฤษ', myEngPassUnique.length, 'คน', 'bg-amber-500')}
     </div>`;
   } else if (r === 'classTeacher') {
     const yr = APP.currentUser.responsible_year || '1';
     const myStudents = students.filter(s => norm(s.year_level) === norm(yr));
-    const myEngPassUnique = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const roomA = myStudents.filter(s => norm(s.room) === 'a');
+    const roomB = myStudents.filter(s => norm(s.room) === 'b');
+    const engPassA = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && roomA.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const engFailA = roomA.filter(s => !engPassA.includes(s.student_id));
+    const engPassB = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && roomB.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const engFailB = roomB.filter(s => !engPassB.includes(s.student_id));
     stats = `
     <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">อาจารย์ประจำชั้นปีที่ ${yr}</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      ${statCard('users', 'จำนวนนักศึกษา', myStudents.length, 'คน', 'bg-blue-500')}
-      ${statCard('check-circle', 'นักศึกษาสอบผ่านภาษาอังกฤษ', myEngPassUnique.length, 'คน', 'bg-amber-500')}
+      <div class="card-stat bg-white rounded-2xl p-5 border border-blue-100">
+        <div class="flex items-center gap-4 mb-3"><div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center"><i data-lucide="users" class="w-6 h-6 text-white"></i></div><div><p class="text-sm text-gray-500">จำนวนนักศึกษา</p><p class="text-2xl font-bold text-gray-800">${myStudents.length} <span class="text-sm font-normal text-gray-500">คน</span></p></div></div>
+        <div class="flex gap-3 text-sm border-t pt-3">
+          <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg">ห้อง A: <b>${roomA.length}</b> คน</span>
+          <span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg">ห้อง B: <b>${roomB.length}</b> คน</span>
+        </div>
+      </div>
+      <div class="card-stat bg-white rounded-2xl p-5 border border-blue-100">
+        <div class="flex items-center gap-4 mb-3"><div class="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center"><i data-lucide="check-circle" class="w-6 h-6 text-white"></i></div><div><p class="text-sm text-gray-500">ผลสอบภาษาอังกฤษ</p><p class="text-2xl font-bold text-gray-800">${engPassA.length + engPassB.length} <span class="text-sm font-normal text-gray-500">คนผ่าน</span></p></div></div>
+        <div class="border-t pt-3 space-y-2 text-sm">
+          <div class="flex items-center gap-2"><span class="font-medium text-gray-600 w-14">ห้อง A:</span><span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-lg">ผ่าน <b>${engPassA.length}</b></span><span class="px-2 py-0.5 bg-red-50 text-red-700 rounded-lg">ไม่ผ่าน <b>${engFailA.length}</b></span></div>
+          <div class="flex items-center gap-2"><span class="font-medium text-gray-600 w-14">ห้อง B:</span><span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-lg">ผ่าน <b>${engPassB.length}</b></span><span class="px-2 py-0.5 bg-red-50 text-red-700 rounded-lg">ไม่ผ่าน <b>${engFailB.length}</b></span></div>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -700,6 +732,91 @@ function studentsPage() {
   const allStudents = getDataByType('student');
   const selectedYearLevel = APP.filters._studentYearLevel || '';
 
+  // ClassTeacher: room-based selector
+  if (isClassTeacher) {
+    const yr = APP.currentUser.responsible_year || '1';
+    const myYrStudents = allStudents.filter(s => norm(s.year_level) === norm(yr));
+    const selectedRoom = APP.filters._studentRoom || '';
+    const roomACount = myYrStudents.filter(s => norm(s.room) === 'a').length;
+    const roomBCount = myYrStudents.filter(s => norm(s.room) === 'b').length;
+
+    let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา ชั้นปีที่ ${yr}</h2>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+      <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ทั้งหมด</p><p class="text-2xl font-bold text-primary">${myYrStudents.length} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
+      <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ห้อง A</p><p class="text-2xl font-bold text-blue-600">${roomACount} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
+      <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ห้อง B</p><p class="text-2xl font-bold text-purple-600">${roomBCount} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <div class="flex items-center gap-3">
+        <label class="text-sm font-medium text-gray-700">เลือกห้อง:</label>
+        <div class="flex gap-2">
+          <button onclick="APP.filters._studentRoom='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${!selectedRoom ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ทั้งหมด</button>
+          <button onclick="APP.filters._studentRoom='A';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedRoom === 'A' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ห้อง A</button>
+          <button onclick="APP.filters._studentRoom='B';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedRoom === 'B' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ห้อง B</button>
+        </div>
+      </div>
+    </div>`;
+
+    let data = myYrStudents;
+    if (selectedRoom) data = data.filter(s => norm(s.room) === norm(selectedRoom));
+    data = applyFilters(data);
+    const total = data.length;
+    const paged = paginate(data);
+
+    return headerHtml + `
+    ${filterBar({ semester: false, year: false, yearLevel: false })}
+    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ห้อง</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
+        <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.room || '-'}</td><td class="px-4 py-3">${s.batch || ''}</td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  }
+
+  // Teacher: button-based year selector
+  if (APP.currentRole === 'teacher') {
+    const myAllStudents = allStudents.filter(s => s.advisor === APP.currentUser.name);
+    const selectedYearLevel = APP.filters._studentYearLevel || '';
+
+    let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="APP.filters._studentYearLevel='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${!selectedYearLevel ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">แสดงทั้งหมด</button>
+          ${['1','2','3','4'].map(yr => `<button onclick="APP.filters._studentYearLevel='${yr}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedYearLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+    let data = myAllStudents;
+    if (selectedYearLevel) data = data.filter(s => norm(s.year_level) === selectedYearLevel);
+    data = applyFilters(data);
+    const total = data.length;
+    const paged = paginate(data);
+
+    return headerHtml + `
+    ${filterBar({ semester: false, year: false, yearLevel: false })}
+    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
+        <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  }
+
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
     ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
@@ -721,8 +838,6 @@ function studentsPage() {
   if (!selectedYearLevel) return headerHtml + noYearSelectedMsg('นักศึกษา (กรุณาเลือกชั้นปี)');
 
   let data = allStudents.filter(s => norm(s.year_level) === selectedYearLevel);
-  if (isClassTeacher) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
-  if (APP.currentRole === 'teacher') data = data.filter(s => s.advisor === APP.currentUser.name);
   data = applyFilters(data);
   const total = data.length;
   const paged = paginate(data);
@@ -820,7 +935,7 @@ function subjectsPage() {
 
   if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
 
-  let data = applyFilters(allSubjects.filter(s => (s.academic_year || '') === selectedYear));
+  let data = applyFilters(allSubjects.filter(s => (s.academic_year || '') === selectedYear && norm(s.semester) !== '3'));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'student' && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
   const total = data.length; const paged = paginate(data);
@@ -1438,7 +1553,7 @@ function engTypeOptions(selected) {
 function showAddEngModal() {
   showModal('เพิ่มผลสอบภาษาอังกฤษ', `
     <form id="addEngForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา *</label><select name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML()}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addEngStudentList" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา...">${studentDatalistHTML('addEngStudentList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ *</label>
           <select id="addEngType" onchange="updateEngTypeForm('add')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions('')}</select>
@@ -1464,7 +1579,7 @@ function showAddEngModal() {
       <!-- Other type fields -->
       <div id="addEngOther" style="display:none">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input id="addEngOtherScore" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="addEngOtherScore" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="addEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน">ผ่าน</option><option value="ไม่ผ่าน">ไม่ผ่าน</option></select></div>
         </div>
       </div>
@@ -3301,7 +3416,7 @@ function showEditEngModal(id) {
       <!-- Other type fields -->
       <div id="editEngOther" style="display:${isSbch ? 'none' : 'block'}">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนน</label><input id="editEngOtherScore" type="number" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="editEngOtherScore" type="number" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="editEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน" ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option value="ไม่ผ่าน" ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
         </div>
       </div>
