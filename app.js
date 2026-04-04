@@ -668,8 +668,8 @@ function dashboardPage() {
   } else if (r === 'classTeacher') {
     const yr = APP.currentUser.responsible_year || '1';
     const myStudents = students.filter(s => norm(s.year_level) === norm(yr));
-    const roomA = myStudents.filter(s => norm(s.room) === 'a');
-    const roomB = myStudents.filter(s => norm(s.room) === 'b');
+    const roomA = myStudents.filter(s => norm(s.room).toUpperCase() === 'A');
+    const roomB = myStudents.filter(s => norm(s.room).toUpperCase() === 'B');
     const engPassA = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && roomA.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
     const engFailA = roomA.filter(s => !engPassA.includes(s.student_id));
     const engPassB = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && roomB.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
@@ -737,8 +737,8 @@ function studentsPage() {
     const yr = APP.currentUser.responsible_year || '1';
     const myYrStudents = allStudents.filter(s => norm(s.year_level) === norm(yr));
     const selectedRoom = APP.filters._studentRoom || '';
-    const roomACount = myYrStudents.filter(s => norm(s.room) === 'a').length;
-    const roomBCount = myYrStudents.filter(s => norm(s.room) === 'b').length;
+    const roomACount = myYrStudents.filter(s => norm(s.room).toUpperCase() === 'A').length;
+    const roomBCount = myYrStudents.filter(s => norm(s.room).toUpperCase() === 'B').length;
 
     let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา ชั้นปีที่ ${yr}</h2>
@@ -760,7 +760,7 @@ function studentsPage() {
     </div>`;
 
     let data = myYrStudents;
-    if (selectedRoom) data = data.filter(s => norm(s.room) === norm(selectedRoom));
+    if (selectedRoom) data = data.filter(s => norm(s.room).toUpperCase() === selectedRoom.toUpperCase());
     data = applyFilters(data);
     const total = data.length;
     const paged = paginate(data);
@@ -1420,31 +1420,50 @@ function engResultsPage() {
     const passedCount = summaryStudents.filter(s => passedIds.has(s.student_id)).length;
     const notPassedCount = summaryStudents.length - passedCount;
 
-    // Year-level breakdown for tooltip
-    const allStudentsAll = getDataByType('student');
-    const yearBreakdown = [1,2,3,4].map(yr => {
-      const yrStudents = summaryStudents.filter(s => norm(s.year_level) === String(yr));
-      if (!yrStudents.length) return null;
-      const yrPassed = yrStudents.filter(s => passedIds.has(s.student_id)).length;
-      const yrFailed = yrStudents.length - yrPassed;
-      return { yr, total: yrStudents.length, passed: yrPassed, failed: yrFailed };
-    }).filter(Boolean);
-
-    const tooltipRows = yearBreakdown.map(y =>
-      `<div class="flex items-center justify-between gap-4 py-1 border-b border-gray-100 last:border-0">
-        <span class="text-xs text-gray-600">ชั้นปี ${y.yr}</span>
-        <div class="flex gap-3">
-          <span class="text-xs font-semibold text-green-600">ผ่าน ${y.passed}</span>
-          <span class="text-xs font-semibold text-red-500">ไม่ผ่าน ${y.failed}</span>
+    // Breakdown for tooltip — classTeacher: by room, others: by year level
+    let tooltipHtml = '';
+    if (APP.currentRole === 'classTeacher') {
+      const roomAstu = summaryStudents.filter(s => norm(s.room).toUpperCase() === 'A');
+      const roomBstu = summaryStudents.filter(s => norm(s.room).toUpperCase() === 'B');
+      const roomApass = roomAstu.filter(s => passedIds.has(s.student_id)).length;
+      const roomBpass = roomBstu.filter(s => passedIds.has(s.student_id)).length;
+      const roomAfail = roomAstu.length - roomApass;
+      const roomBfail = roomBstu.length - roomBpass;
+      const tooltipRows = `
+        <div class="flex items-center justify-between gap-4 py-1 border-b border-gray-100">
+          <span class="text-xs text-gray-600">ห้อง A</span>
+          <div class="flex gap-3"><span class="text-xs font-semibold text-green-600">ผ่าน ${roomApass}</span><span class="text-xs font-semibold text-red-500">ไม่ผ่าน ${roomAfail}</span></div>
         </div>
-      </div>`).join('');
-
-    const tooltipHtml = yearBreakdown.length ? `
-      <div class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-white border border-blue-100 rounded-xl shadow-xl p-3 hidden group-hover:block pointer-events-none">
-        <p class="text-xs font-bold text-gray-700 mb-2">สรุปรายชั้นปี</p>
+        <div class="flex items-center justify-between gap-4 py-1">
+          <span class="text-xs text-gray-600">ห้อง B</span>
+          <div class="flex gap-3"><span class="text-xs font-semibold text-green-600">ผ่าน ${roomBpass}</span><span class="text-xs font-semibold text-red-500">ไม่ผ่าน ${roomBfail}</span></div>
+        </div>`;
+      tooltipHtml = `<div class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-white border border-blue-100 rounded-xl shadow-xl p-3 hidden group-hover:block pointer-events-none">
+        <p class="text-xs font-bold text-gray-700 mb-2">สรุปรายห้อง</p>
         ${tooltipRows}
         <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-blue-100 rotate-45"></div>
-      </div>` : '';
+      </div>`;
+    } else {
+      const yearBreakdown = [1,2,3,4].map(yr => {
+        const yrStudents = summaryStudents.filter(s => norm(s.year_level) === String(yr));
+        if (!yrStudents.length) return null;
+        const yrPassed = yrStudents.filter(s => passedIds.has(s.student_id)).length;
+        const yrFailed = yrStudents.length - yrPassed;
+        return { yr, total: yrStudents.length, passed: yrPassed, failed: yrFailed };
+      }).filter(Boolean);
+      if (yearBreakdown.length) {
+        const tooltipRows = yearBreakdown.map(y =>
+          `<div class="flex items-center justify-between gap-4 py-1 border-b border-gray-100 last:border-0">
+            <span class="text-xs text-gray-600">ชั้นปี ${y.yr}</span>
+            <div class="flex gap-3"><span class="text-xs font-semibold text-green-600">ผ่าน ${y.passed}</span><span class="text-xs font-semibold text-red-500">ไม่ผ่าน ${y.failed}</span></div>
+          </div>`).join('');
+        tooltipHtml = `<div class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-white border border-blue-100 rounded-xl shadow-xl p-3 hidden group-hover:block pointer-events-none">
+          <p class="text-xs font-bold text-gray-700 mb-2">สรุปรายชั้นปี</p>
+          ${tooltipRows}
+          <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-blue-100 rotate-45"></div>
+        </div>`;
+      }
+    }
 
     summaryTableHtml = `
     <div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
