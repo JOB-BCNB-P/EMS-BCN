@@ -206,8 +206,7 @@ function handleLogin() {
         if (adminUsers.length === 0) {
           err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
         } else {
-          const debugPwds = adminUsers.map(u => '"' + String(u.password || '') + '"→"' + cleanPassword(u.password) + '"').join(', ');
-          err.innerHTML = 'รหัสผ่านไม่ถูกต้อง (พบ admin ' + adminUsers.length + ' คน, ค่าที่กรอก="' + p + '", ค่าในระบบ: ' + debugPwds + ')<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
+            err.innerHTML = 'รหัสผ่านไม่ถูกต้อง<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
         }
       }
       err.classList.remove('hidden'); return
@@ -935,7 +934,7 @@ function subjectsPage() {
 
   if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
 
-  let data = applyFilters(allSubjects.filter(s => (s.academic_year || '') === selectedYear && norm(s.semester) !== '3'));
+  let data = applyFilters(allSubjects.filter(s => (s.academic_year || '') === selectedYear));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (APP.currentRole === 'student' && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
   const total = data.length; const paged = paginate(data);
@@ -1149,7 +1148,7 @@ function gradesPage() {
 function showAddGradeModal() {
   showModal('เพิ่มผลการเรียน', `
     <form id="addGradeForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา *</label><select name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML()}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addGradeStudentList" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา...">${studentDatalistHTML('addGradeStudentList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -1555,13 +1554,26 @@ function calcEngSbchTotal(prefix) {
   const r = Number(document.getElementById(prefix + 'EngR').value) || 0;
   const total = l + g + r;
   const totalEl = document.getElementById(prefix + 'EngTotal');
+  if (totalEl && total > 0) totalEl.value = total;
+  updateEngSbchLevelStatus(prefix);
+}
+function calcEngSbchFromTotal(prefix) {
+  updateEngSbchLevelStatus(prefix);
+}
+function updateEngSbchLevelStatus(prefix) {
+  const totalEl = document.getElementById(prefix + 'EngTotal');
   const levelEl = document.getElementById(prefix + 'EngLevel');
   const statusEl = document.getElementById(prefix + 'EngStatus');
-  if (totalEl) totalEl.value = total;
-  if (levelEl) levelEl.value = getEngLevel(total);
+  const total = Number(totalEl ? totalEl.value : 0) || 0;
+  if (levelEl) levelEl.value = total > 0 ? getEngLevel(total) : '';
   if (statusEl) {
-    statusEl.textContent = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
-    statusEl.className = 'inline-block px-3 py-1 rounded-full text-sm font-semibold ' + (total >= 41 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+    if (total > 0) {
+      statusEl.textContent = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+      statusEl.className = 'inline-block px-3 py-1 rounded-full text-sm font-semibold ' + (total >= 41 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+    } else {
+      statusEl.textContent = '-';
+      statusEl.className = 'text-sm text-gray-400';
+    }
   }
 }
 const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL', 'TU-GET'];
@@ -1583,14 +1595,14 @@ function showAddEngModal() {
       </div>
       <!-- สบช. fields -->
       <div id="addEngSbch" style="display:none">
-        <p class="text-xs font-semibold text-blue-700 mb-2">คะแนนรายทักษะ (สบช.)</p>
+        <p class="text-xs font-semibold text-blue-700 mb-2">คะแนนรายทักษะ (สบช.) <span class="font-normal text-gray-400">— ไม่บังคับ หากไม่มีกรอกแค่คะแนนรวม</span></p>
         <div class="grid grid-cols-3 gap-2 mb-2">
           <div><label class="block text-xs text-gray-600 mb-1">Listening</label><input id="addEngL" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
           <div><label class="block text-xs text-gray-600 mb-1">Grammar</label><input id="addEngG" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
           <div><label class="block text-xs text-gray-600 mb-1">Reading</label><input id="addEngR" type="number" min="0" max="100" oninput="calcEngSbchTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="0-100"></div>
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม (อัตโนมัติ)</label><input id="addEngTotal" type="number" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="addEngTotal" type="number" min="0" max="300" oninput="calcEngSbchFromTotal('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกคะแนนรวม"></div>
           <div><label class="block text-xs text-gray-600 mb-1">ระดับผลการสอบ (อัตโนมัติ)</label><input id="addEngLevel" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
         </div>
         <div class="mt-2"><label class="block text-xs text-gray-600 mb-1">สถานะ (อัตโนมัติ)</label><div class="border rounded-xl px-3 py-2 bg-gray-50 min-h-[36px] flex items-center"><span id="addEngStatus" class="text-sm text-gray-400">-</span></div></div>
@@ -1619,8 +1631,11 @@ function showAddEngModal() {
         const l = Number(document.getElementById('addEngL').value) || 0;
         const g = Number(document.getElementById('addEngG').value) || 0;
         const r = Number(document.getElementById('addEngR').value) || 0;
-        const total = l + g + r;
-        obj.eng_listening = l; obj.eng_grammar = g; obj.eng_reading = r;
+        const total = Number(document.getElementById('addEngTotal').value) || 0;
+        if (total === 0) { showToast('กรุณากรอกคะแนนรวม', 'error'); return; }
+        if (l) obj.eng_listening = l;
+        if (g) obj.eng_grammar = g;
+        if (r) obj.eng_reading = r;
         obj.eng_score = total; obj.eng_level = getEngLevel(total);
         obj.eng_status = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
       } else {
