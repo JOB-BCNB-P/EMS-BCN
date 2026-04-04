@@ -1305,12 +1305,44 @@ function engResultsPage() {
     const passedCount = summaryStudents.filter(s => passedIds.has(s.student_id)).length;
     const notPassedCount = summaryStudents.length - passedCount;
 
+    // Year-level breakdown for tooltip
+    const allStudentsAll = getDataByType('student');
+    const yearBreakdown = [1,2,3,4].map(yr => {
+      const yrStudents = summaryStudents.filter(s => norm(s.year_level) === String(yr));
+      if (!yrStudents.length) return null;
+      const yrPassed = yrStudents.filter(s => passedIds.has(s.student_id)).length;
+      const yrFailed = yrStudents.length - yrPassed;
+      return { yr, total: yrStudents.length, passed: yrPassed, failed: yrFailed };
+    }).filter(Boolean);
+
+    const tooltipRows = yearBreakdown.map(y =>
+      `<div class="flex items-center justify-between gap-4 py-1 border-b border-gray-100 last:border-0">
+        <span class="text-xs text-gray-600">ชั้นปี ${y.yr}</span>
+        <div class="flex gap-3">
+          <span class="text-xs font-semibold text-green-600">ผ่าน ${y.passed}</span>
+          <span class="text-xs font-semibold text-red-500">ไม่ผ่าน ${y.failed}</span>
+        </div>
+      </div>`).join('');
+
+    const tooltipHtml = yearBreakdown.length ? `
+      <div class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-white border border-blue-100 rounded-xl shadow-xl p-3 hidden group-hover:block pointer-events-none">
+        <p class="text-xs font-bold text-gray-700 mb-2">สรุปรายชั้นปี</p>
+        ${tooltipRows}
+        <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-blue-100 rotate-45"></div>
+      </div>` : '';
+
     summaryTableHtml = `
     <div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
       <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>สรุปผลสอบภาษาอังกฤษ</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        ${statCard('check-circle', 'สอบผ่าน', passedCount, 'คน', 'bg-green-500')}
-        ${statCard('x-circle', 'ยังไม่ผ่าน', notPassedCount, 'คน', 'bg-red-500')}
+        <div class="relative group cursor-default">
+          ${statCard('check-circle', 'สอบผ่าน', passedCount, 'คน', 'bg-green-500')}
+          ${tooltipHtml}
+        </div>
+        <div class="relative group cursor-default">
+          ${statCard('x-circle', 'ยังไม่ผ่าน', notPassedCount, 'คน', 'bg-red-500')}
+          ${tooltipHtml}
+        </div>
       </div>
     </div>`;
   }
@@ -1319,8 +1351,8 @@ function engResultsPage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="languages" class="w-6 h-6 inline mr-2"></i>ผลสอบภาษาอังกฤษ</h2>
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_attempt,eng_date,eng_status,academic_year')}</div>` : ''}
   </div>
-  ${yearPickerHtml}
   ${summaryTableHtml}
+  ${yearPickerHtml}
   ${studentSelector}
   ${noSelectionMsg || `<div class="bg-white rounded-2xl border border-blue-100 p-4 mb-4">
     <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="file-text" class="w-5 h-5 text-primary"></i>รายละเอียดผลสอบรายบุคคล</h3>
