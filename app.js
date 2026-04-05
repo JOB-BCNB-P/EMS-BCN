@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -1109,9 +1109,11 @@ function gradesPage() {
   // Filter data — match by student_id
   let data;
   if (isStudent && APP.currentUser.data) {
-    data = allGrades.filter(g => g.student_id === APP.currentUser.data.student_id);
+    const sid = norm(APP.currentUser.data.student_id);
+    data = allGrades.filter(g => norm(g.student_id) === sid);
   } else if (selectedStudentName) {
-    data = allGrades.filter(g => g.student_id === selectedStudentName);
+    const sid = norm(selectedStudentName);
+    data = allGrades.filter(g => norm(g.student_id) === sid);
   } else {
     data = [];
   }
@@ -1393,9 +1395,11 @@ function engResultsPage() {
   // Filter data — match by student_id
   let data;
   if (isStudent && APP.currentUser.data) {
-    data = allEng.filter(e => e.student_id === APP.currentUser.data.student_id);
+    const sid = norm(APP.currentUser.data.student_id);
+    data = allEng.filter(e => norm(e.student_id) === sid);
   } else if (selectedStudentName) {
-    data = allEng.filter(e => e.student_id === selectedStudentName);
+    const sid = norm(selectedStudentName);
+    data = allEng.filter(e => norm(e.student_id) === sid);
   } else {
     data = [];
   }
@@ -1427,8 +1431,8 @@ function engResultsPage() {
     }
 
     // Count unique students who passed / not passed
-    const passedIds = new Set(allEng.filter(e => e.eng_status === 'ผ่าน').map(e => e.student_id));
-    const passedCount = summaryStudents.filter(s => passedIds.has(s.student_id)).length;
+    const passedIds = new Set(allEng.filter(e => e.eng_status === 'ผ่าน').map(e => norm(e.student_id)));
+    const passedCount = summaryStudents.filter(s => passedIds.has(norm(s.student_id))).length;
     const notPassedCount = summaryStudents.length - passedCount;
 
     // Breakdown for tooltip — classTeacher: by room, others: by year level
