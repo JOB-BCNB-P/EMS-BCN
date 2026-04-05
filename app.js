@@ -215,7 +215,7 @@ function handleLogin() {
   } else if (role === 'student') {
     const nid = document.getElementById('studentNID').value;
     if (!/^\d{13}$/.test(nid)) { err.textContent = 'กรุณากรอกเลขบัตรประชาชน 13 หลัก'; err.classList.remove('hidden'); return }
-    const stu = getDataByType('student').find(s => s.national_id === nid);
+    const stu = getDataByType('student').find(s => norm(s.national_id) === norm(nid));
     if (!stu) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
   } else if (role === 'teacher') {
