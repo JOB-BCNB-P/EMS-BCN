@@ -379,6 +379,18 @@ function renderCurrentPage() {
 // ======================== HELPERS ========================
 // Normalize value from Google Sheet (strip .0, trim whitespace)
 function norm(v) { return String(v || '').replace(/\.0$/, '').trim() }
+function semLabel(v) {
+  const s = norm(v);
+  if (s === '3' || s.includes('ร้อน')) return 'ฤดูร้อน';
+  if (s === '1') return '1';
+  if (s === '2') return '2';
+  return s;
+}
+function normSem(v) {
+  const s = norm(v);
+  if (s.includes('ร้อน') || s === '3') return '3';
+  return s;
+}
 
 // Loading overlay for save/edit/delete operations
 function showLoading(msg = 'กำลังบันทึก...') {
@@ -536,14 +548,7 @@ function applyFilters(data) {
   let d = data;
 
   if (APP.filters.search) { const s = APP.filters.search.toLowerCase(); d = d.filter(x => Object.values(x).some(v => String(v).toLowerCase().includes(s))) }
-  if (APP.filters.semester) {
-    const semVal = APP.filters.semester;
-    if (semVal === '3') {
-      d = d.filter(x => { const s = norm(x.semester); return s === '3' || s.includes('ร้อน') || s.includes('summer') || s.includes('Summer'); });
-    } else {
-      d = d.filter(x => { const s = norm(x.semester); return s === semVal || (semVal === '1' && !s.includes('ร้อน') && s.includes('1')) || (semVal === '2' && !s.includes('ร้อน') && s.includes('2')); });
-    }
-  }
+  if (APP.filters.semester) d = d.filter(x => normSem(x.semester) === APP.filters.semester);
   if (APP.filters.academicYear) d = d.filter(x => norm(x.academic_year) === APP.filters.academicYear);
   if (APP.filters.yearLevel) d = d.filter(x => norm(x.year_level) === APP.filters.yearLevel);
   return d;
@@ -954,7 +959,7 @@ function subjectsPage() {
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${s.subject_code || ''}</td><td class="px-4 py-3 font-medium">${s.subject_name || ''}</td><td class="px-4 py-3">${s.coordinator || ''}</td>
         <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.credits || ''}</td>
-        <td class="px-4 py-3">${s.semester || ''}/${s.academic_year || ''}</td>
+        <td class="px-4 py-3">${semLabel(s.semester)}/${s.academic_year || ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
@@ -1145,7 +1150,7 @@ function gradesPage() {
       <tbody>${paged.length ? paged.map(g => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade === 'F' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${g.grade || ''}</span></td>
-        <td class="px-4 py-3">${g.credits || ''}</td><td class="px-4 py-3">${g.semester || ''}/${g.academic_year || ''}</td>
+        <td class="px-4 py-3">${g.credits || ''}</td><td class="px-4 py-3">${semLabel(g.semester)}/${g.academic_year || ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
@@ -1693,7 +1698,7 @@ function evalTeacherPage() {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">${availableForms.map(f => `<div class="bg-white rounded-2xl p-5 border border-green-200 hover:shadow-md transition cursor-pointer" onclick="showStudentEvalForm('${f.__backendId}')">
       <div class="flex items-center justify-between mb-2">
         <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">รอประเมิน</span>
-        <span class="text-xs text-gray-400">${f.semester || ''}/${f.academic_year || ''}</span>
+        <span class="text-xs text-gray-400">${semLabel(f.semester)}/${f.academic_year || ''}</span>
       </div>
       <p class="font-bold text-gray-800">${f.subject_code ? f.subject_code + ' ' : ''}${f.subject_name || ''}</p>
       <p class="text-sm text-gray-500 mt-1">อาจารย์: ${f.teacher_name || ''}</p>
@@ -1704,7 +1709,7 @@ function evalTeacherPage() {
     <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface"><th class="px-4 py-3 text-left">รายวิชา</th><th class="px-4 py-3 text-left">อาจารย์</th><th class="px-4 py-3">คะแนนเฉลี่ย</th><th class="px-4 py-3">ภาค/ปี</th></tr></thead>
-        <tbody>${myEvals.length ? myEvals.map(e => `<tr class="border-t"><td class="px-4 py-3">${e.subject_name || ''}</td><td class="px-4 py-3">${e.teacher_name || e.name || ''}</td><td class="px-4 py-3 text-center font-bold text-primary">${e.eval_score || ''}/5</td><td class="px-4 py-3 text-center">${e.semester || ''}/${e.academic_year || ''}</td></tr>`).join('') : '<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีประวัติ</td></tr>'}</tbody>
+        <tbody>${myEvals.length ? myEvals.map(e => `<tr class="border-t"><td class="px-4 py-3">${e.subject_name || ''}</td><td class="px-4 py-3">${e.teacher_name || e.name || ''}</td><td class="px-4 py-3 text-center font-bold text-primary">${e.eval_score || ''}/5</td><td class="px-4 py-3 text-center">${semLabel(e.semester)}/${e.academic_year || ''}</td></tr>`).join('') : '<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีประวัติ</td></tr>'}</tbody>
       </table></div>
     </div>`;
   }
@@ -1740,7 +1745,7 @@ function evalTeacherPage() {
           <td class="px-4 py-3 font-medium">${f.subject_code ? f.subject_code + ' ' : ''}${f.subject_name || ''}</td>
           <td class="px-4 py-3">${f.teacher_name || ''}</td>
           <td class="px-4 py-3 text-xs">${(f.eval_items || '').split(',').filter(Boolean).join(', ')}</td>
-          <td class="px-4 py-3">${f.semester || ''}/${f.academic_year || ''}</td>
+          <td class="px-4 py-3">${semLabel(f.semester)}/${f.academic_year || ''}</td>
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${f.status === 'เปิด' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${f.status || 'เปิด'}</span></td>
           <td class="px-4 py-3 font-bold text-primary">${respCount}</td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEvalFormModal('${f.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${f.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
@@ -1768,7 +1773,7 @@ function evalTeacherPage() {
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">นักศึกษา</th><th class="px-4 py-3 font-semibold">คะแนน</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th></tr></thead>
-      <tbody>${data.length ? data.map(e => `<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name || ''}</td><td class="px-4 py-3">${e.student_name || ''}</td><td class="px-4 py-3 font-bold">${e.eval_score || ''}/5</td><td class="px-4 py-3">${e.semester || ''}/${e.academic_year || ''}</td></tr>`).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
+      <tbody>${data.length ? data.map(e => `<tr class="border-t hover:bg-gray-50"><td class="px-4 py-3">${e.subject_name || ''}</td><td class="px-4 py-3">${e.student_name || ''}</td><td class="px-4 py-3 font-bold">${e.eval_score || ''}/5</td><td class="px-4 py-3">${semLabel(e.semester)}/${e.academic_year || ''}</td></tr>`).join('') : '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ยังไม่มีผลประเมิน</td></tr>'}</tbody>
     </table></div>
   </div>`;
 }
@@ -1828,7 +1833,7 @@ function showStudentEvalForm(formId) {
 
   let formHTML = `<div class="mb-4 p-3 bg-blue-50 rounded-xl">
     <p class="font-bold">${form.subject_code ? form.subject_code + ' ' : ''}${form.subject_name || ''}</p>
-    <p class="text-sm text-gray-600">อาจารย์: ${form.teacher_name || ''} | ภาค ${form.semester || ''}/${form.academic_year || ''}</p>
+    <p class="text-sm text-gray-600">อาจารย์: ${form.teacher_name || ''} | ภาค ${semLabel(form.semester)}/${form.academic_year || ''}</p>
   </div>
   <form id="studentEvalForm" class="space-y-4">
     <input type="hidden" name="eval_form_id" value="${formId}">
@@ -2552,7 +2557,7 @@ function trackingPage() {
     const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
         <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td><td class="px-4 py-3">${t.theory_practice || ''}</td>
-        <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
+        <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.class_teacher_check)}</td>
         <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.academic_propose)}</td>
         <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.deputy_sign)}</td>
@@ -2682,7 +2687,7 @@ function gradeTrackingPage() {
         <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
-        <td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
+        <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3">${t.coordinator || ''}</td>
         <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
         <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
@@ -2801,7 +2806,7 @@ function fileTrackingPage() {
         <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
-        <td class="px-4 py-3">${t.semester || ''}/${t.academic_year || ''}</td>
+        <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3">${t.coordinator || ''}</td>
         <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
         <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
@@ -2910,7 +2915,7 @@ function leavePage() {
         <td class="px-4 py-3">${l.name || ''}</td><td class="px-4 py-3">${l.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${l.leave_type === 'ลาป่วย' ? 'bg-red-100 text-red-700' : l.leave_type === 'ลาพบแพทย์' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}">${l.leave_type || ''}</span></td>
         <td class="px-4 py-3">${l.leave_hours || ''}</td><td class="px-4 py-3">${l.leave_percent || '-'}%</td>
-        <td class="px-4 py-3">${l.leave_date || ''}</td><td class="px-4 py-3">${l.semester || ''}/${l.academic_year || ''}</td>
+        <td class="px-4 py-3">${l.leave_date || ''}</td><td class="px-4 py-3">${semLabel(l.semester)}/${l.academic_year || ''}</td>
         <td class="px-4 py-3">${getStatusBadge(l.leave_status)}</td>
         ${(isTeacher || isClassTeacher) ? `<td class="px-4 py-3">${approvalButtons}</td>` : ''} 
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditLeaveModal('${l.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
