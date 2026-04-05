@@ -387,6 +387,9 @@ function parseDate(v) {
   if (!v) return null;
   const s = String(v).trim();
   if (!s) return null;
+  // Google Sheets JSON date: Date(yyyy,m,d) — month is 0-indexed
+  const gsMatch = s.match(/^Date\((\d+),(\d+),(\d+)\)$/);
+  if (gsMatch) return new Date(Number(gsMatch[1]), Number(gsMatch[2]), Number(gsMatch[3]));
   // Excel serial number (e.g. 44927)
   if (/^\d{5}$/.test(s)) {
     const d = new Date((Number(s) - 25569) * 86400 * 1000);
@@ -396,19 +399,21 @@ function parseDate(v) {
   const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (dmyMatch) {
     let [, d, m, y] = dmyMatch;
-    if (Number(y) > 2400) y = String(Number(y) - 543); // Buddhist → CE
+    if (Number(y) > 2400) y = String(Number(y) - 543);
     return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
   // yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
-  // fallback
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
 function formatDate(v) {
   const d = parseDate(v);
   if (!d || isNaN(d)) return v || '';
-  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear() + 543; // CE → พ.ศ.
+  return `${dd}/${mm}/${yyyy}`;
 }
 function semLabel(v) {
   const s = norm(v);
