@@ -383,6 +383,33 @@ function renderCurrentPage() {
 // ======================== HELPERS ========================
 // Normalize value from Google Sheet (strip .0, trim whitespace)
 function norm(v) { return String(v || '').replace(/\.0$/, '').trim() }
+function parseDate(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  // Excel serial number (e.g. 44927)
+  if (/^\d{5}$/.test(s)) {
+    const d = new Date((Number(s) - 25569) * 86400 * 1000);
+    return isNaN(d) ? null : d;
+  }
+  // dd/mm/yyyy or dd-mm-yyyy (Buddhist or CE)
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) {
+    let [, d, m, y] = dmyMatch;
+    if (Number(y) > 2400) y = String(Number(y) - 543); // Buddhist → CE
+    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+  }
+  // yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
+  // fallback
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+function formatDate(v) {
+  const d = parseDate(v);
+  if (!d || isNaN(d)) return v || '';
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 function semLabel(v) {
   const s = norm(v);
   if (s === '3' || s.includes('ร้อน')) return 'ฤดูร้อน';
@@ -1540,7 +1567,7 @@ function engResultsPage() {
           <td class="px-4 py-3 text-center font-semibold">${e.eng_score || ''}</td>
           <td class="px-4 py-3"><span class="text-xs ${isSbch ? 'font-medium text-blue-700' : 'text-gray-400'}">${level || '-'}</span></td>
           <td class="px-4 py-3 text-center">${e.eng_attempt || ''}</td>
-          <td class="px-4 py-3">${e.eng_date ? new Date(e.eng_date).toLocaleDateString('th-TH') : ''}</td>
+          <td class="px-4 py-3">${formatDate(e.eng_date)}</td>
           <td class="px-4 py-3">${e.academic_year || ''}</td>
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
           ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
