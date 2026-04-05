@@ -1642,6 +1642,12 @@ const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL
 function engTypeOptions(selected) {
   return `<option value="">-- เลือกรูปแบบ --</option>` + ENG_TYPES.map(t => `<option value="${t}" ${selected === t ? 'selected' : ''}>${t}</option>`).join('');
 }
+function engYearOptions(selected) {
+  const existing = [...new Set(getDataByType('eng_result').map(e => e.academic_year).filter(Boolean))].sort().reverse();
+  const currentBE = String(new Date().getFullYear() + 543);
+  const years = [...new Set([currentBE, ...existing])].sort().reverse();
+  return years.map(y => `<option value="${y}" ${y === (selected || currentBE) ? 'selected' : ''}>${y}</option>`).join('');
+}
 
 function showAddEngModal() {
   showModal('เพิ่มผลสอบภาษาอังกฤษ', `
@@ -1653,7 +1659,7 @@ function showAddEngModal() {
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="addEngAttempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="addEngDate" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="${new Date().getFullYear() + 543}"></div>
       </div>
       <!-- สบช. fields -->
       <div id="addEngSbch" style="display:none">
@@ -3407,7 +3413,7 @@ function showEditEngModal(id) {
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="editEngAttempt" type="number" value="${e.eng_attempt || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="editEngDate" type="text" value="${formatDate(e.eng_date)}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" value="${e.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="${e.academic_year || ''}"></div>
       </div>
       <!-- สบช. fields -->
       <div id="editEngSbch" style="display:${isSbch ? 'block' : 'none'}">
