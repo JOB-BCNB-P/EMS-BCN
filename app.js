@@ -213,9 +213,13 @@ function handleLogin() {
     }
     APP.currentUser = { name: adminUser.name || 'ผู้ดูแลระบบ', role: 'admin' };
   } else if (role === 'student') {
-    const nid = document.getElementById('studentNID').value;
+    const nid = document.getElementById('studentNID').value.trim();
     if (!/^\d{13}$/.test(nid)) { err.textContent = 'กรุณากรอกเลขบัตรประชาชน 13 หลัก'; err.classList.remove('hidden'); return }
-    const stu = getDataByType('student').find(s => norm(s.national_id) === norm(nid));
+    // Match with norm(), also handle sheet stripping leading zeros (compare as numbers)
+    const stu = getDataByType('student').find(s => {
+      const stored = norm(s.national_id);
+      return stored === nid || stored === String(Number(nid)) || nid === String(Number(stored)).padStart(13, '0');
+    });
     if (!stu) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
   } else if (role === 'teacher') {
