@@ -1573,7 +1573,8 @@ function engResultsPage() {
       </tr></thead>
       <tbody>${paged.length ? paged.map(e => {
         const isSbch = e.eng_type === 'สบช.';
-        const level = e.eng_level || (isSbch ? getEngLevel(Number(e.eng_score) || 0) : '');
+        const isAbsent = e.eng_status === 'ไม่เข้าสอบ';
+        const level = isAbsent ? '' : (e.eng_level || (isSbch ? getEngLevel(Number(e.eng_score) || 0) : ''));
         return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3 font-medium">${e.eng_type || ''}</td>
           <td class="px-4 py-3 text-center">${isSbch ? (e.eng_listening || '-') : '-'}</td>
