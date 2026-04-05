@@ -830,7 +830,7 @@ function studentsPage() {
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2">${APP.currentRole === 'admin' ? `<button onclick="showPromoteYearModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i>เลื่อนชั้นปี</button>` : ''}<button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
   </div>
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="flex items-center gap-3">
@@ -2020,92 +2020,6 @@ function showAddTeacherModal() {
   };
 }
 
-// ======================== PROMOTE YEAR (เลื่อนชั้นปี) ========================
-function showPromoteYearModal() {
-  const students = getDataByType('student').filter(s => s.status === 'กำลังศึกษา');
-  const y1 = students.filter(s => norm(s.year_level) === '1').length;
-  const y2 = students.filter(s => norm(s.year_level) === '2').length;
-  const y3 = students.filter(s => norm(s.year_level) === '3').length;
-  const y4 = students.filter(s => norm(s.year_level) === '4').length;
-
-  showModal('เลื่อนชั้นปีนักศึกษา', `
-    <div class="space-y-4">
-      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <p class="font-semibold mb-1">⚠️ คำเตือน</p>
-        <p>เลือกเลื่อนทีละชั้นปี หรือเลื่อนทั้งหมดพร้อมกัน (เฉพาะสถานภาพ "กำลังศึกษา")</p>
-      </div>
-
-      <div class="space-y-2">
-        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
-          <div><p class="font-medium text-sm">ชั้นปี 1 → ชั้นปี 2</p><p class="text-xs text-gray-500">${y1} คน</p></div>
-          <button onclick="executePromoteYear('1')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y1 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 1→2</button>
-        </div>
-        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
-          <div><p class="font-medium text-sm">ชั้นปี 2 → ชั้นปี 3</p><p class="text-xs text-gray-500">${y2} คน</p></div>
-          <button onclick="executePromoteYear('2')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y2 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 2→3</button>
-        </div>
-        <div class="flex items-center justify-between bg-blue-50 rounded-xl p-3">
-          <div><p class="font-medium text-sm">ชั้นปี 3 → ชั้นปี 4</p><p class="text-xs text-gray-500">${y3} คน</p></div>
-          <button onclick="executePromoteYear('3')" class="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm" ${y3 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>เลื่อน ปี 3→4</button>
-        </div>
-        <div class="flex items-center justify-between bg-amber-50 rounded-xl p-3">
-          <div><p class="font-medium text-sm">ชั้นปี 4 → สำเร็จการศึกษา</p><p class="text-xs text-gray-500">${y4} คน</p></div>
-          <button onclick="executePromoteYear('4')" class="px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 text-sm" ${y4 === 0 ? 'disabled class="px-4 py-2 bg-gray-300 text-gray-500 rounded-xl text-sm cursor-not-allowed"' : ''}>จบการศึกษา</button>
-        </div>
-      </div>
-
-      <div class="border-t pt-3">
-        <button onclick="executePromoteYear('all')" class="w-full bg-emerald-500 text-white py-2.5 rounded-xl hover:bg-emerald-600 font-semibold">เลื่อนทั้งหมดพร้อมกัน (ปี 1→2→3→4→จบ)</button>
-      </div>
-      <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl hover:bg-gray-300">ยกเลิก</button>
-    </div>
-  `);
-}
-
-async function executePromoteYear(targetYear) {
-  const students = getDataByType('student').filter(s => s.status === 'กำลังศึกษา');
-
-  let batch = [];
-  if (targetYear === 'all') {
-    batch = students;
-  } else {
-    batch = students.filter(s => norm(s.year_level) === targetYear);
-  }
-
-  if (!batch.length) { showToast('ไม่มีนักศึกษาที่ต้องเลื่อนชั้นปี', 'error'); return; }
-
-  const label = targetYear === 'all' ? 'ทั้งหมด' : targetYear === '4' ? 'ชั้นปี 4 → สำเร็จการศึกษา' : `ชั้นปี ${targetYear} → ${parseInt(targetYear) + 1}`;
-  if (!confirm(`ยืนยันเลื่อนชั้นปี: ${label} (${batch.length} คน)?`)) return;
-
-  let successCount = 0; let errorCount = 0;
-  showToast('กำลังเลื่อนชั้นปี... กรุณารอสักครู่');
-
-  if (targetYear === 'all') {
-    // Process from year 4 down to year 1
-    for (const yr of ['4', '3', '2', '1']) {
-      const yrBatch = batch.filter(s => norm(s.year_level) === yr);
-      for (const s of yrBatch) {
-        if (yr === '4') { s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(parseInt(yr) + 1); }
-        const r = await GSheetDB.update(s);
-        if (r.isOk) successCount++; else errorCount++;
-      }
-    }
-  } else {
-    for (const s of batch) {
-      if (targetYear === '4') { s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(parseInt(targetYear) + 1); }
-      const r = await GSheetDB.update(s);
-      if (r.isOk) successCount++; else errorCount++;
-    }
-  }
-
-  closeModal();
-  if (errorCount === 0) {
-    showToast(`เลื่อนชั้นปีสำเร็จ ${successCount} คน`);
-  } else {
-    showToast(`เลื่อนชั้นปีสำเร็จ ${successCount} คน / ผิดพลาด ${errorCount} คน`, 'error');
-  }
-  renderCurrentPage();
-}
 
 // ======================== TEACHER DIRECTORY (ทำเนียบอาจารย์) ========================
 
