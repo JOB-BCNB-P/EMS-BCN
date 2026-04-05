@@ -1659,7 +1659,7 @@ function showAddEngModal() {
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="addEngAttempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="addEngDate" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="${new Date().getFullYear() + 543}"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
       </div>
       <!-- สบช. fields -->
       <div id="addEngSbch" style="display:none">
