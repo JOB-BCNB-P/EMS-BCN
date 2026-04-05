@@ -1584,7 +1584,7 @@ function engResultsPage() {
           <td class="px-4 py-3 text-center">${e.eng_attempt || ''}</td>
           <td class="px-4 py-3">${formatDate(e.eng_date)}</td>
           <td class="px-4 py-3">${e.academic_year || ''}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : e.eng_status === 'ไม่เข้าสอบ' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
           ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
         </tr>`;
       }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -1639,6 +1639,19 @@ function updateEngSbchLevelStatus(prefix) {
   }
 }
 const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL', 'TU-GET'];
+function toggleEngAbsent(prefix) {
+  const checked = document.getElementById(prefix + 'EngAbsent').checked;
+  const sbch = document.getElementById(prefix + 'EngSbch');
+  const other = document.getElementById(prefix + 'EngOther');
+  const typeEl = document.getElementById(prefix + 'EngType');
+  if (checked) {
+    if (sbch) sbch.style.display = 'none';
+    if (other) other.style.display = 'none';
+    if (typeEl) typeEl.disabled = true;
+  } else {
+    if (typeEl) { typeEl.disabled = false; updateEngTypeForm(prefix); }
+  }
+}
 function engTypeOptions(selected) {
   return `<option value="">-- เลือกรูปแบบ --</option>` + ENG_TYPES.map(t => `<option value="${t}" ${selected === t ? 'selected' : ''}>${t}</option>`).join('');
 }
@@ -1682,20 +1695,29 @@ function showAddEngModal() {
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="addEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน">ผ่าน</option><option value="ไม่ผ่าน">ไม่ผ่าน</option></select></div>
         </div>
       </div>
+      <!-- ไม่เข้าสอบ -->
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" id="addEngAbsent" onchange="toggleEngAbsent('add')" class="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400">
+        <span class="text-sm text-red-600 font-medium">ไม่เข้าสอบ</span>
+      </label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
   document.getElementById('addEngForm').onsubmit = async (ev) => {
     ev.preventDefault();
     await withLoading(ev.target, async () => {
+      const absent = document.getElementById('addEngAbsent').checked;
       const engType = document.getElementById('addEngType').value;
-      if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
+      if (!absent && !engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
       const studentId = ev.target.querySelector('[name="student_id"]').value;
       const attempt = document.getElementById('addEngAttempt').value;
       const date = normalizeDateInput(document.getElementById('addEngDate').value);
       const year = document.getElementById('addEngYear').value;
       const obj = { type: 'eng_result', created_at: new Date().toISOString(), student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
-      if (engType === 'สบช.') {
+      if (absent) {
+        obj.eng_status = 'ไม่เข้าสอบ';
+        obj.eng_score = '';
+      } else if (engType === 'สบช.') {
         const l = Number(document.getElementById('addEngL').value) || 0;
         const g = Number(document.getElementById('addEngG').value) || 0;
         const r = Number(document.getElementById('addEngR').value) || 0;
@@ -3436,20 +3458,31 @@ function showEditEngModal(id) {
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="editEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน" ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option value="ไม่ผ่าน" ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
         </div>
       </div>
+      <!-- ไม่เข้าสอบ -->
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" id="editEngAbsent" onchange="toggleEngAbsent('edit')" class="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400" ${e.eng_status === 'ไม่เข้าสอบ' ? 'checked' : ''}>
+        <span class="text-sm text-red-600 font-medium">ไม่เข้าสอบ</span>
+      </label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
+  // If currently absent, hide score fields
+  if (e.eng_status === 'ไม่เข้าสอบ') toggleEngAbsent('edit');
   document.getElementById('editEngForm').onsubmit = async (ev) => {
     ev.preventDefault();
     await withLoading(ev.target, async () => {
+      const absent = document.getElementById('editEngAbsent').checked;
       const engType = document.getElementById('editEngType').value;
-      if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
+      if (!absent && !engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
       const studentId = ev.target.querySelector('[name="student_id"]').value;
       const attempt = document.getElementById('editEngAttempt').value;
       const date = normalizeDateInput(document.getElementById('editEngDate').value);
       const year = document.getElementById('editEngYear').value;
       const obj = { ...e, student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
-      if (engType === 'สบช.') {
+      if (absent) {
+        obj.eng_status = 'ไม่เข้าสอบ';
+        obj.eng_score = ''; obj.eng_listening = ''; obj.eng_grammar = ''; obj.eng_reading = ''; obj.eng_level = '';
+      } else if (engType === 'สบช.') {
         const l = Number(document.getElementById('editEngL').value) || 0;
         const g = Number(document.getElementById('editEngG').value) || 0;
         const r = Number(document.getElementById('editEngR').value) || 0;
