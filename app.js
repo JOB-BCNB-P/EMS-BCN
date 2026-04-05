@@ -396,11 +396,12 @@ function parseDate(v) {
     return isNaN(d) ? null : d;
   }
   // dd/mm/yyyy or dd-mm-yyyy (Buddhist or CE)
-  const dmyMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
   if (dmyMatch) {
     let [, d, m, y] = dmyMatch;
-    if (Number(y) > 2400) y = String(Number(y) - 543);
-    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+    let yr = Number(y);
+    if (yr > 2400) yr = yr - 543; // พ.ศ. → ค.ศ.
+    return new Date(yr, Number(m) - 1, Number(d));
   }
   // yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
@@ -414,6 +415,15 @@ function formatDate(v) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear() + 543; // CE → พ.ศ.
   return `${dd}/${mm}/${yyyy}`;
+}
+// Normalize date input (พ.ศ. or ค.ศ.) to dd/mm/yyyy CE for storage
+function normalizeDateInput(v) {
+  if (!v) return '';
+  const d = parseDate(v);
+  if (!d || isNaN(d)) return v;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`; // store as CE
 }
 function semLabel(v) {
   const s = norm(v);
@@ -1642,7 +1652,7 @@ function showAddEngModal() {
           <select id="addEngType" onchange="updateEngTypeForm('add')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions('')}</select>
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="addEngAttempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input id="addEngDate" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="addEngDate" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       </div>
       <!-- สบช. fields -->
@@ -1676,7 +1686,7 @@ function showAddEngModal() {
       if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
       const studentId = ev.target.querySelector('[name="student_id"]').value;
       const attempt = document.getElementById('addEngAttempt').value;
-      const date = document.getElementById('addEngDate').value;
+      const date = normalizeDateInput(document.getElementById('addEngDate').value);
       const year = document.getElementById('addEngYear').value;
       const obj = { type: 'eng_result', created_at: new Date().toISOString(), student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
       if (engType === 'สบช.') {
@@ -3396,7 +3406,7 @@ function showEditEngModal(id) {
           <select id="editEngType" onchange="updateEngTypeForm('edit')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions(e.eng_type || '')}</select>
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="editEngAttempt" type="number" value="${e.eng_attempt || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ</label><input id="editEngDate" type="date" value="${e.eng_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="editEngDate" type="text" value="${formatDate(e.eng_date)}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" value="${e.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <!-- สบช. fields -->
@@ -3430,7 +3440,7 @@ function showEditEngModal(id) {
       if (!engType) { showToast('กรุณาเลือกรูปแบบการสอบ', 'error'); return; }
       const studentId = ev.target.querySelector('[name="student_id"]').value;
       const attempt = document.getElementById('editEngAttempt').value;
-      const date = document.getElementById('editEngDate').value;
+      const date = normalizeDateInput(document.getElementById('editEngDate').value);
       const year = document.getElementById('editEngYear').value;
       const obj = { ...e, student_id: studentId, eng_type: engType, eng_attempt: Number(attempt) || '', eng_date: date, academic_year: year };
       if (engType === 'สบช.') {
