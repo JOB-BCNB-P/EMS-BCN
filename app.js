@@ -2148,8 +2148,8 @@ function maskNationalId(nid) {
   return s.substring(0, s.length - 4) + 'xxxx';
 }
 
-// Export to Excel
-function exportTeacherDirectoryExcel() {
+// Export to PDF
+async function exportTeacherDirectoryPDF() {
   let data = getDataByType('teacher_directory');
   const activeTab = APP._directoryTab || 'all';
   const selectedYear = APP.filters._directoryYear || '';
@@ -2159,36 +2159,104 @@ function exportTeacherDirectoryExcel() {
 
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
-  // Build CSV with BOM for Excel Thai support
-  const headers = ['ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์สอนทางการพยาบาล', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ประสบการณ์ปฏิบัติการพยาบาล', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ปีการศึกษา', 'ประเภทอาจารย์'];
-  const fields = ['name', 'national_id', 'license_no', 'academic_position', 'education', 'nursing_teaching_years', 'nursing_teaching_exp', 'nursing_practice_years', 'nursing_practice_exp', 'academic_work', 'academic_year', 'teacher_category'];
+  showToast('กำลังสร้างไฟล์ PDF...', 'info');
 
-  function csvEscape(val) {
-    const s = (val || '').replace(/\|\|/g, ', ');
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
+  // Load Sarabun font (base64) for Thai support
+  const { jsPDF } = window.jspdf;
+
+  // Fetch Sarabun font from Google Fonts as base64
+  let sarabunBase64 = null;
+  try {
+    const fontUrl = 'https://fonts.gstatic.com/s/sarabun/v15/DtVjJx26TKEr37c9YL5rilwm.ttf';
+    const resp = await fetch(fontUrl);
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    sarabunBase64 = btoa(binary);
+  } catch (e) {
+    console.warn('Could not load Sarabun font, falling back to default', e);
   }
 
-  let csv = '\uFEFF'; // BOM
-  csv += headers.map(csvEscape).join(',') + '\n';
-  data.forEach(row => {
-    csv += fields.map(f => {
-      if (f === 'national_id') return csvEscape(maskNationalId(row[f]));
-      return csvEscape(row[f]);
-    }).join(',') + '\n';
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  if (sarabunBase64) {
+    doc.addFileToVFS('Sarabun-Regular.ttf', sarabunBase64);
+    doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+    doc.setFont('Sarabun');
+  }
+
+  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'อาจารย์ประจำหลักสูตร' : 'อาจารย์ประจำ';
+  const title = `ทำเนียบอาจารย์ — ${tabLabel}` + (selectedYear ? ` ปีการศึกษา ${selectedYear}` : '');
+
+  doc.setFontSize(16);
+  doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+
+  const headers = [['#', 'ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบ\nวิชาชีพ', 'ตำแหน่ง\nทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน\n(ปี)', 'ประสบการณ์\nปฏิบัติการ (ปี)', 'ผลงานวิชาการ\n(ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์']];
+
+  const rows = data.map((row, i) => [
+    i + 1,
+    (row.name || '').replace(/\|\|/g, ', '),
+    maskNationalId(row.national_id),
+    (row.license_no || ''),
+    (row.academic_position || ''),
+    (row.education || '').replace(/\|\|/g, '\n'),
+    (row.nursing_teaching_years || ''),
+    (row.nursing_practice_years || ''),
+    (row.academic_work || '').replace(/\|\|/g, '\n'),
+    (row.teacher_category || '')
+  ]);
+
+  doc.autoTable({
+    head: headers,
+    body: rows,
+    startY: 22,
+    theme: 'grid',
+    styles: {
+      font: sarabunBase64 ? 'Sarabun' : 'helvetica',
+      fontSize: 9,
+      cellPadding: 2,
+      overflow: 'linebreak',
+      lineColor: [200, 200, 200],
+      lineWidth: 0.25
+    },
+    headStyles: {
+      fillColor: [30, 111, 186],
+      textColor: 255,
+      fontStyle: 'normal',
+      fontSize: 9,
+      halign: 'center',
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 28, halign: 'center' },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 25 },
+      5: { cellWidth: 40 },
+      6: { cellWidth: 22, halign: 'center' },
+      7: { cellWidth: 22, halign: 'center' },
+      8: { cellWidth: 50 },
+      9: { cellWidth: 28 }
+    },
+    didDrawPage: function (d) {
+      // Footer with page number
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `หน้า ${doc.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`,
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 7,
+        { align: 'center' }
+      );
+    }
   });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'ประจำหลักสูตร' : 'ประจำ';
-  a.href = url;
-  a.download = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('ส่งออกไฟล์สำเร็จ');
+  const fileName = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(fileName);
+  showToast('ส่งออกไฟล์ PDF สำเร็จ');
 }
 
 function renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) {
@@ -2254,7 +2322,7 @@ function teacherDirectoryPage() {
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
     <div class="flex gap-2">
-      <button onclick="exportTeacherDirectoryExcel()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="download" class="w-4 h-4"></i>ส่งออก Excel</button>
+      <button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
       ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}
     </div>
   </div>
