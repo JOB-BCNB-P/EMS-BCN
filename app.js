@@ -2148,8 +2148,8 @@ function maskNationalId(nid) {
   return s.substring(0, s.length - 4) + 'xxxx';
 }
 
-// Export to PDF
-async function exportTeacherDirectoryPDF() {
+// Export to PDF via print
+function exportTeacherDirectoryPDF() {
   let data = getDataByType('teacher_directory');
   const activeTab = APP._directoryTab || 'all';
   const selectedYear = APP.filters._directoryYear || '';
@@ -2159,104 +2159,66 @@ async function exportTeacherDirectoryPDF() {
 
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
-  showToast('กำลังสร้างไฟล์ PDF...', 'info');
-
-  // Load Sarabun font (base64) for Thai support
-  const { jsPDF } = window.jspdf;
-
-  // Fetch Sarabun font from Google Fonts as base64
-  let sarabunBase64 = null;
-  try {
-    const fontUrl = 'https://fonts.gstatic.com/s/sarabun/v15/DtVjJx26TKEr37c9YL5rilwm.ttf';
-    const resp = await fetch(fontUrl);
-    const buf = await resp.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    sarabunBase64 = btoa(binary);
-  } catch (e) {
-    console.warn('Could not load Sarabun font, falling back to default', e);
-  }
-
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  if (sarabunBase64) {
-    doc.addFileToVFS('Sarabun-Regular.ttf', sarabunBase64);
-    doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
-    doc.setFont('Sarabun');
-  }
-
   const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'อาจารย์ประจำหลักสูตร' : 'อาจารย์ประจำ';
   const title = `ทำเนียบอาจารย์ — ${tabLabel}` + (selectedYear ? ` ปีการศึกษา ${selectedYear}` : '');
 
-  doc.setFontSize(16);
-  doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+  const headers = ['#', 'ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
 
-  const headers = [['#', 'ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบ\nวิชาชีพ', 'ตำแหน่ง\nทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน\n(ปี)', 'ประสบการณ์\nปฏิบัติการ (ปี)', 'ผลงานวิชาการ\n(ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์']];
-
-  const rows = data.map((row, i) => [
-    i + 1,
-    (row.name || '').replace(/\|\|/g, ', '),
-    maskNationalId(row.national_id),
-    (row.license_no || ''),
-    (row.academic_position || ''),
-    (row.education || '').replace(/\|\|/g, '\n'),
-    (row.nursing_teaching_years || ''),
-    (row.nursing_practice_years || ''),
-    (row.academic_work || '').replace(/\|\|/g, '\n'),
-    (row.teacher_category || '')
-  ]);
-
-  doc.autoTable({
-    head: headers,
-    body: rows,
-    startY: 22,
-    theme: 'grid',
-    styles: {
-      font: sarabunBase64 ? 'Sarabun' : 'helvetica',
-      fontSize: 9,
-      cellPadding: 2,
-      overflow: 'linebreak',
-      lineColor: [200, 200, 200],
-      lineWidth: 0.25
-    },
-    headStyles: {
-      fillColor: [30, 111, 186],
-      textColor: 255,
-      fontStyle: 'normal',
-      fontSize: 9,
-      halign: 'center',
-      valign: 'middle'
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { cellWidth: 35 },
-      2: { cellWidth: 28, halign: 'center' },
-      3: { cellWidth: 22, halign: 'center' },
-      4: { cellWidth: 25 },
-      5: { cellWidth: 40 },
-      6: { cellWidth: 22, halign: 'center' },
-      7: { cellWidth: 22, halign: 'center' },
-      8: { cellWidth: 50 },
-      9: { cellWidth: 28 }
-    },
-    didDrawPage: function (d) {
-      // Footer with page number
-      const pageCount = doc.internal.getNumberOfPages();
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(
-        `หน้า ${doc.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`,
-        doc.internal.pageSize.getWidth() / 2,
-        doc.internal.pageSize.getHeight() - 7,
-        { align: 'center' }
-      );
-    }
+  let tableRows = '';
+  data.forEach((row, i) => {
+    tableRows += `<tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td>${(row.name || '').replace(/\|\|/g, ', ')}</td>
+      <td style="text-align:center">${maskNationalId(row.national_id)}</td>
+      <td style="text-align:center">${row.license_no || ''}</td>
+      <td>${row.academic_position || ''}</td>
+      <td>${(row.education || '').replace(/\|\|/g, '<br>')}</td>
+      <td style="text-align:center">${row.nursing_teaching_years || ''}</td>
+      <td style="text-align:center">${row.nursing_practice_years || ''}</td>
+      <td>${(row.academic_work || '').replace(/\|\|/g, '<br>')}</td>
+      <td>${row.teacher_category || ''}</td>
+    </tr>`;
   });
 
-  const fileName = `ทำเนียบอาจารย์_${tabLabel}_${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(fileName);
-  showToast('ส่งออกไฟล์ PDF สำเร็จ');
+  const printHTML = `<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Sarabun', sans-serif; font-size: 11px; color: #333; }
+    @page { size: A4 landscape; margin: 12mm 10mm; }
+    h1 { text-align: center; font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #1e6fba; }
+    .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; vertical-align: top; word-break: break-word; }
+    th { background: #1e6fba; color: #fff; font-weight: 600; text-align: center; font-size: 11px; }
+    tr:nth-child(even) { background: #f7fafd; }
+    tr:hover { background: #eef5fb; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <div class="subtitle">วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ &bull; พิมพ์เมื่อ ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const printWin = window.open('', '_blank');
+  printWin.document.write(printHTML);
+  printWin.document.close();
+  printWin.onload = function () {
+    setTimeout(() => { printWin.print(); }, 500);
+  };
+  showToast('เปิดหน้าต่างพิมพ์ PDF แล้ว — กรุณาเลือก "Save as PDF"');
 }
 
 function renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) {
