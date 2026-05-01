@@ -10,6 +10,35 @@ let APP = {
 
 function getDataByType(t) { return APP.allData.filter(d => d.type === t) }
 
+// ======================== HOMEROOM NUMBERS (per year level) ========================
+// Stored in localStorage so admin/academic can configure without modifying the spreadsheet
+const DEFAULT_HOMEROOMS = { '1': '', '2': '', '3': '', '4': '' };
+function getHomeroomNumbers() {
+  try {
+    const raw = localStorage.getItem('homeroomNumbers');
+    if (!raw) return { ...DEFAULT_HOMEROOMS };
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_HOMEROOMS, ...parsed };
+  } catch { return { ...DEFAULT_HOMEROOMS }; }
+}
+function setHomeroomNumber(yr, value) {
+  const all = getHomeroomNumbers();
+  all[String(yr)] = (value || '').trim();
+  localStorage.setItem('homeroomNumbers', JSON.stringify(all));
+}
+function promptEditHomeroom(yr) {
+  const role = APP.currentUser && APP.currentUser.role;
+  if (role !== 'admin' && role !== 'academic') {
+    showToast && showToast('เฉพาะผู้ดูแลระบบ/งานวิชาการเท่านั้นที่แก้ไขได้', 'error');
+    return;
+  }
+  const current = getHomeroomNumbers()[String(yr)] || '';
+  const v = prompt(`กรอกหมายเลขห้องเรียนประจำของชั้นปี ${yr}\n(เช่น 101, 202, ห้อง A เป็นต้น)`, current);
+  if (v === null) return;
+  setHomeroomNumber(yr, v);
+  if (typeof renderCurrentPage === 'function') renderCurrentPage();
+}
+
 // Look up student name from student_id
 function getStudentName(studentId) {
   if (!studentId) return '';
@@ -692,24 +721,28 @@ function dashboardPage() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">${deptCards || '<p class="text-gray-400 text-sm col-span-3">ไม่มีข้อมูลสาขาวิชา</p>'}</div>
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${[1, 2, 3, 4].map(yr => {
+      ${(() => { const _hr = getHomeroomNumbers(); const _canEdit = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic'); return [1, 2, 3, 4].map(yr => {
       const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
       const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-      const yrRooms = [...new Set(yrStudents.map(s => norm(s.room)).filter(Boolean))].sort();
+      const homeroom = _hr[String(yr)] || '';
       return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
           <div class="flex gap-3 mt-2">
             <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
             <div><p class="text-2xl font-bold text-green-500">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500">ผ่าน ENG</p></div>
           </div>
-          <div class="mt-3 pt-3 border-t border-gray-100">
-            <p class="text-xs font-semibold text-gray-600 mb-2"><i data-lucide="door-open" class="w-3 h-3 inline mr-1"></i>ห้องเรียน</p>
-            <div class="flex flex-wrap gap-1.5">
-              ${yrRooms.length ? yrRooms.map(r => `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold">ห้อง ${r}</span>`).join('') : '<span class="text-xs text-gray-400">-</span>'}
+          <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="door-open" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+              <div class="min-w-0">
+                <p class="text-xs text-gray-500 leading-tight">ห้องเรียนประจำ</p>
+                <p class="text-sm font-bold text-gray-800 truncate">${homeroom ? homeroom : '<span class="text-gray-400 font-normal">ยังไม่กำหนด</span>'}</p>
+              </div>
             </div>
+            ${_canEdit ? `<button onclick="promptEditHomeroom('${yr}')" title="แก้ไขหมายเลขห้องเรียนประจำ" class="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg p-1.5 flex-shrink-0"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>` : ''}
           </div>
         </div>`;
-    }).join('')}
+    }).join(''); })()}
     </div>`;
   } else if (r === 'teacher') {
     const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
