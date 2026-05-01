@@ -695,10 +695,7 @@ function dashboardPage() {
       ${[1, 2, 3, 4].map(yr => {
       const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
       const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-      const roomA = yrStudents.filter(s => norm(s.room).toUpperCase() === 'A');
-      const roomB = yrStudents.filter(s => norm(s.room).toUpperCase() === 'B');
-      const roomAEngPass = [...new Set(engPassRecords.filter(e => roomA.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-      const roomBEngPass = [...new Set(engPassRecords.filter(e => roomB.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+      const yrRooms = [...new Set(yrStudents.map(s => norm(s.room)).filter(Boolean))].sort();
       return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
           <div class="flex gap-3 mt-2">
@@ -707,23 +704,8 @@ function dashboardPage() {
           </div>
           <div class="mt-3 pt-3 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-600 mb-2"><i data-lucide="door-open" class="w-3 h-3 inline mr-1"></i>ห้องเรียน</p>
-            <div class="grid grid-cols-2 gap-2">
-              <div class="bg-blue-50 rounded-lg px-2 py-1.5">
-                <p class="text-xs text-gray-500">ห้อง A</p>
-                <div class="flex items-baseline gap-1">
-                  <span class="text-base font-bold text-primary">${roomA.length}</span>
-                  <span class="text-xs text-gray-400">/</span>
-                  <span class="text-sm font-bold text-green-500">${roomAEngPass.length}</span>
-                </div>
-              </div>
-              <div class="bg-purple-50 rounded-lg px-2 py-1.5">
-                <p class="text-xs text-gray-500">ห้อง B</p>
-                <div class="flex items-baseline gap-1">
-                  <span class="text-base font-bold text-primary">${roomB.length}</span>
-                  <span class="text-xs text-gray-400">/</span>
-                  <span class="text-sm font-bold text-green-500">${roomBEngPass.length}</span>
-                </div>
-              </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${yrRooms.length ? yrRooms.map(r => `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold">ห้อง ${r}</span>`).join('') : '<span class="text-xs text-gray-400">-</span>'}
             </div>
           </div>
         </div>`;
