@@ -206,7 +206,7 @@ function handleLogin() {
         if (adminUsers.length === 0) {
           err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
         } else {
-            err.innerHTML = 'รหัสผ่านไม่ถูกต้อง<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
+          err.innerHTML = 'รหัสผ่านไม่ถูกต้อง<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
         }
       }
       err.classList.remove('hidden'); return
@@ -695,11 +695,36 @@ function dashboardPage() {
       ${[1, 2, 3, 4].map(yr => {
       const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
       const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+      const roomA = yrStudents.filter(s => norm(s.room).toUpperCase() === 'A');
+      const roomB = yrStudents.filter(s => norm(s.room).toUpperCase() === 'B');
+      const roomAEngPass = [...new Set(engPassRecords.filter(e => roomA.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+      const roomBEngPass = [...new Set(engPassRecords.filter(e => roomB.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
       return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
           <div class="flex gap-3 mt-2">
             <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
             <div><p class="text-2xl font-bold text-green-500">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500">ผ่าน ENG</p></div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <p class="text-xs font-semibold text-gray-600 mb-2"><i data-lucide="door-open" class="w-3 h-3 inline mr-1"></i>ห้องเรียน</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-blue-50 rounded-lg px-2 py-1.5">
+                <p class="text-xs text-gray-500">ห้อง A</p>
+                <div class="flex items-baseline gap-1">
+                  <span class="text-base font-bold text-primary">${roomA.length}</span>
+                  <span class="text-xs text-gray-400">/</span>
+                  <span class="text-sm font-bold text-green-500">${roomAEngPass.length}</span>
+                </div>
+              </div>
+              <div class="bg-purple-50 rounded-lg px-2 py-1.5">
+                <p class="text-xs text-gray-500">ห้อง B</p>
+                <div class="flex items-baseline gap-1">
+                  <span class="text-base font-bold text-primary">${roomB.length}</span>
+                  <span class="text-xs text-gray-400">/</span>
+                  <span class="text-sm font-bold text-green-500">${roomBEngPass.length}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>`;
     }).join('')}
@@ -707,7 +732,7 @@ function dashboardPage() {
   } else if (r === 'teacher') {
     const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
     const myEngPassUnique = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-    const teacherYrBreakdown = ['1','2','3','4'].map(yr => {
+    const teacherYrBreakdown = ['1', '2', '3', '4'].map(yr => {
       const yrStu = myStudents.filter(s => norm(s.year_level) === yr);
       const yrPass = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && yrStu.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
       return { yr, count: yrStu.length, pass: yrPass.length };
@@ -849,7 +874,7 @@ function studentsPage() {
         <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
         <div class="flex gap-2 flex-wrap">
           <button onclick="APP.filters._studentYearLevel='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${!selectedYearLevel ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">แสดงทั้งหมด</button>
-          ${['1','2','3','4'].map(yr => `<button onclick="APP.filters._studentYearLevel='${yr}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedYearLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
+          ${['1', '2', '3', '4'].map(yr => `<button onclick="APP.filters._studentYearLevel='${yr}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedYearLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
         </div>
       </div>
     </div>`;
@@ -1505,7 +1530,7 @@ function engResultsPage() {
         <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-blue-100 rotate-45"></div>
       </div>`;
     } else {
-      const yearBreakdown = [1,2,3,4].map(yr => {
+      const yearBreakdown = [1, 2, 3, 4].map(yr => {
         const yrStudents = summaryStudents.filter(s => norm(s.year_level) === String(yr));
         if (!yrStudents.length) return null;
         const yrPassed = yrStudents.filter(s => passedIds.has(s.student_id)).length;
@@ -1572,10 +1597,10 @@ function engResultsPage() {
         ${isAdmin ? '<th class="px-4 py-3"></th>' : ''}
       </tr></thead>
       <tbody>${paged.length ? paged.map(e => {
-        const isSbch = e.eng_type === 'สบช.';
-        const isAbsent = e.eng_status === 'ไม่เข้าสอบ';
-        const level = isAbsent ? '' : (e.eng_level || (isSbch ? getEngLevel(Number(e.eng_score) || 0) : ''));
-        return `<tr class="border-t hover:bg-gray-50">
+    const isSbch = e.eng_type === 'สบช.';
+    const isAbsent = e.eng_status === 'ไม่เข้าสอบ';
+    const level = isAbsent ? '' : (e.eng_level || (isSbch ? getEngLevel(Number(e.eng_score) || 0) : ''));
+    return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3 font-medium">${e.eng_type || ''}</td>
           <td class="px-4 py-3 text-center">${isSbch ? (e.eng_listening || '-') : '-'}</td>
           <td class="px-4 py-3 text-center">${isSbch ? (e.eng_grammar || '-') : '-'}</td>
@@ -1588,7 +1613,7 @@ function engResultsPage() {
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${e.eng_status === 'ผ่าน' ? 'bg-green-100 text-green-700' : e.eng_status === 'ไม่เข้าสอบ' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}">${e.eng_status || ''}</span></td>
           ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditEngModal('${e.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${e.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
         </tr>`;
-      }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+  }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
@@ -2023,9 +2048,11 @@ function teachersPage() {
     <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th></tr></thead>
-        <tbody>${paged.length ? paged.map(t => { const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+        <tbody>${paged.length ? paged.map(t => {
+      const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
-          <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td></tr>`}).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+          <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td></tr>`
+    }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
     ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -2049,11 +2076,13 @@ function teachersPage() {
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3"></th></tr></thead>
-      <tbody>${paged.length ? paged.map(t => { const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+      <tbody>${paged.length ? paged.map(t => {
+    const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
         <td class="px-4 py-3">${t.department || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`}).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showTeacherDetail('${t.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditTeacherModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`
+  }).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
