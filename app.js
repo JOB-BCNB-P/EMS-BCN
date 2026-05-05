@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -37,6 +37,37 @@ function promptEditHomeroom(yr) {
   if (v === null) return;
   setHomeroomNumber(yr, v);
   if (typeof renderCurrentPage === 'function') renderCurrentPage();
+}
+
+// ======================== LOGIN ACTIVITY LOG ========================
+// Save login/logout events to Google Sheet "login_log" tab
+const LOGIN_LOG_ROLE_LABEL = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร' };
+async function logLoginEvent(eventType, userInfo) {
+  // eventType: 'login' | 'logout' | 'login_failed'
+  try {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const localTimestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const obj = {
+      type: 'login_log',
+      event_type: eventType,
+      user_name: (userInfo && userInfo.name) || '-',
+      role: (userInfo && userInfo.role) || '-',
+      role_label: (userInfo && userInfo.role && LOGIN_LOG_ROLE_LABEL[userInfo.role]) || '-',
+      identifier: (userInfo && userInfo.identifier) || '',
+      user_agent: (navigator && navigator.userAgent) ? String(navigator.userAgent).slice(0, 250) : '',
+      timestamp: localTimestamp,
+      created_at: now.toISOString()
+    };
+    if (GSheetDB && GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess()) {
+      // Fire and forget - don't block UI
+      GSheetDB.create(obj).catch(err => console.warn('logLoginEvent error:', err));
+    } else {
+      console.warn('logLoginEvent: no write access (Apps Script URL not configured)');
+    }
+  } catch (err) {
+    console.warn('logLoginEvent failed:', err);
+  }
 }
 
 // Look up student name from student_id
@@ -287,6 +318,13 @@ function handleLogin() {
     APP.currentUser = { name: user.name || uname, role: 'executive' };
   }
   APP.currentRole = APP.currentUser.role;
+  // Log login event to Google Sheet
+  try {
+    let identifier = '';
+    if (APP.currentRole === 'student' && APP.currentUser.data) identifier = APP.currentUser.data.student_id || '';
+    else if (APP.currentUser.email) identifier = APP.currentUser.email;
+    logLoginEvent('login', { name: APP.currentUser.name, role: APP.currentRole, identifier });
+  } catch (e) { /* ignore */ }
   showScreen('mainApp');
   document.getElementById('currentUserName').textContent = APP.currentUser.name;
   document.getElementById('currentUserRole').textContent = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร' }[APP.currentRole];
@@ -296,6 +334,15 @@ function handleLogin() {
 }
 
 function handleLogout() {
+  // Log logout event before clearing state
+  try {
+    if (APP.currentUser) {
+      let identifier = '';
+      if (APP.currentRole === 'student' && APP.currentUser.data) identifier = APP.currentUser.data.student_id || '';
+      else if (APP.currentUser.email) identifier = APP.currentUser.email;
+      logLoginEvent('logout', { name: APP.currentUser.name, role: APP.currentRole, identifier });
+    }
+  } catch (e) { /* ignore */ }
   APP.currentUser = null; APP.currentRole = null; APP.currentPage = 'dashboard';
   showScreen('loginScreen');
 }
@@ -334,6 +381,7 @@ function buildSidebar() {
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   if (p.services) items.push({ id: 'services', icon: 'grid', label: 'บริการอื่นๆ' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
+  if (r === 'admin' && p.loginLog) items.push({ id: 'loginLog', icon: 'log-in', label: 'บันทึกการเข้าใช้ระบบ' });
 
   const nav = document.getElementById('sidebarNav');
   nav.innerHTML = items.map(it => {
@@ -680,6 +728,7 @@ function getPageContent(page, role) {
     case 'fileTracking': return fileTrackingPage();
     case 'leave': return leavePage();
     case 'settings': return settingsPage();
+    case 'loginLog': return loginLogPage();
     default: return '<p>ไม่พบหน้าที่ต้องการ</p>';
   }
 }
@@ -3035,6 +3084,160 @@ function showAddLeaveModal() {
       if (r.isOk) { showToast('เพิ่มข้อมูลการลาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
   };
+}
+
+// ======================== LOGIN LOG (admin only) ========================
+function loginLogPage() {
+  if (APP.currentRole !== 'admin') {
+    return '<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-500">เฉพาะผู้ดูแลระบบเท่านั้นที่ดูหน้านี้ได้</div>';
+  }
+  const logs = getDataByType('login_log');
+  // Sort newest first by created_at / timestamp
+  const sortedLogs = [...logs].sort((a, b) => {
+    const ta = a.created_at || a.timestamp || '';
+    const tb = b.created_at || b.timestamp || '';
+    return tb.localeCompare(ta);
+  });
+
+  // Filters
+  const fRole = APP.filters._loginLogRole || '';
+  const fEvent = APP.filters._loginLogEvent || '';
+  const fSearch = (APP.filters._loginLogSearch || '').toLowerCase();
+  const fDateFrom = APP.filters._loginLogFrom || '';
+  const fDateTo = APP.filters._loginLogTo || '';
+
+  let filtered = sortedLogs;
+  if (fRole) filtered = filtered.filter(l => norm(l.role) === fRole);
+  if (fEvent) filtered = filtered.filter(l => norm(l.event_type) === fEvent);
+  if (fSearch) filtered = filtered.filter(l => (l.user_name || '').toLowerCase().includes(fSearch) || (l.identifier || '').toLowerCase().includes(fSearch));
+  if (fDateFrom) filtered = filtered.filter(l => (l.timestamp || '').slice(0, 10) >= fDateFrom);
+  if (fDateTo) filtered = filtered.filter(l => (l.timestamp || '').slice(0, 10) <= fDateTo);
+
+  const total = filtered.length;
+  const paged = paginate(filtered);
+
+  // Summary stats (today, last 7 days, total unique users today)
+  const today = new Date().toISOString().slice(0, 10);
+  const past7Date = new Date(); past7Date.setDate(past7Date.getDate() - 7);
+  const past7 = past7Date.toISOString().slice(0, 10);
+  const todayLogins = sortedLogs.filter(l => l.event_type === 'login' && (l.timestamp || '').slice(0, 10) === today);
+  const last7Logins = sortedLogs.filter(l => l.event_type === 'login' && (l.timestamp || '').slice(0, 10) >= past7);
+  const uniqueTodayUsers = [...new Set(todayLogins.map(l => l.user_name))].length;
+
+  const eventBadge = (ev) => {
+    if (ev === 'login') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i data-lucide="log-in" class="w-3 h-3 inline"></i> เข้าสู่ระบบ</span>';
+    if (ev === 'logout') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700"><i data-lucide="log-out" class="w-3 h-3 inline"></i> ออกจากระบบ</span>';
+    if (ev === 'login_failed') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><i data-lucide="x-circle" class="w-3 h-3 inline"></i> ล็อกอินไม่สำเร็จ</span>';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">${ev || '-'}</span>`;
+  };
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="log-in" class="w-6 h-6 inline mr-2"></i>บันทึกการเข้าใช้งานระบบ</h2>
+    <div class="flex gap-2">
+      <button onclick="exportLoginLogCSV()" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm"><i data-lucide="download" class="w-4 h-4"></i>Export CSV</button>
+      <button onclick="refreshData()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="refresh-cw" class="w-4 h-4"></i>รีเฟรช</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+    <div class="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><i data-lucide="calendar-check" class="w-5 h-5 text-blue-600"></i></div>
+      <div><p class="text-xs text-gray-500">เข้าใช้งานวันนี้</p><p class="text-xl font-bold text-gray-800">${todayLogins.length} <span class="text-xs font-normal text-gray-500">ครั้ง</span></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
+      <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center"><i data-lucide="users" class="w-5 h-5 text-emerald-600"></i></div>
+      <div><p class="text-xs text-gray-500">ผู้ใช้ที่เข้าระบบวันนี้</p><p class="text-xl font-bold text-gray-800">${uniqueTodayUsers} <span class="text-xs font-normal text-gray-500">คน</span></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
+      <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center"><i data-lucide="trending-up" class="w-5 h-5 text-amber-600"></i></div>
+      <div><p class="text-xs text-gray-500">เข้าใช้งาน 7 วันล่าสุด</p><p class="text-xl font-bold text-gray-800">${last7Logins.length} <span class="text-xs font-normal text-gray-500">ครั้ง</span></p></div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ค้นหา (ชื่อ/รหัส/อีเมล)</label>
+        <input type="text" value="${fSearch}" placeholder="พิมพ์เพื่อค้นหา..." class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" oninput="clearTimeout(window._loginLogSearchTimer);window._loginLogSearchTimer=setTimeout(()=>{APP.filters._loginLogSearch=this.value;APP.pagination.page=1;renderCurrentPage()},300)">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">บทบาท</label>
+        <select onchange="APP.filters._loginLogRole=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          <option value="">ทั้งหมด</option>
+          <option value="admin" ${fRole === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ</option>
+          <option value="academic" ${fRole === 'academic' ? 'selected' : ''}>งานวิชาการ</option>
+          <option value="teacher" ${fRole === 'teacher' ? 'selected' : ''}>อาจารย์</option>
+          <option value="classTeacher" ${fRole === 'classTeacher' ? 'selected' : ''}>อ.ประจำชั้น</option>
+          <option value="student" ${fRole === 'student' ? 'selected' : ''}>นักศึกษา</option>
+          <option value="executive" ${fRole === 'executive' ? 'selected' : ''}>ผู้บริหาร</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">เหตุการณ์</label>
+        <select onchange="APP.filters._loginLogEvent=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          <option value="">ทั้งหมด</option>
+          <option value="login" ${fEvent === 'login' ? 'selected' : ''}>เข้าสู่ระบบ</option>
+          <option value="logout" ${fEvent === 'logout' ? 'selected' : ''}>ออกจากระบบ</option>
+          <option value="login_failed" ${fEvent === 'login_failed' ? 'selected' : ''}>ล็อกอินไม่สำเร็จ</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ตั้งแต่วันที่</label>
+        <input type="date" value="${fDateFrom}" onchange="APP.filters._loginLogFrom=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">ถึงวันที่</label>
+        <input type="date" value="${fDateTo}" onchange="APP.filters._loginLogTo=this.value;APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      </div>
+    </div>
+    ${(fRole || fEvent || fSearch || fDateFrom || fDateTo) ? `<div class="mt-3 flex justify-end"><button onclick="APP.filters._loginLogRole='';APP.filters._loginLogEvent='';APP.filters._loginLogSearch='';APP.filters._loginLogFrom='';APP.filters._loginLogTo='';APP.pagination.page=1;renderCurrentPage()" class="text-xs text-blue-600 hover:underline"><i data-lucide="x" class="w-3 h-3 inline"></i> ล้างตัวกรอง</button></div>` : ''}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left">
+        <th class="px-4 py-3 font-semibold">วันที่/เวลา</th>
+        <th class="px-4 py-3 font-semibold">ชื่อผู้ใช้</th>
+        <th class="px-4 py-3 font-semibold">บทบาท</th>
+        <th class="px-4 py-3 font-semibold">รหัส/อีเมล</th>
+        <th class="px-4 py-3 font-semibold">เหตุการณ์</th>
+      </tr></thead>
+      <tbody>${paged.length ? paged.map(l => `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3 font-mono text-xs text-gray-600">${l.timestamp || (l.created_at || '').replace('T', ' ').slice(0, 19) || '-'}</td>
+        <td class="px-4 py-3 font-medium">${l.user_name || '-'}</td>
+        <td class="px-4 py-3 text-xs">${l.role_label || LOGIN_LOG_ROLE_LABEL[l.role] || l.role || '-'}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">${l.identifier || '-'}</td>
+        <td class="px-4 py-3">${eventBadge(l.event_type)}</td>
+      </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลการเข้าใช้งาน</td></tr>'}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}
+
+  <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+    หมายเหตุ: ระบบบันทึกการเข้า/ออกระบบลงในแท็บ <code class="bg-white px-1 rounded">login_log</code> ของ Google Sheet โดยอัตโนมัติ หากยังไม่เคยมีข้อมูล โปรดสร้างแท็บใหม่พร้อมหัวคอลัมน์: <code class="bg-white px-1 rounded">event_type, user_name, role, role_label, identifier, user_agent, timestamp, created_at</code>
+  </div>`;
+}
+
+function exportLoginLogCSV() {
+  const logs = getDataByType('login_log');
+  if (!logs.length) { showToast('ไม่มีข้อมูลให้ส่งออก', 'error'); return; }
+  const headers = ['timestamp', 'user_name', 'role_label', 'event_type', 'identifier', 'user_agent'];
+  const rows = [headers.join(',')].concat(
+    logs.map(l => headers.map(h => {
+      const v = String(l[h] || '').replace(/"/g, '""');
+      return `"${v}"`;
+    }).join(','))
+  );
+  const csv = '﻿' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `login_log_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('ส่งออก CSV สำเร็จ');
 }
 
 // ======================== SETTINGS ========================
