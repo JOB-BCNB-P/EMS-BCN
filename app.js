@@ -3045,11 +3045,25 @@ function leavePage() {
   }
   if (isClassTeacher) {
     const yr = APP.currentUser.responsible_year || '1';
-    const stuNames = getDataByType('student').filter(s => norm(s.year_level) === norm(yr)).map(s => s.name);
-    data = data.filter(l => stuNames.includes(l.name));
+    const stuNames = getDataByType('student')
+      .filter(s => norm(s.year_level) === norm(yr))
+      .map(s => (s.name || '').trim());
+    const stuNameSet = new Set(stuNames);
+    data = data.filter(l => {
+      const lname = (l.name || '').trim();
+      if (stuNameSet.has(lname)) return true;
+      // Fallback: also check if class_teacher field on the leave matches current user's name
+      if (l.class_teacher && (l.class_teacher || '').trim() === (APP.currentUser.name || '').trim()) return true;
+      return false;
+    });
   }
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
+
+  // Pending-approval count for current role
+  let pendingCount = 0;
+  if (isTeacher) pendingCount = data.filter(l => (l.coordinator_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
+  if (isClassTeacher) pendingCount = data.filter(l => (l.coordinator_approval === 'อนุมัติ') && (l.class_teacher_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
 
   let form = '';
   if (isStudent) {
@@ -3075,8 +3089,19 @@ function leavePage() {
     </div>`;
   }
 
+  const pendingBanner = (isTeacher || isClassTeacher) && pendingCount > 0
+    ? `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 flex items-center gap-3">
+        <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">${pendingCount}</div>
+        <div>
+          <p class="text-sm font-semibold text-amber-900">มีใบลา ${pendingCount} รายการรอการอนุมัติของคุณ</p>
+          <p class="text-xs text-amber-700">${isTeacher ? 'คุณคืออาจารย์ผู้ประสานรายวิชา — โปรดกรอก % การลาและกดอนุมัติ' : 'อาจารย์ผู้ประสานได้อนุมัติแล้ว — รอคุณอนุมัติเป็นลำดับถัดไป'}</p>
+        </div>
+      </div>`
+    : '';
+
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="calendar-off" class="w-6 h-6 inline mr-2"></i>ระบบการลาของนักศึกษา</h2>
   ${isAdmin ? `<div class="flex gap-2 mb-4"><button onclick="showAddLeaveModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูลการลา</button>${csvUploadBtn('leave', 'name,subject_name,leave_hours,leave_percent,semester,academic_year,leave_date,leave_type')}</div>` : ''}
+  ${pendingBanner}
   ${form}
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
@@ -3089,16 +3114,45 @@ function leavePage() {
       if (status === 'ปฏิเสธ') return '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">✕ ปฏิเสธ</span>';
       return '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">รอส่ง</span>';
     };
+    const coordApproved = l.coordinator_approval === 'อนุมัติ';
+    const classApproved = l.class_teacher_approval === 'อนุมัติ';
+    const deputyApproved = l.deputy_approval === 'อนุมัติ';
+    const isRejected = l.leave_status === 'ปฏิเสธ' || l.coordinator_approval === 'ปฏิเสธ' || l.class_teacher_approval === 'ปฏิเสธ' || l.deputy_approval === 'ปฏิเสธ';
+
+    // Workflow step indicator
+    const stepIcon = (state) => state === 'อนุมัติ'
+      ? '<span class="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center" title="อนุมัติแล้ว">✓</span>'
+      : state === 'ปฏิเสธ'
+        ? '<span class="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center" title="ปฏิเสธ">✕</span>'
+        : '<span class="w-5 h-5 rounded-full bg-gray-200 text-gray-500 text-[10px] flex items-center justify-center" title="รอ">⏳</span>';
+    const workflowSteps = `<div class="flex items-center gap-1 mb-1.5" title="ลำดับการอนุมัติ">
+      <div class="flex items-center gap-1" title="อ.ผู้ประสาน">${stepIcon(l.coordinator_approval)}<span class="text-[10px] text-gray-500">ปสน.</span></div>
+      <span class="text-gray-300 text-[10px]">→</span>
+      <div class="flex items-center gap-1" title="อ.ประจำชั้น">${stepIcon(l.class_teacher_approval)}<span class="text-[10px] text-gray-500">ปจช.</span></div>
+      <span class="text-gray-300 text-[10px]">→</span>
+      <div class="flex items-center gap-1" title="ผู้บริหาร">${stepIcon(l.deputy_approval)}<span class="text-[10px] text-gray-500">ผบห.</span></div>
+    </div>`;
+
     const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : 'deputy_approval';
     const myApprovalStatus = l[approvalField] || 'รอ';
+
+    // Sequential rule: classTeacher must wait for coordinator; deputy must wait for classTeacher
+    const cannotActYet = (isClassTeacher && !coordApproved) || (false /* deputy view not in teacher panel */);
+
     const renderApprovalCell = () => {
-      if (myApprovalStatus === 'อนุมัติ') return `<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>`;
-      if (myApprovalStatus === 'ปฏิเสธ') return `<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>`;
+      if (isRejected && myApprovalStatus !== 'ปฏิเสธ' && myApprovalStatus !== 'อนุมัติ') {
+        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ใบลาถูกปฏิเสธแล้ว</span>`;
+      }
+      if (myApprovalStatus === 'อนุมัติ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>`;
+      if (myApprovalStatus === 'ปฏิเสธ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>`;
+      if (cannotActYet) {
+        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ รออาจารย์ผู้ประสานอนุมัติก่อน</span>`;
+      }
       // Coordinator (teacher) approval shows percent modal
       const onclickApprove = isTeacher
         ? `showLeaveApprovalModal('${l.__backendId}','${l.leave_percent || ''}')`
         : `approveLeave('${l.__backendId}','${approvalField}')`;
-      return `<div class="flex gap-1">
+      return `${workflowSteps}<div class="flex gap-1">
           <button onclick="${onclickApprove}" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>อนุมัติ</button>
           <button onclick="rejectLeave('${l.__backendId}','${approvalField}')" class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i>ปฏิเสธ</button>
         </div>`;
