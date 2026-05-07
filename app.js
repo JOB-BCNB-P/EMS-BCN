@@ -791,11 +791,12 @@ function dashboardPage() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">${deptCards || '<p class="text-gray-400 text-sm col-span-3">ไม่มีข้อมูลสาขาวิชา</p>'}</div>
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${(() => { const _hr = getHomeroomNumbers(); const _canEdit = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic'); return [1, 2, 3, 4].map(yr => {
-      const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
-      const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-      const homeroom = _hr[String(yr)] || '';
-      return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
+      ${(() => {
+        const _hr = getHomeroomNumbers(); const _canEdit = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic'); return [1, 2, 3, 4].map(yr => {
+          const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
+          const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+          const homeroom = _hr[String(yr)] || '';
+          return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
           <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
           <div class="flex gap-3 mt-2">
             <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
@@ -812,7 +813,8 @@ function dashboardPage() {
             ${_canEdit ? `<button onclick="promptEditHomeroom('${yr}')" title="แก้ไขหมายเลขห้องเรียนประจำ" class="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg p-1.5 flex-shrink-0"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>` : ''}
           </div>
         </div>`;
-    }).join(''); })()}
+        }).join('');
+      })()}
     </div>`;
   } else if (r === 'teacher') {
     const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
@@ -859,6 +861,42 @@ function dashboardPage() {
         </div>
       </div>
     </div>`;
+  } else if (r === 'student' && APP.currentUser.data) {
+    const myLeaves = getDataByType('leave').filter(l => l.name === APP.currentUser.data.name);
+    const subjectMap = {};
+    myLeaves.forEach(l => {
+      const subj = l.subject_name || 'ไม่ระบุ';
+      if (!subjectMap[subj]) subjectMap[subj] = { hours: 0, percent: 0, count: 0 };
+      subjectMap[subj].hours += Number(l.leave_hours) || 0;
+      subjectMap[subj].count++;
+      const pct = Number(l.leave_percent) || 0;
+      if (pct > subjectMap[subj].percent) subjectMap[subj].percent = pct;
+    });
+    const leaveRows = Object.entries(subjectMap).map(([subj, info]) => {
+      const pct = info.percent;
+      const colorClass = pct >= 20 ? 'bg-red-100 text-red-700 font-bold' : pct >= 15 ? 'bg-yellow-100 text-yellow-700 font-semibold' : 'bg-green-100 text-green-700';
+      return `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-2 text-sm">${subj}</td>
+        <td class="px-4 py-2 text-sm text-center">${info.hours}</td>
+        <td class="px-4 py-2 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs ${colorClass}">${pct}%</span></td>
+        <td class="px-4 py-2 text-sm text-center">${info.count} ครั้ง</td>
+      </tr>`;
+    }).join('');
+    stats = `
+    <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">ข้อมูลนักศึกษา</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
+    ${Object.keys(subjectMap).length ? `
+    <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-6">
+      <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>เปอร์เซ็นต์การลาแต่ละรายวิชา</h3>
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รายวิชา</th><th class="px-4 py-2 font-semibold text-center">ชม.ลารวม</th><th class="px-4 py-2 font-semibold text-center">%ลา</th><th class="px-4 py-2 font-semibold text-center">จำนวนครั้ง</th></tr></thead>
+        <tbody>${leaveRows}</tbody>
+      </table></div>
+      <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> ≥ 20% เกินเกณฑ์</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-yellow-500"></span> 15-19% ใกล้เกินเกณฑ์</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> < 15% ปกติ</span>
+      </div>
+    </div>` : '<div class="bg-blue-50 rounded-2xl p-4 mb-6 text-sm text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ยังไม่มีข้อมูลการลา</div>'}`;
   }
 
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="layout-dashboard" class="w-6 h-6 inline mr-2"></i>หน้าหลัก</h2>
@@ -3061,6 +3099,64 @@ function showAddFileTrackingModal() {
 }
 
 // ======================== LEAVE ========================
+// Helper: Check if all coordinator approvals for same student + same date are done
+function allCoordinatorsApproved(leaveRec) {
+  const allLeaves = getDataByType('leave');
+  const sameBatch = allLeaves.filter(l =>
+    l.name === leaveRec.name &&
+    l.leave_date === leaveRec.leave_date &&
+    l.leave_status !== 'ปฏิเสธ'
+  );
+  if (sameBatch.length <= 1) return leaveRec.coordinator_approval === 'อนุมัติ';
+  return sameBatch.every(l => l.coordinator_approval === 'อนุมัติ');
+}
+
+// Helper: Build leave percent summary table HTML
+function leavePercentSummaryHTML(leaveRecords, groupBy) {
+  // groupBy: 'subject' (for student/teacher) or 'student_subject' (for classTeacher)
+  const map = {};
+  leaveRecords.forEach(l => {
+    const key = groupBy === 'student_subject' ? (l.name + '|||' + l.subject_name) : l.subject_name;
+    if (!map[key]) map[key] = { name: l.name || '', subject: l.subject_name || '', hours: 0, percent: 0, count: 0 };
+    map[key].hours += Number(l.leave_hours) || 0;
+    map[key].count++;
+    const pct = Number(l.leave_percent) || 0;
+    if (pct > map[key].percent) map[key].percent = pct;
+  });
+  const entries = Object.values(map);
+  if (!entries.length) return '';
+  const showName = groupBy === 'student_subject';
+  const rows = entries.map(info => {
+    const pct = info.percent;
+    const colorClass = pct >= 20 ? 'bg-red-100 text-red-700 font-bold' : pct >= 15 ? 'bg-yellow-100 text-yellow-700 font-semibold' : 'bg-green-100 text-green-700';
+    return `<tr class="border-t hover:bg-gray-50">
+      ${showName ? `<td class="px-4 py-2 text-sm">${info.name}</td>` : ''}
+      <td class="px-4 py-2 text-sm">${info.subject}</td>
+      <td class="px-4 py-2 text-sm text-center">${info.hours}</td>
+      <td class="px-4 py-2 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs ${colorClass}">${pct}%</span></td>
+      <td class="px-4 py-2 text-sm text-center">${info.count}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
+    <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>สรุปเปอร์เซ็นต์การลาแต่ละรายวิชา</h3>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left">
+        ${showName ? '<th class="px-4 py-2 font-semibold">ชื่อนักศึกษา</th>' : ''}
+        <th class="px-4 py-2 font-semibold">รายวิชา</th>
+        <th class="px-4 py-2 font-semibold text-center">ชม.ลารวม</th>
+        <th class="px-4 py-2 font-semibold text-center">%ลา</th>
+        <th class="px-4 py-2 font-semibold text-center">จำนวนครั้ง</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+      <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> ≥ 20% เกินเกณฑ์</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-yellow-500"></span> 15-19% ใกล้เกินเกณฑ์</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> < 15% ปกติ</span>
+    </div>
+  </div>`;
+}
+
 function leavePage() {
   const isStudent = APP.currentRole === 'student';
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
@@ -3103,7 +3199,7 @@ function leavePage() {
   // Pending-approval count for current role
   let pendingCount = 0;
   if (isTeacher) pendingCount = data.filter(l => (l.coordinator_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
-  if (isClassTeacher) pendingCount = data.filter(l => (l.coordinator_approval === 'อนุมัติ') && (l.class_teacher_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
+  if (isClassTeacher) pendingCount = data.filter(l => allCoordinatorsApproved(l) && (l.class_teacher_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
   if (isExecutive) pendingCount = data.filter(l => (l.coordinator_approval === 'อนุมัติ') && (l.class_teacher_approval === 'อนุมัติ') && (l.deputy_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
 
   let form = '';
@@ -3114,9 +3210,6 @@ function leavePage() {
       <form id="leaveForm" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${APP.currentUser.data?.name || ''}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
-          <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="updateLeaveCoordinator(this.value)"><option value="">เลือกรายวิชา</option>${subjects.map(s => `<option value="${s.subject_name}">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name}</option>`).join('')}</select></div>
-          <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้ประสานรายวิชา</label><input name="coordinator" id="leaveCoordinator" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
-          <div><label class="block text-xs text-gray-600 mb-1">จำนวนชั่วโมง</label><input name="leave_hours" type="number" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
           <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
           <div><label class="block text-xs text-gray-600 mb-1">ประเภทการลา</label><select name="leave_type" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="onLeaveTypeChange(this.value)"><option value="">เลือก</option><option value="ลาป่วย">ลาป่วย</option><option value="ลากิจ">ลากิจ</option><option value="ลาพบแพทย์">ลาพบแพทย์</option></select></div>
@@ -3133,6 +3226,20 @@ function leavePage() {
           <button type="button" onclick="addLeaveDateRow()" class="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> เพิ่มวันที่ลา</button>
           <input type="hidden" name="leave_date" id="leaveDateHidden">
           <p class="text-xs text-gray-400 mt-1">วันที่จะแสดงในรูปแบบ พ.ศ. (เช่น 07/05/2569)</p>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-2 font-semibold">เลือกรายวิชาที่ต้องการลา (เลือกได้หลายวิชา กรอกจำนวนชั่วโมงที่ละวิชา)</label>
+          <div id="leaveSubjectList" class="space-y-1 max-h-64 overflow-y-auto border rounded-xl p-3 bg-gray-50">
+            ${subjects.map(s => `<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition leave-subject-row">
+              <input type="checkbox" class="leave-subject-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${(s.subject_name || '').replace(/"/g, '&quot;')}" data-coordinator="${(s.coordinator || '').replace(/"/g, '&quot;')}" onchange="toggleLeaveSubjectHours(this)">
+              <span class="flex-1 text-sm">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''}</span>
+              <div class="leave-subject-hours hidden flex items-center gap-1">
+                <input type="number" min="1" class="w-20 border rounded-lg px-2 py-1 text-sm text-center leave-hours-input" placeholder="ชม.">
+                <span class="text-xs text-gray-400">ชม.</span>
+              </div>
+            </div>`).join('')}
+          </div>
+          <p class="text-xs text-gray-400 mt-1">เลือกรายวิชาแล้วกรอกจำนวนชั่วโมงที่ลาในแต่ละวิชา</p>
         </div>
         <div id="leaveExtra" class="space-y-3"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ประจำชั้น</label><input name="class_teacher" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3152,10 +3259,21 @@ function leavePage() {
       </div>`
     : '';
 
+  // Leave percent summary tables
+  let summaryTable = '';
+  if (isStudent && APP.currentUser.data) {
+    summaryTable = leavePercentSummaryHTML(data, 'subject');
+  } else if (isTeacher) {
+    summaryTable = leavePercentSummaryHTML(data, 'student_subject');
+  } else if (isClassTeacher) {
+    summaryTable = leavePercentSummaryHTML(data, 'student_subject');
+  }
+
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="calendar-off" class="w-6 h-6 inline mr-2"></i>ระบบการลาของนักศึกษา</h2>
   ${isAdmin ? `<div class="flex gap-2 mb-4"><button onclick="showAddLeaveModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูลการลา</button>${csvUploadBtn('leave', 'name,subject_name,leave_hours,leave_percent,semester,academic_year,leave_date,leave_type')}</div>` : ''}
   ${pendingBanner}
   ${form}
+  ${summaryTable}
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -3197,9 +3315,10 @@ function leavePage() {
     const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : isExecutive ? 'deputy_approval' : '';
     const myApprovalStatus = approvalField ? (l[approvalField] || 'รอ') : '';
 
-    // Sequential rule: classTeacher waits for coordinator; deputy waits for classTeacher
-    const cannotActYet = (isClassTeacher && !coordApproved) || (isExecutive && (!coordApproved || !classApproved));
-    const waitingForLabel = isClassTeacher ? 'รออาจารย์ผู้ประสานอนุมัติก่อน' : 'รออาจารย์ประจำชั้นอนุมัติก่อน';
+    // Sequential rule: classTeacher waits for ALL coordinators (all subjects same student+date); deputy waits for classTeacher
+    const allCoordsOk = allCoordinatorsApproved(l);
+    const cannotActYet = (isClassTeacher && !allCoordsOk) || (isExecutive && (!coordApproved || !classApproved));
+    const waitingForLabel = isClassTeacher ? (allCoordsOk ? 'รออาจารย์ผู้ประสานอนุมัติก่อน' : 'รอ coordinator วิชาอื่นอนุมัติครบก่อน') : 'รออาจารย์ประจำชั้นอนุมัติก่อน';
 
     const renderApprovalCell = () => {
       // Student/admin view: show only the workflow + current stage
@@ -3227,19 +3346,12 @@ function leavePage() {
     };
     const approvalButtons = renderApprovalCell();
 
-    // Show download PDF button if fully approved (visible to student-owner and admin)
-    const fullyApproved = l.leave_status === 'อนุมัติแล้ว' || (coordApproved && classApproved && deputyApproved);
-    const isMyLeave = isStudent && APP.currentUser.data && APP.currentUser.data.name === l.name;
-    const showDownloadPdf = fullyApproved && (isAdmin || isMyLeave);
-    const downloadBtn = showDownloadPdf
-      ? `<button onclick="downloadLeavePDF('${l.__backendId}')" class="ml-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs inline-flex items-center gap-1"><i data-lucide="download" class="w-3 h-3"></i>PDF</button>`
-      : '';
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${l.name || ''}</td><td class="px-4 py-3">${l.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${l.leave_type === 'ลาป่วย' ? 'bg-red-100 text-red-700' : l.leave_type === 'ลาพบแพทย์' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}">${l.leave_type || ''}</span></td>
         <td class="px-4 py-3">${l.leave_hours || ''}</td><td class="px-4 py-3">${l.leave_percent || '-'}%</td>
         <td class="px-4 py-3 text-xs">${toBuddhistDateList(l.leave_date) || '-'}</td><td class="px-4 py-3">${semLabel(l.semester)}/${l.academic_year || ''}</td>
-        <td class="px-4 py-3">${getStatusBadge(l.leave_status)}${downloadBtn}</td>
+        <td class="px-4 py-3">${getStatusBadge(l.leave_status)}</td>
         ${(canApprove || isStudent || isAdmin) ? `<td class="px-4 py-3">${approvalButtons}</td>` : ''}
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditLeaveModal('${l.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
   }).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -3701,6 +3813,20 @@ function updateLeaveCoordinator(subjectName) {
   if (el) el.value = sub?.coordinator || '';
 }
 
+function toggleLeaveSubjectHours(checkbox) {
+  const row = checkbox.closest('.leave-subject-row');
+  if (!row) return;
+  const hoursDiv = row.querySelector('.leave-subject-hours');
+  const hoursInput = row.querySelector('.leave-hours-input');
+  if (checkbox.checked) {
+    if (hoursDiv) hoursDiv.classList.remove('hidden');
+    if (hoursInput) hoursInput.required = true;
+  } else {
+    if (hoursDiv) hoursDiv.classList.add('hidden');
+    if (hoursInput) { hoursInput.required = false; hoursInput.value = ''; }
+  }
+}
+
 // updateEvalTeacherOptions / setEvalScore removed (eval feature removed)
 
 // ======================== INIT PAGE SCRIPTS ========================
@@ -3708,12 +3834,11 @@ function initPageScripts(page) {
   if (page === 'dashboard') { renderCalendar('dashCalendar') }
   if (page === 'schedule') { renderCalendar('scheduleCalendar') }
 
-  // Student leave form
+  // Student leave form (multi-subject)
   const leaveForm = document.getElementById('leaveForm');
   if (leaveForm) {
     leaveForm.onsubmit = async (e) => {
       e.preventDefault();
-      // Make sure hidden field is up-to-date with selected dates
       if (typeof syncLeaveDates === 'function') syncLeaveDates();
 
       const fd = new FormData(leaveForm);
@@ -3731,13 +3856,35 @@ function initPageScripts(page) {
         return;
       }
 
-      // Use earliest date among multi-date selection for validation
+      // Collect checked subjects with hours
+      const checkedSubjects = [];
+      document.querySelectorAll('.leave-subject-check:checked').forEach(cb => {
+        const row = cb.closest('.leave-subject-row');
+        const hoursInput = row ? row.querySelector('.leave-hours-input') : null;
+        const hours = hoursInput ? Number(hoursInput.value) : 0;
+        checkedSubjects.push({
+          subject_name: cb.value,
+          coordinator: cb.dataset.coordinator || '',
+          leave_hours: hours
+        });
+      });
+
+      if (checkedSubjects.length === 0) {
+        if (valEl) { valEl.textContent = 'กรุณาเลือกรายวิชาอย่างน้อย 1 วิชา'; valEl.classList.remove('hidden') }
+        return;
+      }
+      const missingHours = checkedSubjects.find(s => !s.leave_hours || s.leave_hours <= 0);
+      if (missingHours) {
+        if (valEl) { valEl.textContent = 'กรุณากรอกจำนวนชั่วโมงให้ครบทุกรายวิชาที่เลือก'; valEl.classList.remove('hidden') }
+        return;
+      }
+
+      // Date validation
       const dateList = String(leaveDate).split(',').map(d => d.trim()).filter(Boolean);
       const dateObjs = dateList.map(d => new Date(d)).sort((a, b) => a - b);
       const earliest = dateObjs[0];
       const diff = Math.ceil((earliest - today) / (1000 * 60 * 60 * 24));
 
-      // Validate sick leave: if >3 days after, check cert
       if (type === 'ลาป่วย' && diff <= -3) {
         const cert = fd.get('medical_cert');
         if (!cert || !cert.name) {
@@ -3766,17 +3913,37 @@ function initPageScripts(page) {
 
       if (valEl) valEl.classList.add('hidden');
       await withLoading(leaveForm, async () => {
-        const obj = { type: 'leave', created_at: new Date().toISOString() };
-        ['name', 'subject_name', 'leave_hours', 'semester', 'academic_year', 'leave_date', 'leave_type', 'leave_reason', 'coordinator', 'class_teacher'].forEach(k => {
-          const v = fd.get(k); if (v) obj[k] = k === 'leave_hours' ? Number(v) : v;
-        });
-        obj.leave_status = 'รออนุมัติ';
-        obj.coordinator_approval = 'รอ';
-        obj.class_teacher_approval = 'รอ';
-        obj.deputy_approval = 'รอ';
-        if (APP.allData.filter(d => d.type === 'leave').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
-        const r = await GSheetDB.create(obj);
-        if (r.isOk) { showToast('ส่งใบลาสำเร็จ'); leaveForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
+        let successCount = 0;
+        for (const subj of checkedSubjects) {
+          const obj = {
+            type: 'leave', created_at: new Date().toISOString(),
+            name: fd.get('name'),
+            subject_name: subj.subject_name,
+            coordinator: subj.coordinator,
+            leave_hours: subj.leave_hours,
+            semester: fd.get('semester'),
+            academic_year: fd.get('academic_year'),
+            leave_date: leaveDate,
+            leave_type: type,
+            leave_reason: fd.get('leave_reason') || '',
+            class_teacher: fd.get('class_teacher') || '',
+            leave_status: 'รออนุมัติ',
+            coordinator_approval: 'รอ',
+            class_teacher_approval: 'รอ',
+            deputy_approval: 'รอ'
+          };
+          if (APP.allData.filter(d => d.type === 'leave').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); break; }
+          const r = await GSheetDB.create(obj);
+          if (r.isOk) successCount++;
+        }
+        if (successCount > 0) {
+          showToast(`ส่งใบลาสำเร็จ ${successCount} รายวิชา`);
+          leaveForm.reset();
+          // Uncheck all and hide hours
+          document.querySelectorAll('.leave-subject-check').forEach(cb => { cb.checked = false; toggleLeaveSubjectHours(cb); });
+        } else {
+          showToast('เกิดข้อผิดพลาด', 'error');
+        }
       });
     };
   }
@@ -3920,107 +4087,9 @@ function showExecutiveApprovalModal(id) {
   };
 }
 
-// Download fully-approved leave as PDF
-async function downloadLeavePDF(id) {
-  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) { showToast('ไม่พบข้อมูลใบลา', 'error'); return; }
-  const fullyApproved = rec.leave_status === 'อนุมัติแล้ว' || (rec.coordinator_approval === 'อนุมัติ' && rec.class_teacher_approval === 'อนุมัติ' && rec.deputy_approval === 'อนุมัติ');
-  if (!fullyApproved) { showToast('ใบลายังไม่ได้รับการอนุมัติครบทุกขั้นตอน', 'error'); return; }
 
-  let logoBase64 = '';
-  try { const resp = await fetch('https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png'); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } } catch (e) { }
 
-  const stu = getDataByType('student').find(s => s.name === rec.name);
-  const studentId = (stu && stu.student_id) || '-';
-  const studentYearLevel = (stu && stu.year_level) ? 'ชั้นปีที่ ' + stu.year_level : '';
-  const datesBE = toBuddhistDateList(rec.leave_date);
-  const dateCount = String(rec.leave_date || '').split(',').filter(Boolean).length || 1;
 
-  const todayBE = (() => {
-    const d = new Date(); const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear() + 543}`;
-  })();
-
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบลานักศึกษา - ${rec.name || ''}</title>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
-      *{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}
-      body{padding:30px 40px;font-size:13px;color:#333}
-      @media print{body{padding:20px 30px}@page{size:A4;margin:15mm 20mm}}
-      .header{text-align:center;margin-bottom:20px}
-      .title{font-size:18px;font-weight:700;margin-top:8px}
-      .subtitle{font-size:13px;color:#555;margin-top:2px}
-      .approved-badge{display:inline-block;margin-top:8px;padding:4px 14px;border-radius:20px;background:#10b981;color:white;font-size:12px;font-weight:700}
-      .info-row{display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px}
-      .info-block{margin:18px 0;border:1px solid #ccc;border-radius:8px;padding:12px;font-size:13px}
-      .info-block .item{padding:4px 0;display:flex}
-      .info-block .label{color:#666;min-width:140px}
-      .approval-box{border:1px solid #ccc;border-radius:8px;padding:12px;margin-top:14px;font-size:12px}
-      .approval-box h4{font-weight:700;margin-bottom:8px;color:#1e3a8a}
-      .approval-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px}
-      .approval-cell{border:1px dashed #ccc;border-radius:6px;padding:10px;text-align:center}
-      .approval-cell .role{color:#666;font-size:11px;margin-bottom:6px}
-      .approval-cell .check{color:#10b981;font-weight:700}
-      .footer{margin-top:30px;font-size:11px;color:#888;text-align:center}
-    </style></head><body>
-    <div class="header">
-      ${logoBase64 ? `<img src="${logoBase64}" style="width:60px;height:auto;display:block;margin:0 auto 4px auto">` : ''}
-      <div style="font-weight:700;font-size:14px">${APP.config.college_name || ''}</div>
-      <div class="title">ใบลานักศึกษา</div>
-      <div class="subtitle">เอกสารที่ได้รับการอนุมัติแล้ว</div>
-      <span class="approved-badge">✓ อนุมัติครบทุกขั้นตอนแล้ว</span>
-    </div>
-
-    <div class="info-row">
-      <div>วันที่ออกเอกสาร: <strong>${todayBE}</strong></div>
-      <div>เลขที่: <strong>${rec.__backendId || ''}</strong></div>
-    </div>
-
-    <div class="info-block">
-      <div class="item"><span class="label">ชื่อ-สกุล:</span> <strong>${rec.name || '-'}</strong></div>
-      <div class="item"><span class="label">รหัสนักศึกษา:</span> <strong>${studentId}</strong> ${studentYearLevel ? '&nbsp;&nbsp;' + studentYearLevel : ''}</div>
-      <div class="item"><span class="label">รายวิชา:</span> <strong>${rec.subject_name || '-'}</strong></div>
-      <div class="item"><span class="label">อาจารย์ผู้ประสาน:</span> <strong>${rec.coordinator || '-'}</strong></div>
-      <div class="item"><span class="label">ภาค/ปีการศึกษา:</span> <strong>${rec.semester || '-'}/${rec.academic_year || '-'}</strong></div>
-      <div class="item"><span class="label">ประเภทการลา:</span> <strong>${rec.leave_type || '-'}</strong></div>
-      <div class="item"><span class="label">วันที่ลา:</span> <strong>${datesBE || '-'}</strong> ${dateCount > 1 ? '(' + dateCount + ' วัน)' : ''}</div>
-      <div class="item"><span class="label">จำนวนชั่วโมง:</span> <strong>${rec.leave_hours || '-'}</strong> ชั่วโมง</div>
-      <div class="item"><span class="label">% การลาในรายวิชา:</span> <strong>${rec.leave_percent || '-'}%</strong></div>
-      ${rec.leave_reason ? `<div class="item"><span class="label">เหตุผล/หมายเหตุ:</span> ${rec.leave_reason}</div>` : ''}
-    </div>
-
-    <div class="approval-box">
-      <h4>การอนุมัติ</h4>
-      <div class="approval-grid">
-        <div class="approval-cell">
-          <div class="role">อาจารย์ผู้ประสานรายวิชา</div>
-          <div class="check">✓ อนุมัติ</div>
-          ${rec.coordinator || ''}
-          ${rec.coordinator_note ? `<div style="font-size:10px;color:#666;margin-top:6px">หมายเหตุ: ${rec.coordinator_note}</div>` : ''}
-        </div>
-        <div class="approval-cell">
-          <div class="role">อาจารย์ประจำชั้น</div>
-          <div class="check">✓ อนุมัติ</div>
-          ${rec.class_teacher || ''}
-        </div>
-        <div class="approval-cell">
-          <div class="role">ผู้บริหาร</div>
-          <div class="check">✓ อนุมัติ</div>
-          ${rec.deputy_note ? `<div style="font-size:10px;color:#666;margin-top:6px">หมายเหตุ: ${rec.deputy_note}</div>` : ''}
-        </div>
-      </div>
-    </div>
-
-    <div class="footer">
-      เอกสารนี้สร้างจากระบบ EMS-BCNB เมื่อ ${todayBE}
-    </div>
-
-    <script>window.onload=function(){window.print()}<\/script>
-  </body></html>`;
-
-  const w = window.open('', '_blank');
-  if (w) { w.document.write(html); w.document.close(); }
-  else { showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error'); }
-}
 
 // ======================== GLOBAL ACTIONS ========================
 function changePage(p) { APP.pagination.page = p; renderCurrentPage() }
