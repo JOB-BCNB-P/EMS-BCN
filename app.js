@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, evalTeacher: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, evalTeacher: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, evalTeacher: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -365,7 +365,6 @@ function buildSidebar() {
   if (p.schedule) regSub.push({ id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' });
   if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
   if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
-  if (p.evalTeacher) regSub.push({ id: 'evalTeacher', label: 'ประเมินอาจารย์ผู้สอน' });
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
 
@@ -432,7 +431,6 @@ function navigateTo(page) {
   APP.filters._gradeTrackingYear = '';
   APP.filters._fileTrackingYear = '';
   APP.filters._studentYearLevel = '';
-  APP.filters._evalTeacher = '';
   APP.filters._engAdvisor = '';
   APP.filters._gradeAdvisor = '';
   APP.filters._engYear = '';
@@ -721,7 +719,6 @@ function getPageContent(page, role) {
     case 'schedule': return schedulePage();
     case 'grades': return gradesPage();
     case 'engResults': return engResultsPage();
-    case 'evalTeacher': return evalTeacherPage();
     case 'teachers': return teachersPage();
     case 'teacherDirectory': return teacherDirectoryPage();
     case 'services': return servicesPage();
@@ -1887,7 +1884,10 @@ function showAddEngModal() {
   };
 }
 
-// ======================== EVAL TEACHER ========================
+// ======================== EVAL TEACHER (REMOVED) ========================
+// Teacher evaluation feature has been removed from the system.
+// The following Google Sheet tabs are no longer used: eval_form, evaluation
+/* removed_eval_block_start
 function renderEvalTeacherFiltered(data, byTeacher, teacherName) {
   const filtered = data.filter(e => (e.teacher_name || e.name) === teacherName);
   const selTeacher = byTeacher[teacherName];
@@ -2128,6 +2128,7 @@ function setItemScore(idx, score) {
 function showAddEvalModal() {
   showCreateEvalFormModal();
 }
+removed_eval_block_end */
 
 // ======================== TEACHERS ========================
 function teachersPage() {
@@ -3288,8 +3289,8 @@ function exportLoginLogCSV() {
 // ======================== SETTINGS ========================
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'evalTeacher', 'teachers', 'teacherDirectory', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', evalTeacher: 'ประเมินอาจารย์', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
+  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
@@ -3500,30 +3501,7 @@ function updateLeaveCoordinator(subjectName) {
   if (el) el.value = sub?.coordinator || '';
 }
 
-function updateEvalTeacherOptions(subjectName) {
-  const sub = getDataByType('subject').find(s => s.subject_name === subjectName);
-  const sel = document.getElementById('evalTeacherSelect');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">เลือกอาจารย์</option>';
-  if (sub && sub.coordinator) {
-    sub.coordinator.split(',').map(c => c.trim()).filter(Boolean).forEach(c => {
-      sel.innerHTML += `<option value="${c}">${c}</option>`;
-    });
-  }
-  // Also add all teachers
-  getDataByType('teacher').forEach(t => {
-    if (!sel.querySelector(`option[value="${t.name}"]`)) sel.innerHTML += `<option value="${t.name}">${t.name}</option>`;
-  });
-}
-
-function setEvalScore(n) {
-  document.getElementById('evalScoreInput').value = n;
-  document.querySelectorAll('.eval-star').forEach((btn, i) => {
-    btn.classList.toggle('bg-yellow-400', i < n);
-    btn.classList.toggle('text-white', i < n);
-    btn.classList.toggle('border-yellow-400', i < n);
-  });
-}
+// updateEvalTeacherOptions / setEvalScore removed (eval feature removed)
 
 // ======================== INIT PAGE SCRIPTS ========================
 function initPageScripts(page) {
@@ -3583,19 +3561,7 @@ function initPageScripts(page) {
     };
   }
 
-  // Eval form
-  const evalForm = document.getElementById('evalForm');
-  if (evalForm) {
-    evalForm.onsubmit = async (e) => {
-      e.preventDefault();
-      await withLoading(evalForm, async () => {
-        const obj = { type: 'evaluation', student_name: APP.currentUser.data?.name || '', created_at: new Date().toISOString() };
-        fd.forEach((v, k) => { if (k !== 'medical_cert' && k !== 'appointment_doc') obj[k] = k === 'eval_score' ? Number(v) : v });
-        const r = await GSheetDB.create(obj);
-        if (r.isOk) { showToast('ส่งผลประเมินสำเร็จ'); evalForm.reset() } else showToast('เกิดข้อผิดพลาด', 'error');
-      });
-    };
-  }
+  // Eval form removed (teacher evaluation feature has been removed from system)
 }
 
 // ======================== CALENDAR ========================
@@ -3838,24 +3804,7 @@ function showEditEngModal(id) {
   };
 }
 
-function showEditEvalFormModal(id) {
-  const f = APP.allData.find(d => d.__backendId === id); if (!f) return;
-  showModal('แก้ไขแบบประเมิน', `
-    <form id="editEvalFormForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${f.subject_code || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${f.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้สอน</label><input name="teacher_name" value="${f.teacher_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(f.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(f.semester) === '2' ? 'selected' : ''}>2</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${f.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      </div>
-      <div><label class="block text-xs text-gray-600 mb-1">หัวข้อประเมิน (คั่นด้วย ,)</label><textarea name="eval_items" rows="3" class="w-full border rounded-xl px-3 py-2 text-sm">${f.eval_items || ''}</textarea></div>
-      <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="เปิด" ${f.status === 'เปิด' ? 'selected' : ''}>เปิดรับประเมิน</option><option value="ปิด" ${f.status === 'ปิด' ? 'selected' : ''}>ปิดรับประเมิน</option></select></div>
-      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
-    </form>
-  `);
-  document.getElementById('editEvalFormForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editEvalFormForm') };
-}
+// showEditEvalFormModal removed (teacher evaluation feature has been removed)
 
 function showEditTeacherModal(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
