@@ -13,7 +13,7 @@ const GSheetDB = (() => {
 
     const SHEET_TABS = [
         'student', 'teacher', 'subject', 'schedule',
-        'grade', 'eng_result', 'eval_form', 'evaluation', 'leave',
+        'grade', 'eng_result', 'leave',
         'tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'login_log'
     ];
 
