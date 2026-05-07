@@ -3204,7 +3204,9 @@ function leavePage() {
 
   let form = '';
   if (isStudent) {
-    const subjects = getDataByType('subject');
+    const stuYearLevel = APP.currentUser.data?.year_level || '';
+    const allSubjects = getDataByType('subject');
+    const subjects = stuYearLevel ? allSubjects.filter(s => norm(s.year_level) === norm(stuYearLevel)) : allSubjects;
     form = `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
       <h3 class="font-bold mb-3">กรอกข้อมูลการลา</h3>
       <form id="leaveForm" class="space-y-3">
