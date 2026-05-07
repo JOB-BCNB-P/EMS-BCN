@@ -1346,7 +1346,13 @@ function showTranscriptForStudent(studentKey) {
 }
 
 function _renderTranscript(stu) {
-  const grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  let grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  // Respect current filters (academic year / semester) selected on grades page
+  const filterYear = APP.filters.academicYear || '';
+  const filterSem = APP.filters.semester || '';
+  if (filterYear) grades = grades.filter(g => norm(g.academic_year) === filterYear);
+  if (filterSem) grades = grades.filter(g => normSem(g.semester) === filterSem);
+
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
   const semesters = {};
@@ -1381,7 +1387,12 @@ function _renderTranscript(stu) {
   const studentYearLevel = stu.year_level || '';
   const stuNameSafe = (stu.name || '').replace(/'/g, "\\'");
 
+  const filterBadge = (filterYear || filterSem)
+    ? `<div class="bg-blue-50 border border-blue-200 rounded-xl p-2 mb-3 text-xs text-blue-800 text-center"><i data-lucide="filter" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะ${filterSem ? ' ภาคการศึกษาที่ ' + filterSem : ''}${filterYear ? ' ปีการศึกษา ' + filterYear : ''}</div>`
+    : '';
+
   showModal('ใบรายงานผลการเรียน', `
+    ${filterBadge}
     <div id="transcriptContent" class="bg-white p-4 relative overflow-hidden" style="max-width:700px;margin:auto;">
       <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:1;">
         <div style="transform:rotate(-30deg);font-size:54px;font-weight:800;color:rgba(220,38,38,0.18);white-space:nowrap;letter-spacing:6px;">ฉบับสำเนาไม่ใช่ตัวจริง</div>
@@ -1421,7 +1432,12 @@ function _renderTranscript(stu) {
 async function downloadTranscriptPDF(studentKey) {
   const stu = getDataByType('student').find(s => s.student_id === studentKey || s.name === studentKey) || (APP.currentUser.data && (APP.currentUser.data.name === studentKey || APP.currentUser.data.student_id === studentKey) ? APP.currentUser.data : null);
   if (!stu) return;
-  const grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  let grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  // Respect current filters (academic year / semester) selected on grades page
+  const filterYear = APP.filters.academicYear || '';
+  const filterSem = APP.filters.semester || '';
+  if (filterYear) grades = grades.filter(g => norm(g.academic_year) === filterYear);
+  if (filterSem) grades = grades.filter(g => normSem(g.semester) === filterSem);
   const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
 
   const semesters = {};
@@ -1479,7 +1495,7 @@ async function downloadTranscriptPDF(studentKey) {
     </style></head><body>
     <div class="watermark-layer" aria-hidden="true">${watermarkRows}</div>
     <div class="content">
-    <div style="text-align:center;margin-bottom:12px">${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}<div style="font-weight:700;font-size:14px">${APP.config.college_name}</div><div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div><div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}</div><div style="font-size:11px;color:#dc2626;font-weight:700;margin-top:4px;letter-spacing:2px">— ฉบับสำเนาไม่ใช่ตัวจริง —</div></div>
+    <div style="text-align:center;margin-bottom:12px">${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}<div style="font-weight:700;font-size:14px">${APP.config.college_name}</div><div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div><div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}</div>${(filterYear || filterSem) ? `<div style="font-size:11px;color:#1e3a8a;font-weight:600;margin-top:2px">เฉพาะ${filterSem ? ' ภาคการศึกษาที่ ' + filterSem : ''}${filterYear ? ' ปีการศึกษา ' + filterYear : ''}</div>` : ''}<div style="font-size:11px;color:#dc2626;font-weight:700;margin-top:4px;letter-spacing:2px">— ฉบับสำเนาไม่ใช่ตัวจริง —</div></div>
     <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px"><div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div><div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div></div>
     <table><thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead><tbody>${tableHTML}</tbody></table>
     <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px"><div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div></div>
@@ -3028,6 +3044,8 @@ function leavePage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const isTeacher = APP.currentRole === 'teacher';
   const isClassTeacher = APP.currentRole === 'classTeacher';
+  const isExecutive = APP.currentRole === 'executive';
+  const canApprove = isTeacher || isClassTeacher || isExecutive;
   const canEdit = isAdmin || isTeacher || isClassTeacher;
 
   let data = getDataByType('leave');
@@ -3064,6 +3082,7 @@ function leavePage() {
   let pendingCount = 0;
   if (isTeacher) pendingCount = data.filter(l => (l.coordinator_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
   if (isClassTeacher) pendingCount = data.filter(l => (l.coordinator_approval === 'อนุมัติ') && (l.class_teacher_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
+  if (isExecutive) pendingCount = data.filter(l => (l.coordinator_approval === 'อนุมัติ') && (l.class_teacher_approval === 'อนุมัติ') && (l.deputy_approval || 'รอ') === 'รอ' && l.leave_status !== 'ปฏิเสธ').length;
 
   let form = '';
   if (isStudent) {
@@ -3089,12 +3108,12 @@ function leavePage() {
     </div>`;
   }
 
-  const pendingBanner = (isTeacher || isClassTeacher) && pendingCount > 0
+  const pendingBanner = canApprove && pendingCount > 0
     ? `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 flex items-center gap-3">
         <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">${pendingCount}</div>
         <div>
           <p class="text-sm font-semibold text-amber-900">มีใบลา ${pendingCount} รายการรอการอนุมัติของคุณ</p>
-          <p class="text-xs text-amber-700">${isTeacher ? 'คุณคืออาจารย์ผู้ประสานรายวิชา — โปรดกรอก % การลาและกดอนุมัติ' : 'อาจารย์ผู้ประสานได้อนุมัติแล้ว — รอคุณอนุมัติเป็นลำดับถัดไป'}</p>
+          <p class="text-xs text-amber-700">${isTeacher ? 'คุณคืออาจารย์ผู้ประสานรายวิชา — โปรดกรอก % การลาและกดอนุมัติ' : isClassTeacher ? 'อาจารย์ผู้ประสานได้อนุมัติแล้ว — รอคุณอนุมัติเป็นลำดับถัดไป' : 'ผ่านการอนุมัติจาก ปสน. และ ปจช. แล้ว — รอผู้บริหารอนุมัติเป็นขั้นสุดท้าย'}</p>
         </div>
       </div>`
     : '';
@@ -3106,7 +3125,7 @@ function leavePage() {
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ชม.</th><th class="px-4 py-3 font-semibold">%ลา</th><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">สถานะ</th>${isTeacher || isClassTeacher ? '<th class="px-4 py-3 font-semibold">การอนุมัติ</th>' : ''}${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ชม.</th><th class="px-4 py-3 font-semibold">%ลา</th><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">สถานะ</th>${(canApprove || isStudent || isAdmin) ? '<th class="px-4 py-3 font-semibold">' + (canApprove ? 'การอนุมัติ' : 'ขั้นการอนุมัติ') + '</th>' : ''}${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(l => {
     const getStatusBadge = (status) => {
       if (status === 'รออนุมัติ') return '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ รออนุมัติ</span>';
@@ -3133,20 +3152,33 @@ function leavePage() {
       <div class="flex items-center gap-1" title="ผู้บริหาร">${stepIcon(l.deputy_approval)}<span class="text-[10px] text-gray-500">ผบห.</span></div>
     </div>`;
 
-    const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : 'deputy_approval';
-    const myApprovalStatus = l[approvalField] || 'รอ';
+    // Determine current approval stage label (used for student/admin view)
+    let currentStage = '';
+    if (l.leave_status === 'อนุมัติแล้ว') currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ อนุมัติครบแล้ว</span>';
+    else if (isRejected) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">✕ ใบลาถูกปฏิเสธ</span>';
+    else if (!coordApproved) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ รออาจารย์ผู้ประสานรายวิชา</span>';
+    else if (!classApproved) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">⏳ รออาจารย์ประจำชั้น</span>';
+    else if (!deputyApproved) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200">⏳ รอผู้บริหาร</span>';
 
-    // Sequential rule: classTeacher must wait for coordinator; deputy must wait for classTeacher
-    const cannotActYet = (isClassTeacher && !coordApproved) || (false /* deputy view not in teacher panel */);
+    const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : isExecutive ? 'deputy_approval' : '';
+    const myApprovalStatus = approvalField ? (l[approvalField] || 'รอ') : '';
+
+    // Sequential rule: classTeacher waits for coordinator; deputy waits for classTeacher
+    const cannotActYet = (isClassTeacher && !coordApproved) || (isExecutive && (!coordApproved || !classApproved));
+    const waitingForLabel = isClassTeacher ? 'รออาจารย์ผู้ประสานอนุมัติก่อน' : 'รออาจารย์ประจำชั้นอนุมัติก่อน';
 
     const renderApprovalCell = () => {
+      // Student/admin view: show only the workflow + current stage
+      if (!canApprove) {
+        return `${workflowSteps}${currentStage || '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">รอส่ง</span>'}`;
+      }
       if (isRejected && myApprovalStatus !== 'ปฏิเสธ' && myApprovalStatus !== 'อนุมัติ') {
         return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ใบลาถูกปฏิเสธแล้ว</span>`;
       }
       if (myApprovalStatus === 'อนุมัติ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>`;
       if (myApprovalStatus === 'ปฏิเสธ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>`;
       if (cannotActYet) {
-        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ รออาจารย์ผู้ประสานอนุมัติก่อน</span>`;
+        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ ${waitingForLabel}</span>`;
       }
       // Coordinator (teacher) approval shows percent modal
       const onclickApprove = isTeacher
@@ -3164,7 +3196,7 @@ function leavePage() {
         <td class="px-4 py-3">${l.leave_hours || ''}</td><td class="px-4 py-3">${l.leave_percent || '-'}%</td>
         <td class="px-4 py-3">${l.leave_date || ''}</td><td class="px-4 py-3">${semLabel(l.semester)}/${l.academic_year || ''}</td>
         <td class="px-4 py-3">${getStatusBadge(l.leave_status)}</td>
-        ${(isTeacher || isClassTeacher) ? `<td class="px-4 py-3">${approvalButtons}</td>` : ''} 
+        ${(canApprove || isStudent || isAdmin) ? `<td class="px-4 py-3">${approvalButtons}</td>` : ''}
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditLeaveModal('${l.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
   }).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
