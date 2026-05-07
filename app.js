@@ -3514,8 +3514,22 @@ function initPageScripts(page) {
     leaveForm.onsubmit = async (e) => {
       e.preventDefault();
 
-      const diff = Math.ceil((new Date(leaveDate) - today) / (1000 * 60 * 60 * 24));
+      const fd = new FormData(leaveForm);
+      const leaveDate = fd.get('leave_date');
+      const type = fd.get('leave_type');
+      const today = new Date(); today.setHours(0, 0, 0, 0);
       const valEl = document.getElementById('leaveValidation');
+
+      if (!leaveDate) {
+        if (valEl) { valEl.textContent = 'กรุณาเลือกวันที่ลา'; valEl.classList.remove('hidden') }
+        return;
+      }
+      if (!type) {
+        if (valEl) { valEl.textContent = 'กรุณาเลือกประเภทการลา'; valEl.classList.remove('hidden') }
+        return;
+      }
+
+      const diff = Math.ceil((new Date(leaveDate) - today) / (1000 * 60 * 60 * 24));
 
       // Validate sick leave: if >3 days after, check cert
       if (type === 'ลาป่วย' && diff <= -3) {
@@ -3547,7 +3561,7 @@ function initPageScripts(page) {
       if (valEl) valEl.classList.add('hidden');
       await withLoading(leaveForm, async () => {
         const obj = { type: 'leave', created_at: new Date().toISOString() };
-        ['name', 'subject_name', 'leave_hours', 'semester', 'academic_year', 'leave_date', 'leave_type', 'leave_reason', 'coordinator'].forEach(k => {
+        ['name', 'subject_name', 'leave_hours', 'semester', 'academic_year', 'leave_date', 'leave_type', 'leave_reason', 'coordinator', 'class_teacher'].forEach(k => {
           const v = fd.get(k); if (v) obj[k] = k === 'leave_hours' ? Number(v) : v;
         });
         obj.leave_status = 'รออนุมัติ';
