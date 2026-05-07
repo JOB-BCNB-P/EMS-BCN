@@ -3737,6 +3737,8 @@ function onLeaveTypeChange(type) {
     <div><label class="block text-xs text-gray-600 mb-1">แนบใบนัดแพทย์ * (.jpg, .pdf, .png)</label><input type="file" accept=".jpg,.pdf,.png" class="w-full text-sm" name="appointment_doc"></div>`;
   }
   lucide.createIcons();
+  // Re-check dates to show/hide late reason field immediately
+  if (typeof validateLeaveDate === 'function') validateLeaveDate();
 }
 
 function validateLeaveDate() {
