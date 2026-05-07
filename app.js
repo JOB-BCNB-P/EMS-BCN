@@ -3731,7 +3731,7 @@ function onLeaveTypeChange(type) {
     <div id="sickCertUpload" class="hidden"><label class="block text-xs text-gray-600 mb-1">แนบใบรับรองแพทย์ *</label><input type="file" accept=".jpg,.pdf,.png" class="w-full text-sm" name="medical_cert"></div>`;
   } else if (type === 'ลากิจ') {
     extra.innerHTML = `<div class="bg-blue-50 p-3 rounded-xl text-xs text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ลากิจต้องส่งล่วงหน้า 1-2 วัน หากส่งช้ากรุณาใส่เหตุผล</div>
-    <div id="lateReasonDiv" class="hidden"><label class="block text-xs text-gray-600 mb-1">เหตุผลที่ส่งล่าช้า *</label><textarea name="leave_reason" class="w-full border rounded-xl px-3 py-2 text-sm" rows="2"></textarea></div>`;
+    <div id="lateReasonDiv"><label class="block text-xs text-gray-600 mb-1">เหตุผลการลา <span id="lateReasonRequired" class="text-red-500 hidden">*</span></label><textarea name="leave_reason" class="w-full border rounded-xl px-3 py-2 text-sm" rows="2" placeholder="กรอกเหตุผลการลากิจ"></textarea></div>`;
   } else if (type === 'ลาพบแพทย์') {
     extra.innerHTML = `<div class="bg-purple-50 p-3 rounded-xl text-xs text-purple-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ลาพบแพทย์ต้องส่งล่วงหน้า 3 วันทำการ และแนบใบนัดแพทย์</div>
     <div><label class="block text-xs text-gray-600 mb-1">แนบใบนัดแพทย์ * (.jpg, .pdf, .png)</label><input type="file" accept=".jpg,.pdf,.png" class="w-full text-sm" name="appointment_doc"></div>`;
@@ -3762,8 +3762,8 @@ function validateLeaveDate() {
   const diffDays = Math.ceil((earliestDate - today) / (1000 * 60 * 60 * 24));
 
   if (type === 'ลากิจ') {
-    const lateDiv = document.getElementById('lateReasonDiv');
-    if (lateDiv) { lateDiv.classList.toggle('hidden', diffDays >= 1) }
+    const reqSpan = document.getElementById('lateReasonRequired');
+    if (reqSpan) { reqSpan.classList.toggle('hidden', diffDays >= 1) }
   }
 }
 
