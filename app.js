@@ -3033,10 +3033,16 @@ function leavePage() {
   let data = getDataByType('leave');
 
   if (isStudent && APP.currentUser.data) data = data.filter(l => l.name === APP.currentUser.data.name);
-  if (isTeacher) data = data.filter(l => {
-    const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name && s.coordinator && s.coordinator.includes(APP.currentUser.name));
-    return !!sub;
-  });
+  if (isTeacher) {
+    const myName = (APP.currentUser.name || '').trim();
+    data = data.filter(l => {
+      const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name);
+      if (!sub || !sub.coordinator) return false;
+      // Support multiple coordinators separated by comma / และ / and
+      const coords = String(sub.coordinator).split(/[,;|]|\sและ\s|\sand\s/).map(c => c.trim()).filter(Boolean);
+      return coords.some(c => c === myName || c.includes(myName) || myName.includes(c));
+    });
+  }
   if (isClassTeacher) {
     const yr = APP.currentUser.responsible_year || '1';
     const stuNames = getDataByType('student').filter(s => norm(s.year_level) === norm(yr)).map(s => s.name);
@@ -3083,10 +3089,21 @@ function leavePage() {
       if (status === 'ปฏิเสธ') return '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">✕ ปฏิเสธ</span>';
       return '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">รอส่ง</span>';
     };
-    const approvalButtons = `<div class="flex gap-1">
-          <button onclick="approveLeave('${l.__backendId}','${isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : 'deputy_approval'}')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>อนุมัติ</button>
-          <button onclick="rejectLeave('${l.__backendId}','${isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : 'deputy_approval'}')" class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i>ปฏิเสธ</button>
+    const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : 'deputy_approval';
+    const myApprovalStatus = l[approvalField] || 'รอ';
+    const renderApprovalCell = () => {
+      if (myApprovalStatus === 'อนุมัติ') return `<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>`;
+      if (myApprovalStatus === 'ปฏิเสธ') return `<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>`;
+      // Coordinator (teacher) approval shows percent modal
+      const onclickApprove = isTeacher
+        ? `showLeaveApprovalModal('${l.__backendId}','${l.leave_percent || ''}')`
+        : `approveLeave('${l.__backendId}','${approvalField}')`;
+      return `<div class="flex gap-1">
+          <button onclick="${onclickApprove}" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>อนุมัติ</button>
+          <button onclick="rejectLeave('${l.__backendId}','${approvalField}')" class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i>ปฏิเสธ</button>
         </div>`;
+    };
+    const approvalButtons = renderApprovalCell();
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${l.name || ''}</td><td class="px-4 py-3">${l.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${l.leave_type === 'ลาป่วย' ? 'bg-red-100 text-red-700' : l.leave_type === 'ลาพบแพทย์' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}">${l.leave_type || ''}</span></td>
@@ -3607,25 +3624,76 @@ function renderCalendar(containerId) {
 }
 
 // ======================== LEAVE APPROVAL ========================
-async function approveLeave(id, approvalField) {
+async function approveLeave(id, approvalField, extra) {
   const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
   rec[approvalField] = 'อนุมัติ';
+  if (extra && typeof extra === 'object') {
+    Object.keys(extra).forEach(k => { if (extra[k] !== undefined && extra[k] !== null && extra[k] !== '') rec[k] = extra[k]; });
+  }
   // If all approvals done, mark as approved
   if (rec.coordinator_approval === 'อนุมัติ' && rec.class_teacher_approval === 'อนุมัติ' && rec.deputy_approval === 'อนุมัติ') {
     rec.leave_status = 'อนุมัติแล้ว';
   }
 
+  showToast('กำลังบันทึก...', 'loading');
   const r = await GSheetDB.update(rec);
-  if (r.isOk) { showToast('อนุมัติการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด', 'error');
+  hideLoadingToast && hideLoadingToast();
+  if (r.isOk) { showToast('อนุมัติการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
 }
 
 async function rejectLeave(id, approvalField) {
   const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+  if (!confirm('ยืนยันการปฏิเสธใบลานี้?')) return;
   rec[approvalField] = 'ปฏิเสธ';
   rec.leave_status = 'ปฏิเสธ';
 
+  showToast('กำลังบันทึก...', 'loading');
   const r = await GSheetDB.update(rec);
-  if (r.isOk) { showToast('ปฏิเสธการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด', 'error');
+  hideLoadingToast && hideLoadingToast();
+  if (r.isOk) { showToast('ปฏิเสธการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+}
+
+// Coordinator approves leave + fills in leave_percent
+function showLeaveApprovalModal(id, currentPercent) {
+  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+  showModal('อนุมัติใบลา', `
+    <div class="space-y-3">
+      <div class="bg-blue-50 rounded-xl p-3 text-sm space-y-1">
+        <p><span class="text-gray-500">นักศึกษา:</span> <strong>${rec.name || '-'}</strong></p>
+        <p><span class="text-gray-500">รายวิชา:</span> <strong>${rec.subject_name || '-'}</strong></p>
+        <p><span class="text-gray-500">ประเภท:</span> <strong>${rec.leave_type || '-'}</strong> | <span class="text-gray-500">วันที่:</span> <strong>${rec.leave_date || '-'}</strong> | <span class="text-gray-500">ชม.:</span> <strong>${rec.leave_hours || '-'}</strong></p>
+        ${rec.leave_reason ? `<p><span class="text-gray-500">เหตุผล:</span> ${rec.leave_reason}</p>` : ''}
+      </div>
+      <form id="leaveApprovalForm" class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">% การลาในรายวิชานี้ <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <input name="leave_percent" id="leavePercentInput" type="number" step="0.01" min="0" max="100" required value="${currentPercent || ''}" class="w-full border rounded-xl px-3 py-2 pr-10 text-sm" placeholder="เช่น 5.5">
+            <span class="absolute right-3 top-2.5 text-gray-400 text-sm">%</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">กรอกเปอร์เซ็นต์การลาของนักศึกษาในรายวิชาตนเอง</p>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">หมายเหตุ (ถ้ามี)</label>
+          <textarea name="approval_note" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="หมายเหตุจากอาจารย์ผู้ประสาน"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl flex items-center justify-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>ยืนยันอนุมัติ</button>
+      </form>
+    </div>
+  `);
+  setTimeout(() => { lucide.createIcons(); const inp = document.getElementById('leavePercentInput'); if (inp) inp.focus(); }, 50);
+  const f = document.getElementById('leaveApprovalForm');
+  if (f) f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(f);
+    const percent = fd.get('leave_percent');
+    if (!percent && percent !== '0') { showToast('กรุณากรอก % การลา', 'error'); return; }
+    const extra = { leave_percent: Number(percent) };
+    const note = fd.get('approval_note');
+    if (note) extra.coordinator_note = note;
+    closeModal();
+    await approveLeave(id, 'coordinator_approval', extra);
+  };
 }
 
 // ======================== GLOBAL ACTIONS ========================
