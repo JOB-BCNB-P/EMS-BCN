@@ -436,6 +436,8 @@ function navigateTo(page) {
   APP.filters._engAdvisor = '';
   APP.filters._gradeAdvisor = '';
   APP.filters._engYear = '';
+  APP.filters._engYearLevel = '';
+  APP.filters._gradeYearLevel = '';
   APP._directoryTab = 'all';
   APP.filters._directoryYear = '';
   APP.filters._pageYear = '';
@@ -1383,7 +1385,11 @@ function _renderTranscript(stu) {
   const stuNameSafe = (stu.name || '').replace(/'/g, "\\'");
 
   showModal('ใบรายงานผลการเรียน', `
-    <div id="transcriptContent" class="bg-white p-4" style="max-width:700px;margin:auto;">
+    <div id="transcriptContent" class="bg-white p-4 relative overflow-hidden" style="max-width:700px;margin:auto;">
+      <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:1;">
+        <div style="transform:rotate(-30deg);font-size:54px;font-weight:800;color:rgba(220,38,38,0.18);white-space:nowrap;letter-spacing:6px;">ฉบับสำเนาไม่ใช่ตัวจริง</div>
+      </div>
+      <div class="relative" style="z-index:2;">
       <div class="text-center mb-3">
         <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="this.style.display='none'">
         <p class="font-bold text-sm">${APP.config.college_name}</p>
@@ -1405,6 +1411,7 @@ function _renderTranscript(stu) {
       <div class="mt-3 text-xs text-gray-500">
         <p class="font-semibold mb-1">หมายเหตุ</p>
         <p>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</p>
+      </div>
       </div>
     </div>
     <div class="flex justify-center mt-4">
@@ -1450,13 +1457,37 @@ async function downloadTranscriptPDF(studentKey) {
   const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
   const studentLevel = stu.level || 'ปริญญาตรี';
 
+  // Build watermark rows that repeat across the entire page (works on every PDF page)
+  const watermarkText = 'ฉบับสำเนาไม่ใช่ตัวจริง';
+  let watermarkRows = '';
+  for (let i = 0; i < 8; i++) {
+    watermarkRows += `<div class="wm-row">${Array(3).fill(`<span class="wm-text">${watermarkText}</span>`).join('')}</div>`;
+  }
+
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบรายงานผลการเรียน - ${stu.name || ''}</title>
-    <style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');*{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}body{padding:20px 40px;font-size:12px;color:#333}@media print{body{padding:15px 30px}@page{size:A4;margin:15mm 20mm}}table{width:100%;border-collapse:collapse}</style></head><body>
-    <div style="text-align:center;margin-bottom:12px">${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}<div style="font-weight:700;font-size:14px">${APP.config.college_name}</div><div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div><div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}</div></div>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+      *{font-family:'Sarabun',sans-serif;margin:0;padding:0;box-sizing:border-box}
+      html,body{position:relative}
+      body{padding:20px 40px;font-size:12px;color:#333;min-height:100vh}
+      @media print{body{padding:15px 30px}@page{size:A4;margin:15mm 20mm}}
+      table{width:100%;border-collapse:collapse}
+      /* Watermark layer - fixed across all PDF pages */
+      .watermark-layer{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;display:flex;flex-direction:column;justify-content:space-around;transform:rotate(-30deg);transform-origin:center center;}
+      .wm-row{display:flex;justify-content:space-around;width:140%;margin-left:-20%;}
+      .wm-text{font-size:42px;font-weight:800;color:rgba(220,38,38,0.16);white-space:nowrap;letter-spacing:4px;}
+      .content{position:relative;z-index:1;}
+      -webkit-print-color-adjust:exact;
+      .watermark-layer{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    </style></head><body>
+    <div class="watermark-layer" aria-hidden="true">${watermarkRows}</div>
+    <div class="content">
+    <div style="text-align:center;margin-bottom:12px">${logoBase64 ? `<img src="${logoBase64}" style="width:55px;height:auto;margin-bottom:4px">` : ''}<div style="font-weight:700;font-size:14px">${APP.config.college_name}</div><div style="font-size:12px;color:#555">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</div><div style="font-size:11px;color:#555">${studentProgram} ระดับ ${studentLevel}</div><div style="font-size:11px;color:#dc2626;font-weight:700;margin-top:4px;letter-spacing:2px">— ฉบับสำเนาไม่ใช่ตัวจริง —</div></div>
     <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px"><div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div><div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div></div>
     <table><thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead><tbody>${tableHTML}</tbody></table>
     <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px"><div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div></div>
     <div style="margin-top:10px;font-size:10px;color:#666"><div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div><div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</div></div>
+    </div>
     <script>window.onload=function(){window.print()}<\/script></body></html>`;
   const w = window.open('', '_blank');
   if (w) { w.document.write(htmlContent); w.document.close(); } else { showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error'); }
@@ -1505,15 +1536,29 @@ function engResultsPage() {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
 
-    // Advisor filter for admin/academic/executive
+    // Year level + Advisor filter for admin/academic/executive
     let advisorSelector = '';
     if (canFilterByAdvisor) {
+      // Year level filter
+      const selectedEngYrLevel = APP.filters._engYearLevel || '';
+      if (selectedEngYrLevel) {
+        studentList = studentList.filter(s => norm(s.year_level) === selectedEngYrLevel);
+      }
+      const yearLevelSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="layers" class="w-4 h-4 inline mr-1"></i>กรองตามชั้นปี</label>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="APP.filters._engYearLevel='';APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedEngYrLevel === '' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ทุกชั้นปี</button>
+          ${['1', '2', '3', '4'].map(yr => `<button onclick="APP.filters._engYearLevel='${yr}';APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedEngYrLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
+        </div>
+        ${selectedEngYrLevel ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาชั้นปีที่ ${selectedEngYrLevel} (${studentList.length} คน)</p>` : ''}
+      </div>`;
+
       const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
       const selectedAdvisor = APP.filters._engAdvisor || '';
       if (selectedAdvisor) {
         studentList = studentList.filter(s => (s.advisor || '') === selectedAdvisor);
       }
-      advisorSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      advisorSelector = `${yearLevelSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>กรองตามอาจารย์ที่ปรึกษา</label>
         <select onchange="APP.filters._engAdvisor=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
           <option value="">-- แสดงนักศึกษาทั้งหมด --</option>
