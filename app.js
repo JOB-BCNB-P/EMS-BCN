@@ -611,7 +611,7 @@ function hideLoadingToast() {
 
 // Wrap save action with loading state on button
 async function withLoading(btnOrForm, asyncFn) {
-  const btn = btnOrForm.tagName === 'FORM' ? btnOrForm.querySelector('[type="submit"]') : btnOrForm;
+  const btn = btnOrForm ? (btnOrForm.tagName === 'FORM' ? btnOrForm.querySelector('[type="submit"]') : btnOrForm) : null;
   const origText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline mr-1"></i>กำลังบันทึก...'; lucide.createIcons(); }
   try {
