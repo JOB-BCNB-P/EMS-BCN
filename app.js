@@ -2860,9 +2860,11 @@ function showAddTrackingModal() {
     .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
-  const coordCheckboxes = teacherList.map(name =>
-    `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}"><span class="text-sm">${name}</span></label>`
-  ).join('');
+  const myName = (APP.currentUser && APP.currentUser.name || '').trim();
+  const coordCheckboxes = teacherList.map(name => {
+    const isMe = name === myName;
+    return `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer ${isMe ? 'bg-blue-50' : ''}"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}" ${isMe ? 'checked' : ''}><span class="text-sm">${name}${isMe ? ' <span class="text-xs text-blue-500">(คุณ)</span>' : ''}</span></label>`;
+  }).join('');
   showModal('เพิ่มรายละเอียดรายวิชา', `
     <form id="addTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
@@ -2873,8 +2875,9 @@ function showAddTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกได้หลายคน)</label>
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
         <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
+        <input type="text" id="trackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
         <input type="hidden" name="coordinator" id="trackingCoordHidden">
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -2884,8 +2887,11 @@ function showAddTrackingModal() {
     e.preventDefault();
     // Sync coordinator checkboxes to hidden field
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
+    const extraText = (document.getElementById('trackingCoordExtra') || {}).value || '';
+    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
+    const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('trackingCoordHidden');
-    if (coordHidden) coordHidden.value = checked.join(', ');
+    if (coordHidden) coordHidden.value = allNames.join(', ');
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
@@ -3006,9 +3012,11 @@ function showAddGradeTrackingModal() {
     .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
-  const coordCheckboxes = teacherList.map(name =>
-    `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}"><span class="text-sm">${name}</span></label>`
-  ).join('');
+  const myName = (APP.currentUser && APP.currentUser.name || '').trim();
+  const coordCheckboxes = teacherList.map(name => {
+    const isMe = name === myName;
+    return `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer ${isMe ? 'bg-blue-50' : ''}"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}" ${isMe ? 'checked' : ''}><span class="text-sm">${name}${isMe ? ' <span class="text-xs text-blue-500">(คุณ)</span>' : ''}</span></label>`;
+  }).join('');
   showModal('เพิ่มข้อมูลติดตามการส่งเกรดรายวิชา', `
     <form id="addGradeTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
@@ -3019,8 +3027,9 @@ function showAddGradeTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกได้หลายคน)</label>
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
         <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
+        <input type="text" id="gradeTrackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
         <input type="hidden" name="coordinator" id="gradeTrackingCoordHidden">
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3030,8 +3039,11 @@ function showAddGradeTrackingModal() {
   document.getElementById('addGradeTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
+    const extraText = (document.getElementById('gradeTrackingCoordExtra') || {}).value || '';
+    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
+    const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('gradeTrackingCoordHidden');
-    if (coordHidden) coordHidden.value = checked.join(', ');
+    if (coordHidden) coordHidden.value = allNames.join(', ');
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'grade_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
@@ -3140,9 +3152,11 @@ function showAddFileTrackingModal() {
     .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
-  const coordCheckboxes = teacherList.map(name =>
-    `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}"><span class="text-sm">${name}</span></label>`
-  ).join('');
+  const myName = (APP.currentUser && APP.currentUser.name || '').trim();
+  const coordCheckboxes = teacherList.map(name => {
+    const isMe = name === myName;
+    return `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer ${isMe ? 'bg-blue-50' : ''}"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}" ${isMe ? 'checked' : ''}><span class="text-sm">${name}${isMe ? ' <span class="text-xs text-blue-500">(คุณ)</span>' : ''}</span></label>`;
+  }).join('');
   showModal('เพิ่มข้อมูลติดตามการส่งแฟ้มรายวิชา', `
     <form id="addFileTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
@@ -3153,8 +3167,9 @@ function showAddFileTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกได้หลายคน)</label>
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
         <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
+        <input type="text" id="fileTrackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
         <input type="hidden" name="coordinator" id="fileTrackingCoordHidden">
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3164,8 +3179,11 @@ function showAddFileTrackingModal() {
   document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
+    const extraText = (document.getElementById('fileTrackingCoordExtra') || {}).value || '';
+    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
+    const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('fileTrackingCoordHidden');
-    if (coordHidden) coordHidden.value = checked.join(', ');
+    if (coordHidden) coordHidden.value = allNames.join(', ');
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
