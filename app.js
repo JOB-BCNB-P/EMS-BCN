@@ -373,7 +373,7 @@ function buildSidebar() {
   // Tracking dropdown
   let trackSub = [];
   if (p.tracking) trackSub.push({ id: 'tracking', label: 'ส่งรายละเอียดรายวิชา' });
-  if (p.tracking) trackSub.push({ id: 'resultTracking', label: 'ส่งผลการดำเนินงานรายวิชา' });
+  if (p.resultTracking) trackSub.push({ id: 'resultTracking', label: 'ส่งผลการดำเนินงานรายวิชา' });
   if (p.gradeTracking) trackSub.push({ id: 'gradeTracking', label: 'ส่งเกรดรายวิชา' });
   if (p.fileTracking) trackSub.push({ id: 'fileTracking', label: 'ส่งแฟ้มรายวิชา' });
   if (trackSub.length) items.push({ id: 'trackingGroup', icon: 'clipboard-list', label: 'ติดตามการส่ง', sub: trackSub });
@@ -4058,8 +4058,8 @@ function exportLoginLogCSV() {
 // ======================== SETTINGS ========================
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
+  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
@@ -4094,27 +4094,7 @@ function settingsPage() {
       <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold" style="width: 20%;">โมดูล</th>${roles.map(r => `<th class="px-3 py-2 text-center font-semibold" style="width: 20%;">${roleLabels[r]}</th>`).join('')}</tr></thead>
       <tbody>${modules.map(m => `<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r => `<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m] ? 'checked' : ''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>
-  </div>
-  ${APP.currentRole === 'admin' ? `
-  <div class="bg-white rounded-2xl p-5 border border-orange-200 mt-6">
-    <h3 class="font-bold mb-1 flex items-center gap-2"><i data-lucide="database" class="w-5 h-5 text-orange-500"></i>เชื่อมต่อฐานข้อมูล</h3>
-    <p class="text-xs text-gray-400 mb-4">เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่เปลี่ยนได้</p>
-    <div class="space-y-3">
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">Google Sheet URL หรือ Spreadsheet ID</label>
-        <input id="adminSheetUrl" value="${getActiveConfig().spreadsheetId || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="https://docs.google.com/spreadsheets/d/xxxxx/edit">
-      </div>
-      <div class="bg-green-50 border border-green-200 rounded-xl p-3">
-        <label class="block text-xs text-green-700 font-semibold mb-1">Apps Script URL (สำหรับแก้ไขข้อมูลผ่านเว็บ)</label>
-        <input id="adminScriptUrl" value="${getActiveConfig().scriptUrl || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="https://script.google.com/macros/s/xxxxx/exec">
-        <p class="text-xs text-gray-400 mt-1">ถ้าไม่กรอก = อ่านอย่างเดียว | กรอก = เพิ่ม/แก้ไข/ลบข้อมูลได้</p>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="saveAdminGSheetConfig()" class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 text-sm"><i data-lucide="save" class="w-4 h-4"></i>บันทึกและเชื่อมต่อใหม่</button>
-        <button onclick="resetToDefaultConfig()" class="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 text-sm"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>คืนค่าเริ่มต้น</button>
-      </div>
-    </div>
-  </div>` : ''}`;
+  `;
 }
 
 function saveAdminGSheetConfig() {
