@@ -4285,6 +4285,7 @@ function showExecutiveApprovalModal(id) {
         ${rec.leave_percent ? `<p><span class="text-gray-500">% การลา:</span> <strong>${rec.leave_percent}%</strong></p>` : ''}
         ${rec.leave_reason ? `<p><span class="text-gray-500">เหตุผล:</span> ${rec.leave_reason}</p>` : ''}
         ${rec.coordinator_note ? `<p><span class="text-gray-500">บันทึก ปสน.:</span> ${rec.coordinator_note}</p>` : ''}
+        ${rec.class_teacher_note ? `<p><span class="text-gray-500">บันทึก ปจช.:</span> ${rec.class_teacher_note}</p>` : ''}
       </div>
       <form id="execApprovalForm" class="space-y-3">
         <div>
@@ -4589,17 +4590,6 @@ function showEditUserModal(id) {
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${u.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">บทบาท</label><select name="role" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ</option><option value="academic" ${u.role === 'academic' ? 'selected' : ''}>เจ้าหน้าที่งานวิชาการ</option><option value="executive" ${u.role === 'executive' ? 'selected' : ''}>ผู้บริหาร</option><option value="teacher" ${u.role === 'teacher' ? 'selected' : ''}>อาจารย์</option><option value="classTeacher" ${u.role === 'classTeacher' ? 'selected' : ''}>อาจารย์ประจำชั้น</option><option value="student" ${u.role === 'student' ? 'selected' : ''}>นักศึกษา</option></select></div>
       <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${u.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(u.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(u.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(u.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(u.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
-      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
-    </form>
-  `);
-  document.getElementById('editUserForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editUserForm') };
-}
-
-// Init icons
-lucide.createIcons();email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(u.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(u.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(u.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(u.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
