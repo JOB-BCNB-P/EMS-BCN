@@ -2979,17 +2979,17 @@ function promptTrackingFileLink(id) {
 // ======================== GRADE TRACKING ========================
 function gradeTrackingPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const isExecutive = APP.currentRole === 'executive';
+  const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('grade_tracking').filter(t => t.subject_name && t.subject_name.trim());
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
 
-  // Year filter for stats
   const selectedYear = APP.filters._gradeTrackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
 
-  // Only show not-submitted and stats when year is selected
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
@@ -2997,7 +2997,7 @@ function gradeTrackingPage() {
     const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-    const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
+    const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
     const pending = dataForStats.length - completed - inProgress;
 
     statsSection = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
@@ -3014,10 +3014,9 @@ function gradeTrackingPage() {
     }
   }
 
-  // Year options
   const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
 
-  // Apply general filters to table data
+  if (selectedYear) data = data.filter(t => norm(t.academic_year) === selectedYear);
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
@@ -3039,38 +3038,53 @@ function gradeTrackingPage() {
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left">
-        <th class="px-4 py-3 font-semibold">รายวิชา</th>
-        <th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th>
-        <th class="px-4 py-3 font-semibold">ชั้นปี</th>
-        <th class="px-4 py-3 font-semibold">ภาค/ปี</th>
-        <th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th>
-        <th class="px-4 py-3 font-semibold">อ.ประสานงานส่ง</th>
-        <th class="px-4 py-3 font-semibold">วิชาการตรวจ</th>
-        <th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th>
-        <th class="px-4 py-3 font-semibold">วันอนุมัติ</th>
-        <th class="px-4 py-3 font-semibold">หมายเหตุ</th>
-      </tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th><th class="px-4 py-3 font-semibold">ไฟล์</th><th class="px-4 py-3 font-semibold">หมายเหตุ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-    const statusBadge = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+    const sb = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'ส่งกลับแก้ไข' ? '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">↩ ส่งกลับแก้ไข</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
     const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
+    const id = t.__backendId;
+
+    const ctCell = (isClassTeacher && (t.coordinator_check === 'รอ' || t.coordinator_check === 'ส่งกลับแก้ไข' || !t.coordinator_check))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','coordinator_check','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ตรวจสอบแล้ว</button><button onclick="updateTrackingField('${id}','coordinator_check','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','coordinator_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.coordinator_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.coordinator_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.coordinator_check === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.coordinator_check));
+
+    const acCell = (isAdmin && t.coordinator_check === 'เสร็จสิ้น' && (t.academic_check === 'รอ' || t.academic_check === 'ส่งกลับแก้ไข' || !t.academic_check))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','academic_check','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ส่งเสนอรองฯ แล้ว</button><button onclick="updateTrackingField('${id}','academic_check','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','academic_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.academic_check === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.academic_check));
+
+    const dpCell = (isExecutive && t.academic_check === 'เสร็จสิ้น' && (t.deputy_sign === 'รอ' || t.deputy_sign === 'ส่งกลับแก้ไข' || !t.deputy_sign))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','deputy_sign','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ลงนามแล้ว</button><button onclick="updateTrackingField('${id}','deputy_sign','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.deputy_sign === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.deputy_sign));
+
+    let fCell = '<span class="text-xs text-gray-400">-</span>';
+    if (t.deputy_sign === 'เสร็จสิ้น') {
+      if (t.file_link) {
+        fCell = `<a href="${t.file_link}" target="_blank" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 inline-flex items-center gap-1"><i data-lucide="file-text" class="w-3 h-3"></i>ดาวน์โหลด</a>`;
+        if (isAdmin) fCell += ` <button onclick="promptTrackingFileLink('${id}')" class="text-blue-400 hover:text-blue-600 ml-1" title="แก้ไขลิงก์"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+      } else if (isAdmin) {
+        fCell = `<button onclick="promptTrackingFileLink('${id}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs inline-flex items-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i>เพิ่มไฟล์ PDF</button>`;
+      }
+    }
+
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
-        <td class="px-4 py-3">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
-        <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
-        <td class="px-4 py-3">${statusBadge(t.deputy_sign)}</td>
-        <td class="px-4 py-3">${t.approved_date || '-'}</td>
+        <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
+        <td class="px-4 py-3">${ctCell}</td>
+        <td class="px-4 py-3">${acCell}</td>
+        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
+        <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
-      </tr>`}).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${id}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${id}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
+      </tr>`
+  }).join('') : '<tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งเกรดรายวิชา')}`;
 }
-
 function showAddGradeTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
@@ -3122,11 +3136,12 @@ function showAddGradeTrackingModal() {
 // ======================== FILE TRACKING ========================
 function fileTrackingPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const isExecutive = APP.currentRole === 'executive';
+  const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('file_tracking').filter(t => t.subject_name && t.subject_name.trim());
   if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
 
-  // Year filter for stats
   const selectedYear = APP.filters._fileTrackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
@@ -3139,7 +3154,7 @@ function fileTrackingPage() {
     const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
-    const inProgress = dataForStats.filter(t => t.coordinator_check === 'เสร็จสิ้น' && t.deputy_sign !== 'เสร็จสิ้น').length;
+    const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
     const pending = dataForStats.length - completed - inProgress;
 
     statsSection = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
@@ -3158,6 +3173,7 @@ function fileTrackingPage() {
 
   const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
 
+  if (selectedYear) data = data.filter(t => norm(t.academic_year) === selectedYear);
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
@@ -3179,38 +3195,53 @@ function fileTrackingPage() {
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left">
-        <th class="px-4 py-3 font-semibold">รายวิชา</th>
-        <th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th>
-        <th class="px-4 py-3 font-semibold">ชั้นปี</th>
-        <th class="px-4 py-3 font-semibold">ภาค/ปี</th>
-        <th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th>
-        <th class="px-4 py-3 font-semibold">อ.ประสานงานส่ง</th>
-        <th class="px-4 py-3 font-semibold">วิชาการตรวจ</th>
-        <th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th>
-        <th class="px-4 py-3 font-semibold">วันอนุมัติ</th>
-        <th class="px-4 py-3 font-semibold">หมายเหตุ</th>
-      </tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th><th class="px-4 py-3 font-semibold">ไฟล์</th><th class="px-4 py-3 font-semibold">หมายเหตุ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-    const statusBadge = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+    const sb = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'ส่งกลับแก้ไข' ? '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">↩ ส่งกลับแก้ไข</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
     const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
+    const id = t.__backendId;
+
+    const ctCell = (isClassTeacher && (t.coordinator_check === 'รอ' || t.coordinator_check === 'ส่งกลับแก้ไข' || !t.coordinator_check))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','coordinator_check','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ตรวจสอบแล้ว</button><button onclick="updateTrackingField('${id}','coordinator_check','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','coordinator_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.coordinator_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.coordinator_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.coordinator_check === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.coordinator_check));
+
+    const acCell = (isAdmin && t.coordinator_check === 'เสร็จสิ้น' && (t.academic_check === 'รอ' || t.academic_check === 'ส่งกลับแก้ไข' || !t.academic_check))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','academic_check','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ส่งเสนอรองฯ แล้ว</button><button onclick="updateTrackingField('${id}','academic_check','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','academic_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.academic_check === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.academic_check));
+
+    const dpCell = (isExecutive && t.academic_check === 'เสร็จสิ้น' && (t.deputy_sign === 'รอ' || t.deputy_sign === 'ส่งกลับแก้ไข' || !t.deputy_sign))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','deputy_sign','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ลงนามแล้ว</button><button onclick="updateTrackingField('${id}','deputy_sign','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.deputy_sign === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.deputy_sign));
+
+    let fCell = '<span class="text-xs text-gray-400">-</span>';
+    if (t.deputy_sign === 'เสร็จสิ้น') {
+      if (t.file_link) {
+        fCell = `<a href="${t.file_link}" target="_blank" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 inline-flex items-center gap-1"><i data-lucide="file-text" class="w-3 h-3"></i>ดาวน์โหลด</a>`;
+        if (isAdmin) fCell += ` <button onclick="promptTrackingFileLink('${id}')" class="text-blue-400 hover:text-blue-600 ml-1" title="แก้ไขลิงก์"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+      } else if (isAdmin) {
+        fCell = `<button onclick="promptTrackingFileLink('${id}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs inline-flex items-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i>เพิ่มไฟล์ PDF</button>`;
+      }
+    }
+
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
-        <td class="px-4 py-3">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${statusBadge(t.coordinator_check)}</td>
-        <td class="px-4 py-3">${statusBadge(t.academic_check)}</td>
-        <td class="px-4 py-3">${statusBadge(t.deputy_sign)}</td>
-        <td class="px-4 py-3">${t.approved_date || '-'}</td>
+        <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
+        <td class="px-4 py-3">${ctCell}</td>
+        <td class="px-4 py-3">${acCell}</td>
+        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
+        <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
-      </tr>`}).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${id}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${id}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
+      </tr>`
+  }).join('') : '<tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งแฟ้มรายวิชา')}`;
 }
-
 function showAddFileTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
