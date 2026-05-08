@@ -2813,7 +2813,8 @@ function trackingPage() {
   // Year options
   const allYears = [...new Set([...allSubjects.map(s => s.academic_year), ...data.map(t => t.academic_year)].filter(Boolean))].sort();
 
-  // Apply general filters to table data
+  // Apply general filters to table data (also filter by selected year)
+  if (selectedYear) data = data.filter(t => norm(t.academic_year) === selectedYear);
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
