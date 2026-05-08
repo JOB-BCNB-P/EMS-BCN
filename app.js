@@ -473,6 +473,32 @@ function toBuddhistDate(dateStr) {
     const d = String(parseInt(m[3], 10)).padStart(2, '0');
     return `${d}/${mo}/${y + 543}`;
   }
+  // Google Sheets gviz date format: Date(yyyy,m,d) — month is 0-indexed
+  const gs = s.match(/^Date\((\d+),(\d+),(\d+)(?:,\d+,\d+,\d+)?\)$/);
+  if (gs) {
+    const y = parseInt(gs[1], 10);
+    const mo = String(parseInt(gs[2], 10) + 1).padStart(2, '0');
+    const d = String(parseInt(gs[3], 10)).padStart(2, '0');
+    return `${d}/${mo}/${y + 543}`;
+  }
+  // ISO datetime e.g. 2026-05-07T00:00:00.000Z
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})T/);
+  if (iso) {
+    const y = parseInt(iso[1], 10);
+    const mo = String(parseInt(iso[2], 10)).padStart(2, '0');
+    const d = String(parseInt(iso[3], 10)).padStart(2, '0');
+    return `${d}/${mo}/${y + 543}`;
+  }
+  // DD/MM/YYYY where YYYY is CE — convert to BE
+  const dmyCE = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmyCE) {
+    const y = parseInt(dmyCE[3], 10);
+    if (y < 2500) {
+      const dd = String(parseInt(dmyCE[1], 10)).padStart(2, '0');
+      const mo = String(parseInt(dmyCE[2], 10)).padStart(2, '0');
+      return `${dd}/${mo}/${y + 543}`;
+    }
+  }
   // If already in DD/MM/YYYY format with BE year, leave as-is
   return s;
 }
@@ -480,7 +506,13 @@ function toBuddhistDate(dateStr) {
 // Format multiple dates (comma-separated) to Buddhist
 function toBuddhistDateList(dateStr) {
   if (!dateStr) return '';
-  return String(dateStr).split(/[,;]/).map(d => toBuddhistDate(d.trim())).filter(Boolean).join(', ');
+  const s = String(dateStr).trim();
+  // Single Google Sheets date literal — don't split (commas are inside the parens)
+  if (/^Date\(\d+,\d+,\d+(?:,\d+,\d+,\d+)?\)$/.test(s)) {
+    return toBuddhistDate(s);
+  }
+  // Otherwise split multi-day list on commas/semicolons
+  return s.split(/[,;]/).map(d => toBuddhistDate(d.trim())).filter(Boolean).join(', ');
 }
 function parseDate(v) {
   if (!v) return null;
@@ -3157,6 +3189,73 @@ function leavePercentSummaryHTML(leaveRecords, groupBy) {
   </div>`;
 }
 
+// Filter handlers for leave page (admin/executive view)
+function setLeaveYearLevel(v) {
+  APP.filters._leaveYearLevel = v;
+  // Reset student filter when year level changes (since student list depends on year)
+  APP.filters._leaveStudent = '';
+  APP.pagination.page = 1;
+  renderCurrentPage();
+}
+function setLeaveStudent(v) {
+  APP.filters._leaveStudent = v;
+  APP.pagination.page = 1;
+  renderCurrentPage();
+}
+function clearLeaveFilters() {
+  APP.filters._leaveYearLevel = '';
+  APP.filters._leaveStudent = '';
+  APP.pagination.page = 1;
+  renderCurrentPage();
+}
+
+// SVG pie chart for a specific student's leave hours grouped by subject
+function renderLeavePieChart(leaveRecords, studentName) {
+  const byS = {};
+  leaveRecords.forEach(l => {
+    if (!l.subject_name) return;
+    const k = l.subject_name;
+    byS[k] = (byS[k] || 0) + (Number(l.leave_hours) || 0);
+  });
+  const entries = Object.entries(byS).filter(([_, v]) => v > 0);
+  if (entries.length === 0) {
+    return `<div class="bg-blue-50 rounded-2xl p-4 mb-4 text-sm text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ${studentName} ยังไม่มีข้อมูลการลา</div>`;
+  }
+  const total = entries.reduce((s, [_, v]) => s + v, 0);
+  const colors = ['#1e6fba', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#6366f1', '#f97316'];
+  const cx = 110, cy = 110, r = 95;
+  let cumAngle = -Math.PI / 2;
+  let pathHTML = '';
+  let legendHTML = '';
+  entries.forEach(([name, hours], idx) => {
+    const angle = (hours / total) * 2 * Math.PI;
+    const color = colors[idx % colors.length];
+    if (entries.length === 1) {
+      pathHTML += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+    } else {
+      const x1 = cx + r * Math.cos(cumAngle);
+      const y1 = cy + r * Math.sin(cumAngle);
+      cumAngle += angle;
+      const x2 = cx + r * Math.cos(cumAngle);
+      const y2 = cy + r * Math.sin(cumAngle);
+      const largeArc = angle > Math.PI ? 1 : 0;
+      pathHTML += `<path d="M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${color}" stroke="white" stroke-width="2"/>`;
+    }
+    const pct = ((hours / total) * 100).toFixed(1);
+    legendHTML += `<div class="flex items-center gap-2 text-sm py-1"><span class="w-3 h-3 rounded flex-shrink-0" style="background:${color}"></span><span class="flex-1">${name}</span><span class="text-gray-600 font-medium">${hours} ชม. (${pct}%)</span></div>`;
+  });
+  return `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
+    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-primary"></i>กราฟวงกลมการลาแยกตามรายวิชา — ${studentName}</h3>
+    <div class="flex flex-wrap gap-6 items-center">
+      <svg width="220" height="220" viewBox="0 0 220 220" class="flex-shrink-0">${pathHTML}</svg>
+      <div class="flex-1 min-w-[260px]">
+        ${legendHTML}
+        <div class="border-t pt-2 mt-2 font-semibold text-gray-800 flex justify-between"><span>รวมทั้งหมด</span><span>${total} ชม.</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function leavePage() {
   const isStudent = APP.currentRole === 'student';
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
@@ -3194,6 +3293,27 @@ function leavePage() {
     });
   }
   data = applyFilters(data);
+
+  // Admin/Executive: extra year-level + student filters (joined to student records)
+  const showAdminFilters = isAdmin || isExecutive;
+  let leaveYearLevel = '';
+  let leaveStudentName = '';
+  if (showAdminFilters) {
+    leaveYearLevel = APP.filters._leaveYearLevel || '';
+    leaveStudentName = APP.filters._leaveStudent || '';
+    if (leaveYearLevel) {
+      const stuNameSet = new Set(
+        getDataByType('student')
+          .filter(s => norm(s.year_level) === norm(leaveYearLevel))
+          .map(s => (s.name || '').trim())
+      );
+      data = data.filter(l => stuNameSet.has((l.name || '').trim()));
+    }
+    if (leaveStudentName) {
+      data = data.filter(l => (l.name || '').trim() === leaveStudentName);
+    }
+  }
+
   const total = data.length; const paged = paginate(data);
 
   // Pending-approval count for current role
@@ -3284,10 +3404,54 @@ function leavePage() {
     summaryTable = leavePercentSummaryHTML(data, 'student_subject');
   }
 
+  // Admin/Executive: year-level + student filter card + pie chart
+  let adminFilterCard = '';
+  let pieChartCard = '';
+  if (showAdminFilters) {
+    // Build student dropdown options based on selected year level
+    const allStudents = getDataByType('student');
+    const studentsForDropdown = leaveYearLevel
+      ? allStudents.filter(s => norm(s.year_level) === norm(leaveYearLevel))
+      : allStudents;
+    const studentOptions = studentsForDropdown
+      .map(s => (s.name || '').trim())
+      .filter(Boolean)
+      .sort()
+      .map(name => `<option value="${name.replace(/"/g, '&quot;')}" ${leaveStudentName === name ? 'selected' : ''}>${name}</option>`)
+      .join('');
+    adminFilterCard = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">ชั้นปี</label>
+          <select onchange="setLeaveYearLevel(this.value)" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <option value="">ทุกชั้นปี</option>
+            <option value="1" ${leaveYearLevel === '1' ? 'selected' : ''}>ชั้นปี 1</option>
+            <option value="2" ${leaveYearLevel === '2' ? 'selected' : ''}>ชั้นปี 2</option>
+            <option value="3" ${leaveYearLevel === '3' ? 'selected' : ''}>ชั้นปี 3</option>
+            <option value="4" ${leaveYearLevel === '4' ? 'selected' : ''}>ชั้นปี 4</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs text-gray-600 mb-1">นักศึกษา (เลือกเพื่อดูกราฟวงกลม)</label>
+          <select onchange="setLeaveStudent(this.value)" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <option value="">${leaveYearLevel ? 'ทุกคนในชั้นปี ' + leaveYearLevel : 'ทุกคน'}</option>
+            ${studentOptions}
+          </select>
+        </div>
+        ${(leaveYearLevel || leaveStudentName) ? `<button onclick="clearLeaveFilters()" class="px-3 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-xl border border-gray-200"><i data-lucide="x" class="w-3 h-3 inline"></i> ล้างตัวกรอง</button>` : ''}
+      </div>
+    </div>`;
+    if (leaveStudentName) {
+      pieChartCard = renderLeavePieChart(data, leaveStudentName);
+    }
+  }
+
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="calendar-off" class="w-6 h-6 inline mr-2"></i>ระบบการลาของนักศึกษา</h2>
   ${isAdmin ? `<div class="flex gap-2 mb-4"><button onclick="showAddLeaveModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูลการลา</button>${csvUploadBtn('leave', 'name,subject_name,leave_hours,leave_percent,semester,academic_year,leave_date,leave_type')}</div>` : ''}
   ${pendingBanner}
   ${form}
+  ${adminFilterCard}
+  ${pieChartCard}
   ${summaryTable}
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
@@ -3348,12 +3512,14 @@ function leavePage() {
       if (cannotActYet) {
         return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ ${waitingForLabel}</span>`;
       }
-      // Coordinator (teacher) approval shows percent modal; executive shows note modal
+      // Coordinator (teacher) — percent modal; class teacher — note modal; executive — note modal
       const onclickApprove = isTeacher
         ? `showLeaveApprovalModal('${l.__backendId}','${l.leave_percent || ''}')`
-        : isExecutive
-          ? `showExecutiveApprovalModal('${l.__backendId}')`
-          : `approveLeave('${l.__backendId}','${approvalField}')`;
+        : isClassTeacher
+          ? `showClassTeacherApprovalModal('${l.__backendId}')`
+          : isExecutive
+            ? `showExecutiveApprovalModal('${l.__backendId}')`
+            : `approveLeave('${l.__backendId}','${approvalField}')`;
       return `${workflowSteps}<div class="flex gap-1">
           <button onclick="${onclickApprove}" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>อนุมัติ</button>
           <button onclick="rejectLeave('${l.__backendId}','${approvalField}')" class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i>ปฏิเสธ</button>
@@ -3362,9 +3528,10 @@ function leavePage() {
     const approvalButtons = renderApprovalCell();
 
     const reasonText = l.leave_reason ? String(l.leave_reason) : '';
-    const reasonShort = reasonText.length > 60 ? reasonText.substring(0, 60) + '…' : reasonText;
+    const reasonShort = reasonText.length > 60 ? reasonText.substring(0, 60) + '...' : reasonText;
+    const reasonTitle = reasonText.split('"').join('&quot;');
     const reasonCell = reasonText
-      ? `<span class="text-xs text-gray-700" title="${reasonText.replace(/"/g, '&quot;')}">${reasonShort}</span>`
+      ? '<span class="text-xs text-gray-700" title="' + reasonTitle + '">' + reasonShort + '</span>'
       : '<span class="text-xs text-gray-400">-</span>';
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${l.name || ''}</td><td class="px-4 py-3">${l.subject_name || ''}</td>
@@ -4071,6 +4238,41 @@ function showLeaveApprovalModal(id, currentPercent) {
   };
 }
 
+// Class teacher (อาจารย์ประจำชั้น) approves leave + optional note
+function showClassTeacherApprovalModal(id) {
+  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+  showModal('อนุมัติใบลา (อาจารย์ประจำชั้น)', `
+    <div class="space-y-3">
+      <div class="bg-blue-50 rounded-xl p-3 text-sm space-y-1">
+        <p><span class="text-gray-500">นักศึกษา:</span> <strong>${rec.name || '-'}</strong></p>
+        <p><span class="text-gray-500">รายวิชา:</span> <strong>${rec.subject_name || '-'}</strong></p>
+        <p><span class="text-gray-500">ประเภท:</span> <strong>${rec.leave_type || '-'}</strong> | <span class="text-gray-500">วันที่:</span> <strong>${toBuddhistDateList(rec.leave_date) || '-'}</strong> | <span class="text-gray-500">ชม.:</span> <strong>${rec.leave_hours || '-'}</strong></p>
+        ${rec.leave_percent ? `<p><span class="text-gray-500">% การลา:</span> <strong>${rec.leave_percent}%</strong></p>` : ''}
+        ${rec.leave_reason ? `<p><span class="text-gray-500">เหตุผล:</span> ${rec.leave_reason}</p>` : ''}
+        ${rec.coordinator_note ? `<p><span class="text-gray-500">บันทึก ปสน.:</span> ${rec.coordinator_note}</p>` : ''}
+      </div>
+      <form id="classTeacherApprovalForm" class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">หมายเหตุ (ถ้ามี — ไม่บังคับ)</label>
+          <textarea name="class_teacher_note" id="classTeacherNoteInput" rows="3" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="หมายเหตุจากอาจารย์ประจำชั้น (ถ้าไม่มีก็กดยืนยันได้เลย)"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl flex items-center justify-center gap-2"><i data-lucide="check" class="w-4 h-4"></i>ยืนยันอนุมัติ</button>
+      </form>
+    </div>
+  `);
+  setTimeout(() => { lucide.createIcons(); const inp = document.getElementById('classTeacherNoteInput'); if (inp) inp.focus(); }, 50);
+  const f = document.getElementById('classTeacherApprovalForm');
+  if (f) f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(f);
+    const note = (fd.get('class_teacher_note') || '').toString().trim();
+    const extra = {};
+    if (note) extra.class_teacher_note = note;
+    closeModal();
+    await approveLeave(id, 'class_teacher_approval', extra);
+  };
+}
+
 // Executive (deputy) approves leave + optional note
 function showExecutiveApprovalModal(id) {
   const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
@@ -4387,6 +4589,17 @@ function showEditUserModal(id) {
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${u.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">บทบาท</label><select name="role" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ผู้ดูแลระบบ</option><option value="academic" ${u.role === 'academic' ? 'selected' : ''}>เจ้าหน้าที่งานวิชาการ</option><option value="executive" ${u.role === 'executive' ? 'selected' : ''}>ผู้บริหาร</option><option value="teacher" ${u.role === 'teacher' ? 'selected' : ''}>อาจารย์</option><option value="classTeacher" ${u.role === 'classTeacher' ? 'selected' : ''}>อาจารย์ประจำชั้น</option><option value="student" ${u.role === 'student' ? 'selected' : ''}>นักศึกษา</option></select></div>
       <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${u.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(u.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(u.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(u.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(u.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editUserForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editUserForm') };
+}
+
+// Init icons
+lucide.createIcons();email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">รหัสผ่าน</label><input name="password" value="${u.password || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${u.national_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(u.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(u.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(u.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(u.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
