@@ -2817,6 +2817,8 @@ function trackingPage() {
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
+  const isClassTeacher = APP.currentRole === 'classTeacher';
+
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="file-check" class="w-6 h-6 inline mr-2"></i>ติดตามการส่งรายละเอียดรายวิชา</h2>
     ${canEdit ? `<button onclick="showAddTrackingModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูล</button>` : ''}
@@ -2835,20 +2837,49 @@ function trackingPage() {
   ${filterBar({ yearLevel: true })}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th><th class="px-4 py-3 font-semibold">หมายเหตุ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ทฤษฎี/ปฏิบัติ</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">อ.ประจำชั้นตรวจ</th><th class="px-4 py-3 font-semibold">วิชาการเสนอ</th><th class="px-4 py-3 font-semibold">รอง ผอ.ลงนาม</th><th class="px-4 py-3 font-semibold">วันอนุมัติ</th><th class="px-4 py-3 font-semibold">ไฟล์</th><th class="px-4 py-3 font-semibold">หมายเหตุ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-    const statusBadge = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
+    const sb = (s) => s === 'เสร็จสิ้น' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">✓ เสร็จสิ้น</span>' : s === 'ส่งกลับแก้ไข' ? '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">↩ ส่งกลับแก้ไข</span>' : s === 'กำลังดำเนินการ' ? '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ ดำเนินการ</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">รอ</span>';
     const isLate = t.is_late === 'ใช่' || t.is_late === 'late';
+    const id = t.__backendId;
+
+    const ctCell = (isClassTeacher && (t.class_teacher_check === 'รอ' || t.class_teacher_check === 'ส่งกลับแก้ไข' || !t.class_teacher_check))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','class_teacher_check','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ตรวจสอบแล้ว</button><button onclick="updateTrackingField('${id}','class_teacher_check','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.class_teacher_check === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.class_teacher_check));
+
+    const acCell = (isAdmin && t.class_teacher_check === 'เสร็จสิ้น' && (t.academic_propose === 'รอ' || t.academic_propose === 'ส่งกลับแก้ไข' || !t.academic_propose))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','academic_propose','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ส่งเสนอรองฯ แล้ว</button><button onclick="updateTrackingField('${id}','academic_propose','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.academic_propose === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.academic_propose));
+
+    const dpCell = (isExecutive && t.academic_propose === 'เสร็จสิ้น' && (t.deputy_sign === 'รอ' || t.deputy_sign === 'ส่งกลับแก้ไข' || !t.deputy_sign))
+      ? `<div class="flex flex-col gap-1"><button onclick="updateTrackingField('${id}','deputy_sign','เสร็จสิ้น')" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs">✓ ลงนามแล้ว</button><button onclick="updateTrackingField('${id}','deputy_sign','ส่งกลับแก้ไข')" class="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs">↩ ส่งกลับแก้ไข</button></div>`
+      : (isAdmin ? `<select onchange="updateTrackingField('${id}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option><option ${t.deputy_sign === 'ส่งกลับแก้ไข' ? 'selected' : ''}>ส่งกลับแก้ไข</option></select>` : sb(t.deputy_sign));
+
+    let fCell = '<span class="text-xs text-gray-400">-</span>';
+    if (t.deputy_sign === 'เสร็จสิ้น') {
+      if (t.file_link) {
+        fCell = `<a href="${t.file_link}" target="_blank" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 inline-flex items-center gap-1"><i data-lucide="file-text" class="w-3 h-3"></i>ดาวน์โหลด</a>`;
+        if (isAdmin) fCell += ` <button onclick="promptTrackingFileLink('${id}')" class="text-blue-400 hover:text-blue-600 ml-1" title="แก้ไขลิงก์"><i data-lucide="pencil" class="w-3 h-3"></i></button>`;
+      } else if (isAdmin) {
+        fCell = `<button onclick="promptTrackingFileLink('${id}')" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs inline-flex items-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i>เพิ่มไฟล์ PDF</button>`;
+      }
+    }
+
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''} ${isLate ? '<span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td><td class="px-4 py-3">${t.theory_practice || ''}</td>
-        <td class="px-4 py-3">${t.year_level || ''}</td><td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
-        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','class_teacher_check',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.class_teacher_check === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.class_teacher_check === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.class_teacher_check === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.class_teacher_check)}</td>
-        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','academic_propose',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.academic_propose === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.academic_propose === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.academic_propose === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.academic_propose)}</td>
-        <td class="px-4 py-3">${canApprove ? `<select onchange="updateTrackingField('${t.__backendId}','deputy_sign',this.value)" class="text-xs border rounded px-1 py-0.5"><option ${t.deputy_sign === 'รอ' ? 'selected' : ''}>รอ</option><option ${t.deputy_sign === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option><option ${t.deputy_sign === 'เสร็จสิ้น' ? 'selected' : ''}>เสร็จสิ้น</option></select>` : statusBadge(t.deputy_sign)}</td>
-        <td class="px-4 py-3">${t.approved_date || '-'}</td>
+        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3">${t.theory_practice || ''}</td>
+        <td class="px-4 py-3">${t.year_level || ''}</td>
+        <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
+        <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
+        <td class="px-4 py-3">${ctCell}</td>
+        <td class="px-4 py-3">${acCell}</td>
+        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
+        <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
-  }).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditTrackingModal('${id}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${id}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
+      </tr>`
+  }).join('') : '<tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งรายละเอียดรายวิชา')}`;
@@ -2903,12 +2934,45 @@ function showAddTrackingModal() {
 }
 
 async function updateTrackingField(id, field, value) {
-  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
-  rec[field] = value;
-  if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
+  await withLoading(null, async () => {
+    const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+    rec[field] = value;
+    if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
 
-  const r = await GSheetDB.update(rec);
-  if (r.isOk) showToast('อัปเดตสำเร็จ'); else showToast('เกิดข้อผิดพลาด', 'error');
+    const r = await GSheetDB.update(rec);
+    if (r.isOk) showToast('อัปเดตสำเร็จ'); else showToast('เกิดข้อผิดพลาด', 'error');
+  });
+}
+
+function promptTrackingFileLink(id) {
+  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+  showModal('เพิ่ม/แก้ไขลิงก์ไฟล์ PDF', `
+    <div class="space-y-3">
+      <div class="bg-blue-50 rounded-xl p-3 text-sm space-y-1">
+        <p><span class="text-gray-500">รายวิชา:</span> <strong>${rec.subject_name || '-'}</strong></p>
+        <p><span class="text-gray-500">ภาค/ปี:</span> <strong>${semLabel(rec.semester)}/${rec.academic_year || ''}</strong></p>
+      </div>
+      <form id="trackingFileLinkForm" class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">ลิงก์ไฟล์ PDF (Google Drive หรือ URL อื่น)</label>
+          <input name="file_link" id="trackingFileLinkInput" value="${rec.file_link || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="https://drive.google.com/file/d/...">
+        </div>
+        <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark flex items-center justify-center gap-2"><i data-lucide="save" class="w-4 h-4"></i>บันทึกลิงก์</button>
+      </form>
+    </div>
+  `);
+  setTimeout(() => { lucide.createIcons(); const inp = document.getElementById('trackingFileLinkInput'); if (inp) inp.focus(); }, 50);
+  const f = document.getElementById('trackingFileLinkForm');
+  if (f) f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const link = (new FormData(f).get('file_link') || '').toString().trim();
+    closeModal();
+    await withLoading(null, async () => {
+      rec.file_link = link;
+      const r = await GSheetDB.update(rec);
+      if (r.isOk) showToast('บันทึกลิงก์สำเร็จ'); else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
 }
 
 // ======================== GRADE TRACKING ========================
