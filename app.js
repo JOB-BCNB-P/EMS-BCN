@@ -2940,7 +2940,7 @@ async function updateTrackingField(id, field, value) {
     if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
 
     const r = await GSheetDB.update(rec);
-    if (r.isOk) showToast('อัปเดตสำเร็จ'); else showToast('เกิดข้อผิดพลาด', 'error');
+    if (r.isOk) { showToast('อัปเดตสำเร็จ'); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด', 'error');
   });
 }
 
