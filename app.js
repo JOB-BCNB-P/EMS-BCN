@@ -3207,14 +3207,21 @@ function leavePage() {
     const stuYearLevel = APP.currentUser.data?.year_level || '';
     const allSubjects = getDataByType('subject');
     const subjects = stuYearLevel ? allSubjects.filter(s => norm(s.year_level) === norm(stuYearLevel)) : allSubjects;
+    // Auto-detect class teacher from teacher records by responsible_year matching student's year_level
+    const allTeachers = getDataByType('teacher');
+    const classTeacherRec = stuYearLevel
+      ? allTeachers.find(t => norm(t.responsible_year) === norm(stuYearLevel))
+      : null;
+    const classTeacherName = classTeacherRec ? classTeacherRec.name : '';
     form = `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
       <h3 class="font-bold mb-3">กรอกข้อมูลการลา</h3>
       <form id="leaveForm" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${APP.currentUser.data?.name || ''}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ประจำชั้น (ชั้นปี ${stuYearLevel || '-'})</label><input name="class_teacher" value="${classTeacherName}" readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="${classTeacherName ? '' : 'ยังไม่มีอาจารย์ประจำชั้นในระบบ'}"></div>
           <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
           <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-          <div><label class="block text-xs text-gray-600 mb-1">ประเภทการลา</label><select name="leave_type" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="onLeaveTypeChange(this.value)"><option value="">เลือก</option><option value="ลาป่วย">ลาป่วย</option><option value="ลากิจ">ลากิจ</option><option value="ลาพบแพทย์">ลาพบแพทย์</option></select></div>
+          <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">ประเภทการลา</label><select name="leave_type" required class="w-full border rounded-xl px-3 py-2 text-sm" onchange="onLeaveTypeChange(this.value)"><option value="">เลือก</option><option value="ลาป่วย">ลาป่วย</option><option value="ลากิจ">ลากิจ</option><option value="ลาพบแพทย์">ลาพบแพทย์</option></select></div>
         </div>
         <div>
           <label class="block text-xs text-gray-600 mb-1">วันที่ลา (เลือกได้หลายวัน)</label>
@@ -3232,9 +3239,12 @@ function leavePage() {
         <div>
           <label class="block text-xs text-gray-600 mb-2 font-semibold">เลือกรายวิชาที่ต้องการลา (เลือกได้หลายวิชา กรอกจำนวนชั่วโมงที่ละวิชา)</label>
           <div id="leaveSubjectList" class="space-y-1 max-h-64 overflow-y-auto border rounded-xl p-3 bg-gray-50">
-            ${subjects.map(s => `<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition leave-subject-row">
-              <input type="checkbox" class="leave-subject-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${(s.subject_name || '').replace(/"/g, '&quot;')}" data-coordinator="${(s.coordinator || '').replace(/"/g, '&quot;')}" onchange="toggleLeaveSubjectHours(this)">
-              <span class="flex-1 text-sm">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''}</span>
+            ${subjects.map(s => `<div class="flex items-start gap-3 p-2 rounded-lg hover:bg-white transition leave-subject-row">
+              <input type="checkbox" class="leave-subject-check w-4 h-4 mt-1 rounded border-gray-300 text-primary focus:ring-primary" value="${(s.subject_name || '').replace(/"/g, '&quot;')}" data-coordinator="${(s.coordinator || '').replace(/"/g, '&quot;')}" onchange="toggleLeaveSubjectHours(this)">
+              <div class="flex-1">
+                <div class="text-sm">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''}</div>
+                <div class="text-xs text-gray-500 mt-0.5"><i data-lucide="user" class="w-3 h-3 inline"></i> อ.ผู้ประสานรายวิชา: <span class="font-medium text-gray-700">${s.coordinator || '-'}</span></div>
+              </div>
               <div class="leave-subject-hours hidden flex items-center gap-1">
                 <input type="number" min="1" class="w-20 border rounded-lg px-2 py-1 text-sm text-center leave-hours-input" placeholder="ชม.">
                 <span class="text-xs text-gray-400">ชม.</span>
@@ -3243,8 +3253,11 @@ function leavePage() {
           </div>
           <p class="text-xs text-gray-400 mt-1">เลือกรายวิชาแล้วกรอกจำนวนชั่วโมงที่ลาในแต่ละวิชา</p>
         </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">เหตุผลการลา <span class="text-red-500">*</span></label>
+          <textarea name="leave_reason" required rows="3" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรุณากรอกเหตุผลการลา"></textarea>
+        </div>
         <div id="leaveExtra" class="space-y-3"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ประจำชั้น</label><input name="class_teacher" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div id="leaveValidation" class="text-red-500 text-xs hidden"></div>
         <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ส่งใบลา</button>
       </form>
@@ -3279,7 +3292,7 @@ function leavePage() {
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ชม.</th><th class="px-4 py-3 font-semibold">%ลา</th><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">สถานะ</th>${(canApprove || isStudent || isAdmin) ? '<th class="px-4 py-3 font-semibold">' + (canApprove ? 'การอนุมัติ' : 'ขั้นการอนุมัติ') + '</th>' : ''}${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">เหตุผลการลา</th><th class="px-4 py-3 font-semibold">ชม.</th><th class="px-4 py-3 font-semibold">%ลา</th><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold">สถานะ</th>${(canApprove || isStudent || isAdmin) ? '<th class="px-4 py-3 font-semibold">' + (canApprove ? 'การอนุมัติ' : 'ขั้นการอนุมัติ') + '</th>' : ''}${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(l => {
     const getStatusBadge = (status) => {
       if (status === 'รออนุมัติ') return '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">⏳ รออนุมัติ</span>';
@@ -3348,15 +3361,21 @@ function leavePage() {
     };
     const approvalButtons = renderApprovalCell();
 
+    const reasonText = l.leave_reason ? String(l.leave_reason) : '';
+    const reasonShort = reasonText.length > 60 ? reasonText.substring(0, 60) + '…' : reasonText;
+    const reasonCell = reasonText
+      ? `<span class="text-xs text-gray-700" title="${reasonText.replace(/"/g, '&quot;')}">${reasonShort}</span>`
+      : '<span class="text-xs text-gray-400">-</span>';
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${l.name || ''}</td><td class="px-4 py-3">${l.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${l.leave_type === 'ลาป่วย' ? 'bg-red-100 text-red-700' : l.leave_type === 'ลาพบแพทย์' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}">${l.leave_type || ''}</span></td>
+        <td class="px-4 py-3 max-w-[200px]">${reasonCell}</td>
         <td class="px-4 py-3">${l.leave_hours || ''}</td><td class="px-4 py-3">${l.leave_percent || '-'}%</td>
         <td class="px-4 py-3 text-xs">${toBuddhistDateList(l.leave_date) || '-'}</td><td class="px-4 py-3">${semLabel(l.semester)}/${l.academic_year || ''}</td>
         <td class="px-4 py-3">${getStatusBadge(l.leave_status)}</td>
         ${(canApprove || isStudent || isAdmin) ? `<td class="px-4 py-3">${approvalButtons}</td>` : ''}
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditLeaveModal('${l.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${l.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`
-  }).join('') : '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+  }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -3375,6 +3394,7 @@ function showAddLeaveModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">เหตุผลการลา</label><textarea name="leave_reason" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกเหตุผลการลา"></textarea></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -3730,8 +3750,7 @@ function onLeaveTypeChange(type) {
     extra.innerHTML = `<div class="bg-yellow-50 p-3 rounded-xl text-xs text-yellow-700"><i data-lucide="alert-triangle" class="w-4 h-4 inline"></i> ลาป่วย 3 วันขึ้นไป ต้องแนบใบรับรองแพทย์ (.jpg, .pdf, .png)</div>
     <div id="sickCertUpload" class="hidden"><label class="block text-xs text-gray-600 mb-1">แนบใบรับรองแพทย์ *</label><input type="file" accept=".jpg,.pdf,.png" class="w-full text-sm" name="medical_cert"></div>`;
   } else if (type === 'ลากิจ') {
-    extra.innerHTML = `<div class="bg-blue-50 p-3 rounded-xl text-xs text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ลากิจต้องส่งล่วงหน้า 1-2 วัน หากส่งช้ากรุณาใส่เหตุผล</div>
-    <div id="lateReasonDiv"><label class="block text-xs text-gray-600 mb-1">เหตุผลการลา <span id="lateReasonRequired" class="text-red-500 hidden">*</span></label><textarea name="leave_reason" class="w-full border rounded-xl px-3 py-2 text-sm" rows="2" placeholder="กรอกเหตุผลการลากิจ"></textarea></div>`;
+    extra.innerHTML = `<div class="bg-blue-50 p-3 rounded-xl text-xs text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ลากิจต้องส่งล่วงหน้า 1-2 วัน หากส่งช้าโปรดระบุเหตุผลในช่องเหตุผลการลาด้านบน</div>`;
   } else if (type === 'ลาพบแพทย์') {
     extra.innerHTML = `<div class="bg-purple-50 p-3 rounded-xl text-xs text-purple-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ลาพบแพทย์ต้องส่งล่วงหน้า 3 วันทำการ และแนบใบนัดแพทย์</div>
     <div><label class="block text-xs text-gray-600 mb-1">แนบใบนัดแพทย์ * (.jpg, .pdf, .png)</label><input type="file" accept=".jpg,.pdf,.png" class="w-full text-sm" name="appointment_doc"></div>`;
@@ -3761,10 +3780,7 @@ function validateLeaveDate() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diffDays = Math.ceil((earliestDate - today) / (1000 * 60 * 60 * 24));
 
-  if (type === 'ลากิจ') {
-    const reqSpan = document.getElementById('lateReasonRequired');
-    if (reqSpan) { reqSpan.classList.toggle('hidden', diffDays >= 1) }
-  }
+  // Note: leave_reason is now always required for all leave types — handled in submit validation
 }
 
 // ----- Multi-date leave row helpers -----
@@ -3889,17 +3905,16 @@ function initPageScripts(page) {
       const earliest = dateObjs[0];
       const diff = Math.ceil((earliest - today) / (1000 * 60 * 60 * 24));
 
+      // Reason is required for all leave types
+      const reasonText = (fd.get('leave_reason') || '').toString().trim();
+      if (!reasonText) {
+        if (valEl) { valEl.textContent = 'กรุณากรอกเหตุผลการลา'; valEl.classList.remove('hidden') }
+        return;
+      }
       if (type === 'ลาป่วย' && diff <= -3) {
         const cert = fd.get('medical_cert');
         if (!cert || !cert.name) {
           if (valEl) { valEl.textContent = 'ลาป่วย 3 วันขึ้นไป ต้องแนบใบรับรองแพทย์'; valEl.classList.remove('hidden') }
-          return;
-        }
-      }
-      if (type === 'ลากิจ' && diff < 1) {
-        const reason = fd.get('leave_reason');
-        if (!reason) {
-          if (valEl) { valEl.textContent = 'กรุณาใส่เหตุผลที่ส่งล่าช้า'; valEl.classList.remove('hidden') }
           return;
         }
       }
