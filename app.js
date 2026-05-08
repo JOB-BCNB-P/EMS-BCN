@@ -2935,7 +2935,8 @@ function showAddTrackingModal() {
 }
 
 async function updateTrackingField(id, field, value) {
-  await withLoading(null, async () => {
+  const el = window.event ? (window.event.target.closest('button') || window.event.target.closest('select')) : null;
+  await withLoading(el, async () => {
     const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
     rec[field] = value;
     if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
