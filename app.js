@@ -2329,12 +2329,13 @@ function teachersPage() {
 
 function showTeacherDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  const isAdmin = APP.currentRole === 'admin';
   const stBadge = (t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">ปฏิบัติงานอยู่</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">ลาศึกษาต่อ</span>';
   showModal('ข้อมูลอาจารย์', `<div class="grid grid-cols-2 gap-3">
     ${infoRow('ชื่อ-สกุล', t.name)}${infoRow('ตำแหน่ง', t.position)}${infoRow('สาขาวิชา', t.department)}
     <div><p class="text-xs text-gray-500">สถานะ</p><p class="font-medium mt-1">${stBadge}</p></div>
     ${infoRow('โทร', t.phone)}${infoRow('E-mail', t.email)}${infoRow('ชั้นปีที่รับผิดชอบ', t.responsible_year)}
-    ${infoRow('เลขบัญชีธนาคาร', t.bank_account)}
+    ${isAdmin ? infoRow('เลขบัญชีธนาคาร', t.bank_account) : ''}
   </div>
   <div class="mt-3">${infoRow('ที่อยู่', t.address)}</div>`);
 }
