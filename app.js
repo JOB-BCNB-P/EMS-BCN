@@ -653,16 +653,29 @@ function closeModal() {
   setTimeout(() => { mc.classList.add('hidden'); mc.innerHTML = '' }, 220);
 }
 
-function showNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(0)'; renderNotifications() }
+function showNotifications() {
+  document.getElementById('notifPanel').style.transform = 'translateX(0)';
+  renderNotifications();
+  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว
+  const seenCount = getDataByType('announcement').length;
+  try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
+  const b = document.getElementById('notifBadge');
+  if (b) b.classList.add('hidden');
+}
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  const ann = getDataByType('announcement').slice(-20).reverse();
+  // แสดงประกาศใหม่สุดสูงสุด 10 รายการ
+  const ann = getDataByType('announcement').slice(-10).reverse();
   document.getElementById('notifList').innerHTML = ann.length ? ann.map(a => `<div class="p-3 bg-surface rounded-xl"><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500 mt-1">${a.announcement_date || ''}</p><p class="text-xs text-gray-600 mt-1">${a.announcement_content || ''}</p></div>`).join('') : '<p class="text-gray-400 text-center text-sm">ไม่มีการแจ้งเตือน</p>';
 }
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
-  const c = getDataByType('announcement').length;
-  if (c > 0) { b.textContent = c > 99 ? '99+' : c; b.classList.remove('hidden') } else b.classList.add('hidden');
+  if (!b) return;
+  const total = getDataByType('announcement').length;
+  let seen = 0;
+  try { seen = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
+  const unseen = Math.max(0, total - seen);
+  if (unseen > 0) { b.textContent = unseen > 99 ? '99+' : unseen; b.classList.remove('hidden'); } else b.classList.add('hidden');
 }
 
 function paginationHTML(total, perPage, page, onChange) {
@@ -4037,12 +4050,7 @@ function loginLogPage() {
       </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูลการเข้าใช้งาน</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}
-
-  <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-    หมายเหตุ: ระบบบันทึกการเข้า/ออกระบบลงในแท็บ <code class="bg-white px-1 rounded">login_log</code> ของ Google Sheet โดยอัตโนมัติ หากยังไม่เคยมีข้อมูล โปรดสร้างแท็บใหม่พร้อมหัวคอลัมน์: <code class="bg-white px-1 rounded">event_type, user_name, role, role_label, identifier, user_agent, timestamp, created_at</code>
-  </div>`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
 }
 
 function exportLoginLogCSV() {
