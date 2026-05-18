@@ -2790,8 +2790,8 @@ function trackingPage() {
   let notSubmittedSection = '';
   if (selectedYear) {
     // Find subjects not yet in tracking
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
 
     // Status counts
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
@@ -2874,9 +2874,9 @@ function trackingPage() {
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${ctCell}</td>
-        <td class="px-4 py-3">${acCell}</td>
-        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${ctCell}${actionTimeText(t, 'class_teacher_check')}</td>
+        <td class="px-4 py-3">${acCell}${actionTimeText(t, 'academic_propose')}</td>
+        <td class="px-4 py-3">${dpCell}${actionTimeText(t, 'deputy_sign')}</td>
         <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
         <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
@@ -2936,11 +2936,30 @@ function showAddTrackingModal() {
   };
 }
 
+// แสดงวัน-เวลาที่คลิกอนุมัติ/ส่งกลับแก้ไข (รูปแบบ พ.ศ.)
+// ใช้กับ field: coordinator_check, class_teacher_check, academic_propose, academic_check, deputy_sign
+function actionTimeText(rec, field) {
+  const ts = rec && rec[field + '_at'];
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear() + 543;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mn = String(d.getMinutes()).padStart(2, '0');
+  const by = rec[field + '_by'] ? ' โดย ' + rec[field + '_by'] : '';
+  return `<div class="text-[10px] text-gray-400 mt-1 leading-tight" title="คลิกเมื่อ ${dd}/${mm}/${yyyy} ${hh}:${mn}${by}">🕒 ${dd}/${mm}/${yyyy} ${hh}:${mn}${by ? '<br>' + by : ''}</div>`;
+}
+
 async function updateTrackingField(id, field, value) {
   const el = window.event ? (window.event.target.closest('button') || window.event.target.closest('select')) : null;
   await withLoading(el, async () => {
     const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
     rec[field] = value;
+    // บันทึกวัน-เวลา และผู้คลิก ทุกครั้งที่มีการอนุมัติ/ส่งกลับแก้ไข
+    rec[field + '_at'] = new Date().toISOString();
+    rec[field + '_by'] = (APP.currentUser && APP.currentUser.name) || APP.currentRole || '';
     if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
 
     const r = await GSheetDB.update(rec);
@@ -2997,8 +3016,8 @@ function resultTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3076,9 +3095,9 @@ function resultTrackingPage() {
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${ctCell}</td>
-        <td class="px-4 py-3">${acCell}</td>
-        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${ctCell}${actionTimeText(t, 'class_teacher_check')}</td>
+        <td class="px-4 py-3">${acCell}${actionTimeText(t, 'academic_propose')}</td>
+        <td class="px-4 py-3">${dpCell}${actionTimeText(t, 'deputy_sign')}</td>
         <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
         <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
@@ -3154,8 +3173,8 @@ function gradeTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3233,9 +3252,9 @@ function gradeTrackingPage() {
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${ctCell}</td>
-        <td class="px-4 py-3">${acCell}</td>
-        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${ctCell}${actionTimeText(t, 'coordinator_check')}</td>
+        <td class="px-4 py-3">${acCell}${actionTimeText(t, 'academic_check')}</td>
+        <td class="px-4 py-3">${dpCell}${actionTimeText(t, 'deputy_sign')}</td>
         <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
         <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
@@ -3311,8 +3330,8 @@ function fileTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${norm(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${norm(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
+    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3390,9 +3409,9 @@ function fileTrackingPage() {
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
         <td class="px-4 py-3 text-xs">${t.coordinator || ''}</td>
-        <td class="px-4 py-3">${ctCell}</td>
-        <td class="px-4 py-3">${acCell}</td>
-        <td class="px-4 py-3">${dpCell}</td>
+        <td class="px-4 py-3">${ctCell}${actionTimeText(t, 'coordinator_check')}</td>
+        <td class="px-4 py-3">${acCell}${actionTimeText(t, 'academic_check')}</td>
+        <td class="px-4 py-3">${dpCell}${actionTimeText(t, 'deputy_sign')}</td>
         <td class="px-4 py-3">${t.approved_date ? toBuddhistDate(t.approved_date) : '-'}</td>
         <td class="px-4 py-3">${fCell}</td>
         <td class="px-4 py-3 text-xs text-gray-500">${t.remarks || ''}</td>
@@ -4677,7 +4696,7 @@ function showEditSubjectModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${s.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(s.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(s.semester) === '2' ? 'selected' : ''}>2</option><option value="3" ${norm(s.semester) === '3' ? 'selected' : ''}>ฤดูร้อน</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${normSem(s.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${normSem(s.semester) === '2' ? 'selected' : ''}>2</option><option value="3" ${normSem(s.semester) === '3' ? 'selected' : ''}>ฤดูร้อน</option></select></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${s.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
