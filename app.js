@@ -704,7 +704,11 @@ function filterBar(opts = {}) {
   }
   if (opts.year !== false) {
     const yr = APP.filters.academicYear || '';
-    h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option><option value="2567" ${yr === '2567' ? 'selected' : ''}>2567</option><option value="2568" ${yr === '2568' ? 'selected' : ''}>2568</option><option value="2569" ${yr === '2569' ? 'selected' : ''}>2569</option></select>`;
+    // เก็บทุกปีการศึกษาจากข้อมูลจริง + ปีฐาน เผื่อยังไม่มีข้อมูล
+    const yrSet = new Set(['2565', '2566', '2567', '2568', '2569']);
+    (APP.allData || []).forEach(d => { const y = norm(d.academic_year); if (y) yrSet.add(y); });
+    const yrOptions = [...yrSet].sort();
+    h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option>${yrOptions.map(y => `<option value="${y}" ${yr === y ? 'selected' : ''}>${y}</option>`).join('')}</select>`;
   }
   if (opts.yearLevel) {
     const yl = APP.filters.yearLevel || '';
@@ -1373,6 +1377,15 @@ function gradesPage() {
     data = [];
   }
   data = applyFilters(data);
+  // เรียงตามปีการศึกษา จากเก่าไปใหม่ แล้วตามภาคการศึกษา (1, 2, ฤดูร้อน=3)
+  data.sort((a, b) => {
+    const ay = parseInt(norm(a.academic_year), 10) || 0;
+    const by = parseInt(norm(b.academic_year), 10) || 0;
+    if (ay !== by) return ay - by;
+    const as = parseInt(normSem(a.semester), 10) || 0;
+    const bs = parseInt(normSem(b.semester), 10) || 0;
+    return as - bs;
+  });
   const total = data.length; const paged = paginate(data);
 
   // GPA calc
@@ -1453,7 +1466,8 @@ function showTranscriptForStudent(studentKey) {
 }
 
 function _renderTranscript(stu) {
-  let grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  const stuId = norm(stu.student_id);
+  let grades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
   // Respect current filters (academic year / semester) selected on grades page
   const filterYear = APP.filters.academicYear || '';
   const filterSem = APP.filters.semester || '';
@@ -1464,8 +1478,9 @@ function _renderTranscript(stu) {
 
   const semesters = {};
   grades.forEach(g => {
-    const key = `${g.semester || '1'}/${g.academic_year || ''}`;
-    if (!semesters[key]) semesters[key] = { semester: g.semester || '1', year: g.academic_year || '', grades: [] };
+    // key: ปี/ภาค เพื่อให้เรียงตามปีก่อน แล้วค่อยภาค
+    const key = `${norm(g.academic_year) || '0000'}/${normSem(g.semester) || '0'}`;
+    if (!semesters[key]) semesters[key] = { semester: normSem(g.semester) || '1', year: norm(g.academic_year) || '', grades: [] };
     semesters[key].grades.push(g);
   });
   const semKeys = Object.keys(semesters).sort();
@@ -1474,7 +1489,8 @@ function _renderTranscript(stu) {
   let tableRows = '';
   semKeys.forEach(key => {
     const sem = semesters[key];
-    tableRows += `<tr class="bg-blue-50"><td colspan="4" class="px-3 py-2 font-bold text-primary text-center">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
+    const semText = sem.semester === '3' ? 'ภาคฤดูร้อน' : 'ภาคการศึกษาที่ ' + sem.semester;
+    tableRows += `<tr class="bg-blue-50"><td colspan="4" class="px-3 py-2 font-bold text-primary text-center">${semText} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
       const cr = Number(g.credits) || 0;
@@ -1540,9 +1556,11 @@ function _renderTranscript(stu) {
 }
 
 async function downloadTranscriptPDF(studentKey) {
-  const stu = getDataByType('student').find(s => s.student_id === studentKey || s.name === studentKey) || (APP.currentUser.data && (APP.currentUser.data.name === studentKey || APP.currentUser.data.student_id === studentKey) ? APP.currentUser.data : null);
+  const key = norm(studentKey);
+  const stu = getDataByType('student').find(s => norm(s.student_id) === key || norm(s.name) === key) || (APP.currentUser.data && (norm(APP.currentUser.data.name) === key || norm(APP.currentUser.data.student_id) === key) ? APP.currentUser.data : null);
   if (!stu) return;
-  let grades = getDataByType('grade').filter(g => g.student_id === stu.student_id);
+  const stuId = norm(stu.student_id);
+  let grades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
   // Respect current filters (academic year / semester) selected on grades page
   const filterYear = APP.filters.academicYear || '';
   const filterSem = APP.filters.semester || '';
@@ -1552,8 +1570,9 @@ async function downloadTranscriptPDF(studentKey) {
 
   const semesters = {};
   grades.forEach(g => {
-    const key = `${g.semester || '1'}/${g.academic_year || ''}`;
-    if (!semesters[key]) semesters[key] = { semester: g.semester || '1', year: g.academic_year || '', grades: [] };
+    // key: ปี/ภาค เพื่อให้เรียงตามปีก่อน แล้วค่อยภาค
+    const key = `${norm(g.academic_year) || '0000'}/${normSem(g.semester) || '0'}`;
+    if (!semesters[key]) semesters[key] = { semester: normSem(g.semester) || '1', year: norm(g.academic_year) || '', grades: [] };
     semesters[key].grades.push(g);
   });
   const semKeys = Object.keys(semesters).sort();
@@ -1561,7 +1580,8 @@ async function downloadTranscriptPDF(studentKey) {
   let tableHTML = '';
   semKeys.forEach(key => {
     const sem = semesters[key];
-    tableHTML += `<tr style="background:#e8f4fd"><td colspan="4" style="padding:4px 8px;font-weight:bold;text-align:center;font-size:12px;border:1px solid #999">ภาคการศึกษาที่ ${sem.semester} ปีการศึกษา ${sem.year}</td></tr>`;
+    const semText = sem.semester === '3' ? 'ภาคฤดูร้อน' : 'ภาคการศึกษาที่ ' + sem.semester;
+    tableHTML += `<tr style="background:#e8f4fd"><td colspan="4" style="padding:4px 8px;font-weight:bold;text-align:center;font-size:12px;border:1px solid #999">${semText} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
       const cr = Number(g.credits) || 0; const gv = gradeMap[g.grade];
