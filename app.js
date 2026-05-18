@@ -704,9 +704,14 @@ function filterBar(opts = {}) {
   }
   if (opts.year !== false) {
     const yr = APP.filters.academicYear || '';
-    // เก็บทุกปีการศึกษาจากข้อมูลจริง + ปีฐาน เผื่อยังไม่มีข้อมูล
-    const yrSet = new Set(['2565', '2566', '2567', '2568', '2569']);
+    // ดึงปีการศึกษาเฉพาะจากข้อมูลจริงในระบบ (ไม่ hardcode ปีที่ไม่มีข้อมูล)
+    const yrSet = new Set();
     (APP.allData || []).forEach(d => { const y = norm(d.academic_year); if (y) yrSet.add(y); });
+    // ถ้ายังไม่มีข้อมูลเลย ให้ใส่ปีปัจจุบันเป็น default
+    if (!yrSet.size) {
+      const cur = new Date().getFullYear() + 543;
+      yrSet.add(String(cur));
+    }
     const yrOptions = [...yrSet].sort();
     h += `<select onchange="APP.filters.academicYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm"><option value="">ทุกปีการศึกษา</option>${yrOptions.map(y => `<option value="${y}" ${yr === y ? 'selected' : ''}>${y}</option>`).join('')}</select>`;
   }
