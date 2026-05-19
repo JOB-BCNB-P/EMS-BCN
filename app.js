@@ -1227,11 +1227,13 @@ function subjectsPage() {
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
+    const stuYearLevel = norm(APP.currentUser.data.year_level);
+    // นักศึกษาเห็นเฉพาะรายวิชาของรุ่นตัวเอง (ภายในชั้นปีของตัวเอง)
+    // ถ้านักศึกษามีข้อมูลรุ่น → กรอง batch ตรงเป๊ะ + ชั้นปีตรงด้วย
+    // ถ้านักศึกษาไม่มีรุ่น → fallback เป็น year_level อย่างเดียว
     data = data.filter(s => {
-      const sb = norm(s.batch);
-      // ถ้ารายวิชาระบุรุ่น ให้กรองตรงรุ่นนักศึกษา ถ้าไม่ระบุ ใช้ year_level เป็นเกณฑ์
-      if (sb && stuBatch) return sb === stuBatch;
-      return norm(s.year_level) === norm(APP.currentUser.data.year_level);
+      if (stuBatch) return norm(s.batch) === stuBatch && norm(s.year_level) === stuYearLevel;
+      return norm(s.year_level) === stuYearLevel;
     });
   }
 
