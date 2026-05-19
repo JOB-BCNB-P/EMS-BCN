@@ -1228,23 +1228,11 @@ function subjectsPage() {
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
     const stuYearLevel = norm(APP.currentUser.data.year_level);
-    const stuId = norm(APP.currentUser.data.student_id);
-    // เก็บรหัส/ชื่อวิชาที่นักศึกษาเคยเรียน (จากตาราง grade)
-    const myGrades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
-    const pastCodes = new Set(myGrades.map(g => norm(g.subject_code)).filter(Boolean));
-    const pastNames = new Set(myGrades.map(g => norm(g.subject_name)).filter(Boolean));
-
+    // นักศึกษามี batch → แสดงเฉพาะรายวิชาที่ batch ตรง (รายวิชาที่ไม่ใส่รุ่นจะไม่แสดง)
+    // นักศึกษาไม่มี batch → fallback ใช้ year_level
     if (stuBatch) {
-      // นักศึกษามี batch → แสดงรายวิชาที่ "มี batch กำกับ" และ
-      //   (batch ตรงกับนักศึกษา) หรือ (เป็นวิชาที่เคยเรียน)
-      data = data.filter(s => {
-        const sb = norm(s.batch);
-        if (!sb) return false; // ต้องมี batch กำกับเสมอ
-        if (sb === stuBatch) return true;
-        return pastCodes.has(norm(s.subject_code)) || pastNames.has(norm(s.subject_name));
-      });
+      data = data.filter(s => norm(s.batch) === stuBatch);
     } else {
-      // นักศึกษาไม่มี batch → fallback กรองตาม year_level
       data = data.filter(s => norm(s.year_level) === stuYearLevel);
     }
   }
