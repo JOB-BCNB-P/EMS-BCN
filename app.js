@@ -1181,11 +1181,27 @@ function showStudentDetail(id) {
   </div>`);
 }
 
+// คำนวณปีการศึกษาปัจจุบัน (พ.ศ.) — ปีการศึกษาไทยเริ่ม มิ.ย.
+function currentAcademicYearBE() {
+  const d = new Date();
+  let yr = d.getFullYear() + 543;
+  if (d.getMonth() < 5) yr -= 1; // ก่อนเดือน มิ.ย. ยังนับเป็นปีการศึกษาก่อน
+  return String(yr);
+}
+
 // ======================== SUBJECTS ========================
 function subjectsPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
+  const isStudent = APP.currentRole === 'student';
   const allSubjects = getDataByType('subject');
+  // นักศึกษา: ถ้ายังไม่เลือกปี ให้ default เป็นปีการศึกษาปัจจุบันโดยอัตโนมัติ
+  if (isStudent && !APP.filters._pageYear) {
+    const cur = currentAcademicYearBE();
+    // ตรวจว่ามีข้อมูลปีนั้นไหม ถ้าไม่มี ใช้ปีล่าสุดที่มีข้อมูลแทน
+    const years = [...new Set(allSubjects.map(s => norm(s.academic_year)).filter(Boolean))].sort();
+    APP.filters._pageYear = years.includes(cur) ? cur : (years[years.length - 1] || cur);
+  }
   const selectedYear = APP.filters._pageYear || '';
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -1194,11 +1210,22 @@ function subjectsPage() {
   </div>`;
   headerHtml += yearPickerBar(allSubjects, 'ปีการศึกษา');
 
+  // แสดงป้ายบอกบริบทสำหรับนักศึกษา (รุ่น/ชั้นปี/ปีการศึกษา)
+  if (isStudent && APP.currentUser.data) {
+    const stu = APP.currentUser.data;
+    headerHtml += `<div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-xs text-blue-800 flex flex-wrap gap-3">
+      <span><i data-lucide="user" class="w-3 h-3 inline mr-1"></i><strong>${stu.name || ''}</strong></span>
+      ${stu.batch ? `<span>รุ่นที่ <strong>${stu.batch}</strong></span>` : ''}
+      <span>ชั้นปี <strong>${stu.year_level || '-'}</strong></span>
+      <span>ปีการศึกษา <strong>${selectedYear || '-'}</strong></span>
+    </div>`;
+  }
+
   if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
 
   let data = applyFilters(allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear)));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
-  if (APP.currentRole === 'student' && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
+  if (isStudent && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
   const total = data.length; const paged = paginate(data);
 
   return headerHtml + `
