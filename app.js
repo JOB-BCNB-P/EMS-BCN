@@ -1228,13 +1228,25 @@ function subjectsPage() {
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
     const stuYearLevel = norm(APP.currentUser.data.year_level);
-    // นักศึกษาเห็นเฉพาะรายวิชาของรุ่นตัวเอง (ภายในชั้นปีของตัวเอง)
-    // ถ้านักศึกษามีข้อมูลรุ่น → กรอง batch ตรงเป๊ะ + ชั้นปีตรงด้วย
-    // ถ้านักศึกษาไม่มีรุ่น → fallback เป็น year_level อย่างเดียว
-    data = data.filter(s => {
-      if (stuBatch) return norm(s.batch) === stuBatch && norm(s.year_level) === stuYearLevel;
-      return norm(s.year_level) === stuYearLevel;
-    });
+    const stuId = norm(APP.currentUser.data.student_id);
+    // เก็บรหัส/ชื่อวิชาที่นักศึกษาเคยเรียน (จากตาราง grade)
+    const myGrades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
+    const pastCodes = new Set(myGrades.map(g => norm(g.subject_code)).filter(Boolean));
+    const pastNames = new Set(myGrades.map(g => norm(g.subject_name)).filter(Boolean));
+
+    if (stuBatch) {
+      // นักศึกษามี batch → แสดงรายวิชาที่ "มี batch กำกับ" และ
+      //   (batch ตรงกับนักศึกษา) หรือ (เป็นวิชาที่เคยเรียน)
+      data = data.filter(s => {
+        const sb = norm(s.batch);
+        if (!sb) return false; // ต้องมี batch กำกับเสมอ
+        if (sb === stuBatch) return true;
+        return pastCodes.has(norm(s.subject_code)) || pastNames.has(norm(s.subject_name));
+      });
+    } else {
+      // นักศึกษาไม่มี batch → fallback กรองตาม year_level
+      data = data.filter(s => norm(s.year_level) === stuYearLevel);
+    }
   }
 
   // ตัวกรองรุ่น (สำหรับ admin/academic) — รวบรวมรุ่นจากรายวิชาในปีที่เลือก
