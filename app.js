@@ -1206,7 +1206,7 @@ function subjectsPage() {
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="book-open" class="w-6 h-6 inline mr-2"></i>รายวิชาที่เปิดสอน</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_name,coordinator,year_level,room,credits,semester,academic_year')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_code,subject_name,coordinator,year_level,batch,room,credits,semester,academic_year')}</div>` : ''}
   </div>`;
   headerHtml += yearPickerBar(allSubjects, 'ปีการศึกษา');
 
@@ -1225,19 +1225,41 @@ function subjectsPage() {
 
   let data = applyFilters(allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear)));
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
-  if (isStudent && APP.currentUser.data) data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.data.year_level));
+  if (isStudent && APP.currentUser.data) {
+    const stuBatch = norm(APP.currentUser.data.batch);
+    data = data.filter(s => {
+      const sb = norm(s.batch);
+      // ถ้ารายวิชาระบุรุ่น ให้กรองตรงรุ่นนักศึกษา ถ้าไม่ระบุ ใช้ year_level เป็นเกณฑ์
+      if (sb && stuBatch) return sb === stuBatch;
+      return norm(s.year_level) === norm(APP.currentUser.data.year_level);
+    });
+  }
+
+  // ตัวกรองรุ่น (สำหรับ admin/academic) — รวบรวมรุ่นจากรายวิชาในปีที่เลือก
+  const batchFilter = APP.filters._subjectBatch || '';
+  if (batchFilter) data = data.filter(s => norm(s.batch) === batchFilter);
+  const allBatches = [...new Set(allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear)).map(s => norm(s.batch)).filter(Boolean))].sort();
+  const batchSelector = (allBatches.length && !isStudent) ? `<div class="flex flex-wrap gap-3 mb-4 items-center">
+    <label class="text-sm text-gray-700">รุ่น:</label>
+    <select onchange="APP.filters._subjectBatch=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      <option value="">ทุกรุ่น</option>
+      ${allBatches.map(b => `<option value="${b}" ${batchFilter === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
+    </select>
+  </div>` : '';
+
   const total = data.length; const paged = paginate(data);
 
   return headerHtml + `
   ${filterBar({ semester: true, year: false, yearLevel: true })}
+  ${batchSelector}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่น</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${s.subject_code || ''}</td><td class="px-4 py-3 font-medium">${s.subject_name || ''}</td><td class="px-4 py-3">${s.coordinator || ''}</td>
-        <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.credits || ''}</td>
+        <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || '-'}</td><td class="px-4 py-3">${s.credits || ''}</td>
         <td class="px-4 py-3">${semLabel(s.semester)}/${s.academic_year || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -1246,15 +1268,17 @@ function subjectsPage() {
 function showAddSubjectModal() {
   showModal('เพิ่มรายวิชา', `
     <form id="addSubjectForm" class="space-y-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น GE 104"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้ประสานงาน (คั่นด้วย ,)</label><input name="coordinator" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="อ.ก, อ.ข"></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -4747,11 +4771,12 @@ function showEditSubjectModal(id) {
       <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" value="${s.coordinator || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${s.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${normSem(s.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${normSem(s.semester) === '2' ? 'selected' : ''}>2</option><option value="3" ${normSem(s.semester) === '3' ? 'selected' : ''}>ฤดูร้อน</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${s.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${s.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
