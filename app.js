@@ -1596,7 +1596,9 @@ function _renderTranscript(stu) {
       </div>
       <div class="mt-3 text-xs text-gray-500">
         <p class="font-semibold mb-1">หมายเหตุ</p>
-        <p>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</p>
+        <p>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน</p>
+        <p>D : อ่อนมาก &nbsp; F : ตก &nbsp; S : พึงพอใจ &nbsp; U : ไม่พึงพอใจ &nbsp; CP : เทียบโอน &nbsp; AU : ไม่นับหน่วยกิต</p>
+        <p>W : ถอนรายวิชา &nbsp; I : ยังไม่สมบูรณ์ &nbsp; E : มีเงื่อนไข &nbsp; P : ยังไม่สิ้นสุด &nbsp; X : ยังไม่ส่งเกรด</p>
       </div>
       <div class="mt-10 flex justify-end">
         <div class="text-center text-xs text-gray-700" style="min-width:220px;">
@@ -1675,7 +1677,7 @@ async function downloadTranscriptPDF(studentKey) {
     <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px"><div>รหัสนักศึกษา: <strong>${stu.student_id || ''}</strong></div><div>ชื่อ-สกุล: <strong>${stu.name || ''}</strong></div></div>
     <table><thead><tr style="background:#e8f4fd"><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:22%">รหัสวิชา</th><th style="padding:5px 8px;text-align:left;font-size:11px;border:1px solid #999;width:48%">รายวิชา</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">หน่วยกิต</th><th style="padding:5px 8px;text-align:center;font-size:11px;border:1px solid #999;width:15%">ระดับคะแนน</th></tr></thead><tbody>${tableHTML}</tbody></table>
     <div style="margin-top:10px;border:1px solid #999;padding:6px 10px;font-size:11px"><div style="display:flex;justify-content:space-between"><span>รวมหน่วยกิตตลอดปีการศึกษา: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยตลอดปีการศึกษา: <strong>${gpax}</strong></span></div><div style="display:flex;justify-content:space-between;margin-top:3px"><span>รวมหน่วยกิตสะสมตลอดหลักสูตร: <strong>${totalCreditsAll}</strong></span><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร: <strong>${gpax}</strong></span></div></div>
-    <div style="margin-top:10px;font-size:10px;color:#666"><div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div><div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน &nbsp; D : อ่อนมาก &nbsp; F : ตก</div></div>
+    <div style="margin-top:10px;font-size:10px;color:#666"><div style="font-weight:600;margin-bottom:3px">หมายเหตุ</div><div>A : ดีเยี่ยม &nbsp; B+ : ดีมาก &nbsp; B : ดี &nbsp; C+ : ค่อนข้างดี &nbsp; C : พอใช้ &nbsp; D+ : อ่อน</div><div>D : อ่อนมาก &nbsp; F : ตก &nbsp; S : พึงพอใจ &nbsp; U : ไม่พึงพอใจ &nbsp; CP : เทียบโอน &nbsp; AU : ไม่นับหน่วยกิต</div><div>W : ถอนรายวิชา &nbsp; I : ยังไม่สมบูรณ์ &nbsp; E : มีเงื่อนไข &nbsp; P : ยังไม่สิ้นสุด &nbsp; X : ยังไม่ส่งเกรด</div></div>
     <div class="signature"><div class="signature-box"><div>รัชฎาพร เขษมโตมณี</div><div>หัวหน้างานทะเบียน</div></div></div>
     </div>
     <script>window.onload=function(){window.print()}<\/script></body></html>`;
