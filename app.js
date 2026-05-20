@@ -1252,7 +1252,7 @@ function subjectsPage() {
   const total = data.length; const paged = paginate(data);
 
   return headerHtml + `
-  ${filterBar({ semester: true, year: false, yearLevel: true })}
+  ${filterBar({ semester: true, year: false, yearLevel: !isStudent })}
   ${batchSelector}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
