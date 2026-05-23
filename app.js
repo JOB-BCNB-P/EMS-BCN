@@ -1235,12 +1235,15 @@ function subjectsPage() {
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
     const stuYearLevel = norm(APP.currentUser.data.year_level);
-    // นักศึกษามี batch → แสดงรายวิชาที่ batch ตรง หรือ รายวิชาที่ไม่ได้ระบุรุ่น (วิชาทั่วไป เช่น GE)
-    // นักศึกษาไม่มี batch → fallback ใช้ year_level (รวมวิชาที่ไม่ระบุชั้นปีด้วย)
+    // เข้มงวด: แสดงเฉพาะรายวิชาที่ระบุรุ่น (batch) ตรงกับนักศึกษาเท่านั้น
+    // ถ้านักศึกษาไม่มี batch → fallback ใช้ year_level ที่ตรงเป๊ะ
+    // รายวิชาที่ไม่ได้ระบุรุ่น/ชั้นปี จะไม่แสดง
     if (stuBatch) {
-      data = data.filter(s => !norm(s.batch) || norm(s.batch) === stuBatch);
+      data = data.filter(s => norm(s.batch) === stuBatch);
+    } else if (stuYearLevel) {
+      data = data.filter(s => norm(s.year_level) === stuYearLevel);
     } else {
-      data = data.filter(s => !norm(s.year_level) || norm(s.year_level) === stuYearLevel);
+      data = [];
     }
   }
 
