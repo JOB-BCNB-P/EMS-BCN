@@ -5212,14 +5212,4 @@ function showEditUserModal(id) {
 }
 
 // Init icons
-lucide.createIcons();g_status = document.getElementById('editEngOtherStatus').value;
-      }
-      const r = await GSheetDB.update(obj);
-      if (r.isOk) { showToast('แก้ไขผลสอบสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
-    });
-  };
-}
- showToast('เกิดข้อผิดพลาด', 'error');
-    });
-  };
-}
+lucide.createIcons();
