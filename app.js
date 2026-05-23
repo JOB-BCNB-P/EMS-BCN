@@ -362,7 +362,7 @@ function buildSidebar() {
     if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
   }
   if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
-  if (p.schedule) regSub.push({ id: 'schedule', label: 'ตารางเรียน/ตารางสอบ' });
+  if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
   if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
   if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
@@ -1223,7 +1223,11 @@ function subjectsPage() {
 
   if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
 
+  // Clear global academicYear filter — this page uses _pageYear instead; leftover values would double-filter
+  const savedAcademicYear = APP.filters.academicYear;
+  APP.filters.academicYear = '';
   let data = applyFilters(allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear)));
+  APP.filters.academicYear = savedAcademicYear; // restore after filtering
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
@@ -1266,20 +1270,20 @@ function subjectsPage() {
   ${batchSelector}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่น</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold text-center">มคอ.3</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่น</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold text-center">ข้อมูลรายวิชา</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(s => {
-        const pdfKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-        const pdfLink = trackingPdfMap[pdfKey];
-        const eyeCell = pdfLink
-          ? `<a href="${pdfLink}" target="_blank" title="ดูไฟล์ มคอ.3" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 transition"><i data-lucide="eye" class="w-4 h-4"></i></a>`
-          : `<span class="text-xs text-gray-300" title="ยังไม่มีไฟล์ PDF">-</span>`;
-        return `<tr class="border-t hover:bg-gray-50">
+    const pdfKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+    const pdfLink = trackingPdfMap[pdfKey];
+    const eyeCell = pdfLink
+      ? `<a href="${pdfLink}" target="_blank" title="ดูข้อมูลรายวิชา" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 transition"><i data-lucide="eye" class="w-4 h-4"></i></a>`
+      : `<span class="text-xs text-gray-300" title="ยังไม่มีไฟล์ PDF">-</span>`;
+    return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${s.subject_code || ''}</td><td class="px-4 py-3 font-medium">${s.subject_name || ''}</td><td class="px-4 py-3">${s.coordinator || ''}</td>
         <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || '-'}</td><td class="px-4 py-3">${s.credits || ''}</td>
         <td class="px-4 py-3">${semLabel(s.semester)}/${s.academic_year || ''}</td>
         <td class="px-4 py-3 text-center">${eyeCell}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
-      }).join('') : `<tr><td colspan="${isAdmin ? 9 : 8}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+  }).join('') : `<tr><td colspan="${isAdmin ? 9 : 8}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -1315,42 +1319,65 @@ function showAddSubjectModal() {
   };
 }
 
-// ======================== SCHEDULE ========================
+// ======================== SCHEDULE (ปฏิทินการศึกษา) ========================
+function scheduleTypeBadge(type) {
+  const t = (type || '').trim();
+  if (!t) return '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">ไม่ระบุ</span>';
+  if (t.includes('สอบ')) return `<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">${t}</span>`;
+  if (t === 'วันหยุด') return `<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">${t}</span>`;
+  if (t === 'กิจกรรม') return `<span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700">${t}</span>`;
+  return `<span class="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">${t}</span>`;
+}
+
 function schedulePage() {
+  const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive';
+  const allSchedule = getDataByType('schedule').sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || ''));
+  const total = allSchedule.length; const paged = paginate(allSchedule);
+
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ตารางเรียน/ตารางสอบ</h2>
-    <div class="flex gap-2">
-      <button onclick="showAddScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มตาราง</button>
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ปฏิทินการศึกษา</h2>
+    ${canManage ? `<div class="flex gap-2">
+      <button onclick="showAddScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายการ</button>
       ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_type,room,year_level')}
-    </div>
+    </div>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 p-5">
     <div id="scheduleCalendar"></div>
   </div>
   <div class="mt-4 bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">เวลา</th><th class="px-4 py-3 font-semibold">รายวิชา</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ห้อง</th><th class="px-4 py-3"></th></tr></thead>
-      <tbody>${getDataByType('schedule').sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || '')).slice(0, 20).map(s => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${s.schedule_date || ''}</td><td class="px-4 py-3">${s.schedule_time || ''}</td>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">เวลา</th><th class="px-4 py-3 font-semibold">รายวิชา/กิจกรรม</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ห้อง</th>${canManage ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3">${toBuddhistDate(s.schedule_date) || s.schedule_date || ''}</td><td class="px-4 py-3">${s.schedule_time || ''}</td>
         <td class="px-4 py-3">${s.subject_name || ''}</td>
-        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.schedule_type === 'สอบ' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${s.schedule_type || 'เรียน'}</span></td>
+        <td class="px-4 py-3">${scheduleTypeBadge(s.schedule_type)}</td>
         <td class="px-4 py-3">${s.room || ''}</td>
-        <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditScheduleModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
-      </tr>`).join('') || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
+        ${canManage ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditScheduleModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
+      </tr>`).join('') : `<tr><td colspan="${canManage ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
-  </div>`;
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function scheduleTypeInput(name, selectedValue) {
+  const existing = [...new Set(getDataByType('schedule').map(s => (s.schedule_type || '').trim()).filter(Boolean))];
+  const defaults = ['สอบกลางภาค', 'สอบปลายภาค', 'สอบย่อย', 'กิจกรรม', 'วันหยุด'];
+  const allTypes = [...new Set([...defaults, ...existing])];
+  const listId = 'scheduleTypeList_' + Date.now();
+  return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอบกลางภาค, กิจกรรม">
+    <datalist id="${listId}">${allTypes.map(t => `<option value="${t}">`).join('')}</datalist>`;
 }
 
 function showAddScheduleModal() {
-  showModal('เพิ่มตารางเรียน/สอบ', `
+  showModal('เพิ่มรายการปฏิทินการศึกษา', `
     <form id="addScheduleForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อรายวิชาหรือกิจกรรม"></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="schedule_date" type="date" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่ *</label><input name="schedule_date" type="date" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เวลา</label><input name="schedule_time" type="time" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="schedule_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option>เรียน</option><option>สอบ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภท *</label>${scheduleTypeInput('schedule_type', '')}</div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
@@ -1359,9 +1386,10 @@ function showAddScheduleModal() {
     e.preventDefault();
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
+      if (!(fd.get('schedule_type') || '').trim()) { showToast('กรุณาระบุประเภท', 'error'); return; }
       const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
       const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('เพิ่มตารางสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+      if (r.isOk) { showToast('เพิ่มรายการสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
   };
 }
@@ -4177,7 +4205,7 @@ function exportLoginLogCSV() {
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ตารางเรียน/สอบ', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ปฏิทินการศึกษา', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
