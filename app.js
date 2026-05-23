@@ -440,6 +440,7 @@ function navigateTo(page) {
   APP._directoryTab = 'all';
   APP.filters._directoryYear = '';
   APP.filters._pageYear = '';
+  APP.filters._subjectBatch = '';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
     n.classList.toggle('text-primary', n.dataset.page === page);
@@ -1223,11 +1224,13 @@ function subjectsPage() {
 
   if (!selectedYear) return headerHtml + noYearSelectedMsg('รายวิชา');
 
-  // Clear global academicYear filter — this page uses _pageYear instead; leftover values would double-filter
-  const savedAcademicYear = APP.filters.academicYear;
-  APP.filters.academicYear = '';
-  let data = applyFilters(allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear)));
-  APP.filters.academicYear = savedAcademicYear; // restore after filtering
+  // Filter subjects for the selected year — apply only the filters shown on THIS page
+  // (search, semester, yearLevel). Do NOT use applyFilters() because it also checks
+  // APP.filters.academicYear and other global filters that may be leftover from other pages.
+  let data = allSubjects.filter(s => norm(s.academic_year) === norm(selectedYear));
+  if (APP.filters.search) { const s = APP.filters.search.toLowerCase(); data = data.filter(x => Object.values(x).some(v => String(v).toLowerCase().includes(s))); }
+  if (APP.filters.semester) data = data.filter(x => normSem(x.semester) === APP.filters.semester);
+  if (APP.filters.yearLevel) data = data.filter(x => norm(x.year_level) === APP.filters.yearLevel);
   if (APP.currentRole === 'classTeacher') data = data.filter(s => norm(s.year_level) === norm(APP.currentUser.responsible_year || '1'));
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
@@ -1268,6 +1271,9 @@ function subjectsPage() {
   return headerHtml + `
   ${filterBar({ semester: true, year: false, yearLevel: !isStudent })}
   ${batchSelector}
+  <div class="flex items-center justify-between mb-2 px-1">
+    <span class="text-xs text-gray-500"><i data-lucide="list" class="w-3 h-3 inline mr-1"></i>พบรายวิชาทั้งหมด <strong>${total}</strong> รายวิชา</span>
+  </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">ชื่อรายวิชา</th><th class="px-4 py-3 font-semibold">ผู้ประสานงาน</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่น</th><th class="px-4 py-3 font-semibold">หน่วยกิต</th><th class="px-4 py-3 font-semibold">ภาค/ปี</th><th class="px-4 py-3 font-semibold text-center">ข้อมูลรายวิชา</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
