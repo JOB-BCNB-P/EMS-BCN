@@ -4605,7 +4605,7 @@ function renderCalendar(containerId) {
     const isToday = d === now.getDate();
     h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${isToday ? 'bg-primary text-white' : ''}">
       <div class="text-xs ${isToday ? 'font-bold' : ''}">${d}</div>
-      ${dayEvents.slice(0, 2).map(e => `<div class="cal-event ${e.schedule_type === 'สอบ' || e.event_type === 'สอบ' ? 'bg-red-200 text-red-800' : e.event_type === 'วันหยุด' ? 'bg-green-200 text-green-800' : 'bg-blue-200 text-blue-800'}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`).join('')}
+      ${dayEvents.slice(0, 2).map(e => { const st = (e.schedule_type || e.event_type || '').trim(); const cls = st.includes('สอบ') ? 'bg-red-200 text-red-800' : st === 'วันหยุด' ? 'bg-green-200 text-green-800' : st === 'กิจกรรม' ? 'bg-purple-200 text-purple-800' : 'bg-blue-200 text-blue-800'; return `<div class="cal-event ${cls}" title="${st}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`; }).join('')}
     </div>`;
   }
   h += '</div>';
@@ -4835,15 +4835,15 @@ function showEditSubjectModal(id) {
 
 function showEditScheduleModal(id) {
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
-  showModal('แก้ไขตารางเรียน/สอบ', `
+  showModal('แก้ไขรายการปฏิทินการศึกษา', `
     <form id="editScheduleForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${s.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม</label><input name="subject_name" value="${s.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="schedule_date" type="date" value="${s.schedule_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เวลา</label><input name="schedule_time" type="time" value="${s.schedule_time || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="schedule_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.schedule_type === 'เรียน' ? 'selected' : ''}>เรียน</option><option ${s.schedule_type === 'สอบ' ? 'selected' : ''}>สอบ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
