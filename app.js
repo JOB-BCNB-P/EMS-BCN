@@ -1288,7 +1288,7 @@ function subjectsPage() {
         <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || '-'}</td><td class="px-4 py-3">${s.credits || ''}</td>
         <td class="px-4 py-3">${semLabel(s.semester)}/${s.academic_year || ''}</td>
         <td class="px-4 py-3 text-center">${eyeCell}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showImportGradesFromSubjectModal('${s.__backendId}')" class="text-green-500 hover:text-green-700" title="นำเข้ารายชื่อสร้างผลการเรียน"><i data-lucide="user-plus" class="w-4 h-4"></i></button><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
   }).join('') : `<tr><td colspan="${isAdmin ? 9 : 8}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
@@ -1323,6 +1323,164 @@ function showAddSubjectModal() {
       if (r.isOk) { showToast('เพิ่มรายวิชาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
   };
+}
+
+// ======================== IMPORT GRADES FROM SUBJECT ========================
+// สำหรับ admin/academic: นำรายวิชาที่เปิดสอน → สร้างรายการผลการเรียนแบบ "ยังไม่ระบุเกรด"
+// ให้กับนักศึกษาที่ตรงรุ่น/ชั้นปี เพื่อให้แค่กรอกเกรดทีหลังได้เลย
+function showImportGradesFromSubjectModal(subjectId) {
+  const role = APP.currentRole;
+  if (role !== 'admin' && role !== 'academic') {
+    showToast('เฉพาะผู้ดูแลระบบ/งานวิชาการเท่านั้น', 'error');
+    return;
+  }
+  const subj = APP.allData.find(d => d.__backendId === subjectId);
+  if (!subj) { showToast('ไม่พบรายวิชา', 'error'); return; }
+
+  // หานักศึกษาที่ตรง batch/year_level
+  // - ถ้ารายวิชาระบุ batch → ใช้ batch จับคู่
+  // - ถ้าไม่ระบุ batch แต่ระบุ year_level → ใช้ year_level จับคู่
+  // - ถ้าไม่ระบุทั้งคู่ → แสดงทั้งหมด (ให้ผู้ใช้เลือกเอง)
+  const subjBatch = norm(subj.batch);
+  const subjYear = norm(subj.year_level);
+  let students = getDataByType('student');
+  if (subjBatch) {
+    students = students.filter(s => norm(s.batch) === subjBatch);
+  } else if (subjYear) {
+    students = students.filter(s => norm(s.year_level) === subjYear);
+  }
+  students.sort((a, b) => norm(a.student_id).localeCompare(norm(b.student_id)));
+
+  // หาว่านักศึกษาคนไหนมีผลการเรียนสำหรับวิชานี้ใน semester/year นี้แล้วบ้าง
+  const semKey = normSem(subj.semester);
+  const yearKey = norm(subj.academic_year);
+  const codeKey = norm(subj.subject_code);
+  const nameKey = norm(subj.subject_name);
+  const existingGrades = getDataByType('grade').filter(g =>
+    normSem(g.semester) === semKey &&
+    norm(g.academic_year) === yearKey &&
+    ((codeKey && norm(g.subject_code) === codeKey) || (!codeKey && norm(g.subject_name) === nameKey))
+  );
+  const existingByStudent = new Set(existingGrades.map(g => norm(g.student_id)));
+
+  const subjectInfo = `
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-sm">
+      <div class="grid grid-cols-2 gap-2">
+        <div><span class="text-gray-600">รหัสวิชา:</span> <strong class="font-mono text-primary">${subj.subject_code || '-'}</strong></div>
+        <div><span class="text-gray-600">หน่วยกิต:</span> <strong>${subj.credits || '-'}</strong></div>
+        <div class="col-span-2"><span class="text-gray-600">ชื่อรายวิชา:</span> <strong>${subj.subject_name || '-'}</strong></div>
+        <div><span class="text-gray-600">ภาค/ปี:</span> <strong>${semLabel(subj.semester)}/${subj.academic_year || ''}</strong></div>
+        <div><span class="text-gray-600">รุ่น/ชั้นปี:</span> <strong>${subj.batch || '-'} / ${subj.year_level || '-'}</strong></div>
+      </div>
+    </div>`;
+
+  if (students.length === 0) {
+    showModal('นำเข้ารายชื่อสร้างผลการเรียน', `${subjectInfo}
+      <div class="text-center text-gray-500 py-6">
+        <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-2 text-gray-300"></i>
+        <p>ไม่พบนักศึกษาที่ตรงกับรุ่น/ชั้นปีของรายวิชานี้</p>
+        <p class="text-xs text-gray-400 mt-1">โปรดตรวจสอบ "รุ่น (batch)" หรือ "ชั้นปี (year_level)" ของนักศึกษาและรายวิชา</p>
+      </div>
+      <button onclick="closeModal()" class="w-full mt-2 py-2.5 rounded-xl border hover:bg-gray-50">ปิด</button>
+    `, null, 'max-w-2xl');
+    return;
+  }
+
+  const rows = students.map(s => {
+    const sid = norm(s.student_id);
+    const hasGrade = existingByStudent.has(sid);
+    return `<tr class="border-t hover:bg-gray-50 ${hasGrade ? 'bg-gray-50' : ''}">
+      <td class="px-2 py-2 text-center">
+        <input type="checkbox" class="importGradeStu" value="${sid}" ${hasGrade ? 'disabled' : 'checked data-selectable="1"'}>
+      </td>
+      <td class="px-2 py-2 font-mono text-xs">${sid}</td>
+      <td class="px-2 py-2 text-xs">${s.name || ''}</td>
+      <td class="px-2 py-2 text-xs text-center">${hasGrade
+        ? '<span class="text-amber-600 inline-flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i>มีแล้ว</span>'
+        : '<span class="text-green-600">พร้อมนำเข้า</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  const selectableCount = students.length - existingGrades.length;
+
+  showModal('นำเข้ารายชื่อสร้างผลการเรียน', `
+    ${subjectInfo}
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="text-xs text-gray-600">
+        พบนักศึกษา <strong>${students.length}</strong> คน
+        ${existingGrades.length ? `<span class="ml-2 text-amber-600">(มีผลการเรียนอยู่แล้ว ${existingGrades.length} คน — จะถูกข้าม)</span>` : ''}
+      </div>
+      <div class="flex gap-2 text-xs">
+        <button type="button" onclick="document.querySelectorAll('.importGradeStu:not([disabled])').forEach(c=>c.checked=true)" class="px-2 py-1 border rounded hover:bg-gray-50">เลือกทั้งหมด</button>
+        <button type="button" onclick="document.querySelectorAll('.importGradeStu:not([disabled])').forEach(c=>c.checked=false)" class="px-2 py-1 border rounded hover:bg-gray-50">ล้างเลือก</button>
+      </div>
+    </div>
+    <div class="border rounded-xl overflow-hidden mb-3 max-h-[300px] overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface sticky top-0"><tr>
+          <th class="px-2 py-2 w-10"></th>
+          <th class="px-2 py-2 text-left text-xs font-semibold">รหัสนักศึกษา</th>
+          <th class="px-2 py-2 text-left text-xs font-semibold">ชื่อ-สกุล</th>
+          <th class="px-2 py-2 text-center text-xs font-semibold">สถานะ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-800 mb-3">
+      <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+      ระบบจะสร้างรายการผลการเรียนแบบ "ยังไม่ระบุเกรด" สำหรับนักศึกษาที่เลือก — กรอกเกรดในภายหลังที่หน้า "ผลการเรียน"
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="flex-1 py-2.5 rounded-xl border hover:bg-gray-50">ยกเลิก</button>
+      <button id="importGradeConfirmBtn" onclick="runImportGradesFromSubject('${subjectId}')" class="flex-1 py-2.5 rounded-xl bg-primary text-white hover:bg-primaryDark disabled:opacity-50" ${selectableCount === 0 ? 'disabled' : ''}>
+        <i data-lucide="user-plus" class="w-4 h-4 inline mr-1"></i>สร้างรายการผลการเรียน
+      </button>
+    </div>
+  `, null, 'max-w-2xl');
+}
+
+async function runImportGradesFromSubject(subjectId) {
+  const subj = APP.allData.find(d => d.__backendId === subjectId);
+  if (!subj) { showToast('ไม่พบรายวิชา', 'error'); return; }
+  const selected = Array.from(document.querySelectorAll('.importGradeStu:checked:not([disabled])')).map(c => c.value);
+  if (selected.length === 0) { showToast('กรุณาเลือกอย่างน้อย 1 คน', 'error'); return; }
+
+  const btn = document.getElementById('importGradeConfirmBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline animate-spin mr-1"></i>กำลังสร้าง...'; lucide.createIcons(); }
+
+  showLoading(`กำลังนำเข้า 0/${selected.length}...`);
+
+  let success = 0, failed = 0;
+  for (let i = 0; i < selected.length; i++) {
+    const sid = selected[i];
+    const lblEl = document.getElementById('loadingMsg');
+    if (lblEl) lblEl.textContent = `กำลังนำเข้า ${i + 1}/${selected.length}...`;
+    const obj = {
+      type: 'grade',
+      student_id: sid,
+      subject_code: subj.subject_code || '',
+      subject_name: subj.subject_name || '',
+      grade: '',
+      credits: Number(subj.credits) || 3,
+      semester: normSem(subj.semester) || '1',
+      academic_year: norm(subj.academic_year) || '',
+      created_at: new Date().toISOString()
+    };
+    try {
+      const r = await GSheetDB.create(obj);
+      if (r && r.isOk) success++; else failed++;
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  hideLoading();
+  closeModal();
+  if (failed === 0) {
+    showToast(`สร้างผลการเรียนสำเร็จ ${success} รายการ`);
+  } else {
+    showToast(`สำเร็จ ${success} รายการ | ผิดพลาด ${failed}`, 'error');
+  }
 }
 
 // ======================== SCHEDULE (ปฏิทินการศึกษา) ========================
@@ -5054,4 +5212,14 @@ function showEditUserModal(id) {
 }
 
 // Init icons
-lucide.createIcons();
+lucide.createIcons();g_status = document.getElementById('editEngOtherStatus').value;
+      }
+      const r = await GSheetDB.update(obj);
+      if (r.isOk) { showToast('แก้ไขผลสอบสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
+}
+ showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
+}
