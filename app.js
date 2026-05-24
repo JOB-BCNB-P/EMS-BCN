@@ -572,6 +572,48 @@ function normSem(v) {
   return s;
 }
 
+// ตัวช่วยจับคู่รายวิชา ↔ tracking record
+// คืนค่าฟังก์ชัน isTracked(subject) ที่จะ true ถ้ารายวิชานี้มี tracking record อยู่แล้ว
+// กฎ:
+//   1) ถ้ามี subject_code ทั้ง 2 ฝั่ง → ใช้ code+sem[+year] (แม่นที่สุด)
+//   2) ถ้าไม่มี → ใช้ name+sem[+year]
+//   3) ถ้า tracking record ไม่ได้บันทึก academic_year → ใช้ key แบบไม่มีปี (ภายในชุดข้อมูลของปีที่เลือกอยู่แล้ว)
+function makeTrackingMatcher(trackingRecords) {
+  const codeFull = new Set();
+  const codeNoYear = new Set();
+  const nameFull = new Set();
+  const nameNoYear = new Set();
+  trackingRecords.forEach(t => {
+    const code = norm(t.subject_code);
+    const name = norm(t.subject_name);
+    const sem = normSem(t.semester);
+    const year = norm(t.academic_year);
+    if (code) {
+      codeFull.add(`${code}|${sem}|${year}`);
+      if (!year) codeNoYear.add(`${code}|${sem}`);
+    }
+    if (name) {
+      nameFull.add(`${name}|${sem}|${year}`);
+      if (!year) nameNoYear.add(`${name}|${sem}`);
+    }
+  });
+  return function isTracked(s) {
+    const code = norm(s.subject_code);
+    const name = norm(s.subject_name);
+    const sem = normSem(s.semester);
+    const year = norm(s.academic_year);
+    if (code) {
+      if (codeFull.has(`${code}|${sem}|${year}`)) return true;
+      if (codeNoYear.has(`${code}|${sem}`)) return true;
+    }
+    if (name) {
+      if (nameFull.has(`${name}|${sem}|${year}`)) return true;
+      if (nameNoYear.has(`${name}|${sem}`)) return true;
+    }
+    return false;
+  };
+}
+
 // Loading overlay for save/edit/delete operations
 function showLoading(msg = 'กำลังบันทึก...') {
   let overlay = document.getElementById('loadingOverlay');
@@ -3211,14 +3253,9 @@ function trackingPage() {
   let notSubmittedSection = '';
   if (selectedYear) {
     // Find subjects not yet in tracking
-    // Match ด้วย full key (name|sem|year) หรือ short key (name|sem) กรณี academic_year ว่างใน tracking sheet
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
-    const notSubmitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
-    });
+    // จับคู่ด้วย subject_code เป็นหลัก (ถ้ามี) — fallback เป็น subject_name + semester [+ academic_year]
+    const isTracked = makeTrackingMatcher(dataForStats);
+    const notSubmitted = subjectsFiltered.filter(s => !isTracked(s));
 
     // Status counts
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
@@ -3231,11 +3268,7 @@ function trackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
-    const submitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return trackedKeys.includes(fullKey) || trackedKeysNoYear.includes(shortKey);
-    });
+    const submitted = subjectsFiltered.filter(s => isTracked(s));
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
         <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
@@ -3329,7 +3362,10 @@ function trackingPage() {
 function showAddTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
-    .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+    .map(name => {
+      const s = subjects.find(x => x.subject_name === name) || {};
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-year="${(s.academic_year || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+    }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
   const myName = (APP.currentUser && APP.currentUser.name || '').trim();
@@ -3337,14 +3373,17 @@ function showAddTrackingModal() {
     const isMe = name === myName;
     return `<label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer ${isMe ? 'bg-blue-50' : ''}"><input type="checkbox" class="coord-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" value="${name.replace(/"/g, '&quot;')}" ${isMe ? 'checked' : ''}><span class="text-sm">${name}${isMe ? ' <span class="text-xs text-blue-500">(คุณ)</span>' : ''}</span></label>`;
   }).join('');
+  const currentYear = (APP.filters && APP.filters._trackingYear) || '2568';
   showModal('เพิ่มรายละเอียดรายวิชา', `
     <form id="addTrackingForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="trackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <input type="hidden" name="subject_code" id="trackingSubjectCode">
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
+        <div class="col-span-2"><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${currentYear}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
         <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
@@ -3355,6 +3394,13 @@ function showAddTrackingModal() {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  // Auto-fill subject_code เมื่อเลือกรายวิชา
+  const sel = document.getElementById('trackingSubjectSelect');
+  if (sel) sel.addEventListener('change', () => {
+    const opt = sel.options[sel.selectedIndex];
+    const codeEl = document.getElementById('trackingSubjectCode');
+    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+  });
   document.getElementById('addTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     // Sync coordinator checkboxes to hidden field
@@ -3364,6 +3410,13 @@ function showAddTrackingModal() {
     const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('trackingCoordHidden');
     if (coordHidden) coordHidden.value = allNames.join(', ');
+    // Ensure subject_code is populated (fallback ถ้าผู้ใช้ไม่ได้กดเปลี่ยน)
+    const ss = document.getElementById('trackingSubjectSelect');
+    const cc = document.getElementById('trackingSubjectCode');
+    if (ss && cc && !cc.value) {
+      const opt = ss.options[ss.selectedIndex];
+      cc.value = (opt && opt.dataset.code) || '';
+    }
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
@@ -3454,13 +3507,8 @@ function resultTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
-    const notSubmitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
-    });
+    const isTracked = makeTrackingMatcher(dataForStats);
+    const notSubmitted = subjectsFiltered.filter(s => !isTracked(s));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3472,11 +3520,7 @@ function resultTrackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
-    const submitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return trackedKeys.includes(fullKey) || trackedKeysNoYear.includes(shortKey);
-    });
+    const submitted = subjectsFiltered.filter(s => isTracked(s));
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
         <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งผลการดำเนินงาน (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
@@ -3566,7 +3610,10 @@ function resultTrackingPage() {
 function showAddResultTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
-    .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+    .map(name => {
+      const s = subjects.find(x => x.subject_name === name) || {};
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+    }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
   const myName = (APP.currentUser && APP.currentUser.name || '').trim();
@@ -3576,7 +3623,8 @@ function showAddResultTrackingModal() {
   }).join('');
   showModal('เพิ่มข้อมูลติดตามการส่งผลการดำเนินงานรายวิชา', `
     <form id="addResultTrackingForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="resultTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <input type="hidden" name="subject_code" id="resultTrackingSubjectCode">
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -3593,6 +3641,13 @@ function showAddResultTrackingModal() {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  // Auto-fill subject_code
+  const rSel = document.getElementById('resultTrackingSubjectSelect');
+  if (rSel) rSel.addEventListener('change', () => {
+    const opt = rSel.options[rSel.selectedIndex];
+    const codeEl = document.getElementById('resultTrackingSubjectCode');
+    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+  });
   document.getElementById('addResultTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
@@ -3601,6 +3656,12 @@ function showAddResultTrackingModal() {
     const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('resultTrackingCoordHidden');
     if (coordHidden) coordHidden.value = allNames.join(', ');
+    const ss = document.getElementById('resultTrackingSubjectSelect');
+    const cc = document.getElementById('resultTrackingSubjectCode');
+    if (ss && cc && !cc.value) {
+      const opt = ss.options[ss.selectedIndex];
+      cc.value = (opt && opt.dataset.code) || '';
+    }
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'result_tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
@@ -3627,13 +3688,8 @@ function gradeTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
-    const notSubmitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
-    });
+    const isTracked = makeTrackingMatcher(dataForStats);
+    const notSubmitted = subjectsFiltered.filter(s => !isTracked(s));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3727,7 +3783,10 @@ function gradeTrackingPage() {
 function showAddGradeTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
-    .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+    .map(name => {
+      const s = subjects.find(x => x.subject_name === name) || {};
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+    }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
   const myName = (APP.currentUser && APP.currentUser.name || '').trim();
@@ -3737,7 +3796,8 @@ function showAddGradeTrackingModal() {
   }).join('');
   showModal('เพิ่มข้อมูลติดตามการส่งเกรดรายวิชา', `
     <form id="addGradeTrackingForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="gradeTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <input type="hidden" name="subject_code" id="gradeTrackingSubjectCode">
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -3754,6 +3814,13 @@ function showAddGradeTrackingModal() {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  // Auto-fill subject_code
+  const gSel = document.getElementById('gradeTrackingSubjectSelect');
+  if (gSel) gSel.addEventListener('change', () => {
+    const opt = gSel.options[gSel.selectedIndex];
+    const codeEl = document.getElementById('gradeTrackingSubjectCode');
+    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+  });
   document.getElementById('addGradeTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
@@ -3762,6 +3829,12 @@ function showAddGradeTrackingModal() {
     const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('gradeTrackingCoordHidden');
     if (coordHidden) coordHidden.value = allNames.join(', ');
+    const ss = document.getElementById('gradeTrackingSubjectSelect');
+    const cc = document.getElementById('gradeTrackingSubjectCode');
+    if (ss && cc && !cc.value) {
+      const opt = ss.options[ss.selectedIndex];
+      cc.value = (opt && opt.dataset.code) || '';
+    }
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'grade_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
@@ -3789,13 +3862,8 @@ function fileTrackingPage() {
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
-    const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
-    const notSubmitted = subjectsFiltered.filter(s => {
-      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
-      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
-      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
-    });
+    const isTracked = makeTrackingMatcher(dataForStats);
+    const notSubmitted = subjectsFiltered.filter(s => !isTracked(s));
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3889,7 +3957,10 @@ function fileTrackingPage() {
 function showAddFileTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
-    .map(name => `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`).join('');
+    .map(name => {
+      const s = subjects.find(x => x.subject_name === name) || {};
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+    }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
   const myName = (APP.currentUser && APP.currentUser.name || '').trim();
@@ -3899,7 +3970,8 @@ function showAddFileTrackingModal() {
   }).join('');
   showModal('เพิ่มข้อมูลติดตามการส่งแฟ้มรายวิชา', `
     <form id="addFileTrackingForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="fileTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
+      <input type="hidden" name="subject_code" id="fileTrackingSubjectCode">
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -3916,6 +3988,13 @@ function showAddFileTrackingModal() {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  // Auto-fill subject_code
+  const fSel = document.getElementById('fileTrackingSubjectSelect');
+  if (fSel) fSel.addEventListener('change', () => {
+    const opt = fSel.options[fSel.selectedIndex];
+    const codeEl = document.getElementById('fileTrackingSubjectCode');
+    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+  });
   document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
     const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
@@ -3924,6 +4003,12 @@ function showAddFileTrackingModal() {
     const allNames = [...checked, ...extraNames].filter(Boolean);
     const coordHidden = document.getElementById('fileTrackingCoordHidden');
     if (coordHidden) coordHidden.value = allNames.join(', ');
+    const ss = document.getElementById('fileTrackingSubjectSelect');
+    const cc = document.getElementById('fileTrackingSubjectCode');
+    if (ss && cc && !cc.value) {
+      const opt = ss.options[ss.selectedIndex];
+      cc.value = (opt && opt.dataset.code) || '';
+    }
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
