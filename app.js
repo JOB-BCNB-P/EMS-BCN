@@ -1235,15 +1235,30 @@ function subjectsPage() {
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
     const stuYearLevel = norm(APP.currentUser.data.year_level);
-    // เข้มงวด: แสดงเฉพาะรายวิชาที่ระบุรุ่น (batch) ตรงกับนักศึกษาเท่านั้น
-    // ถ้านักศึกษาไม่มี batch → fallback ใช้ year_level ที่ตรงเป๊ะ
-    // รายวิชาที่ไม่ได้ระบุรุ่น/ชั้นปี จะไม่แสดง
+    // ขั้น 1) กรองด้วย batch ก่อน — แสดงเฉพาะรายวิชาที่ batch ตรงกับนักศึกษา
+    //         (ถ้านักศึกษาไม่มี batch → fallback ใช้ year_level)
     if (stuBatch) {
       data = data.filter(s => norm(s.batch) === stuBatch);
     } else if (stuYearLevel) {
       data = data.filter(s => norm(s.year_level) === stuYearLevel);
     } else {
       data = [];
+    }
+    // ขั้น 2) ถ้ามีรายวิชาซ้ำ (รหัสวิชา + ภาค + ปี ตรงกัน) → กรองเพิ่มด้วย year_level
+    //         เพื่อเลือกเฉพาะรายวิชาของชั้นปีของนักศึกษา
+    if (stuYearLevel) {
+      const keyCounts = {};
+      data.forEach(s => {
+        const key = `${norm(s.subject_code)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+        keyCounts[key] = (keyCounts[key] || 0) + 1;
+      });
+      data = data.filter(s => {
+        const key = `${norm(s.subject_code)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+        if ((keyCounts[key] || 0) > 1) {
+          return norm(s.year_level) === stuYearLevel;
+        }
+        return true;
+      });
     }
   }
 
