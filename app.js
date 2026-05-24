@@ -3957,10 +3957,26 @@ function leavePage() {
   if (isTeacher) {
     const myName = (APP.currentUser.name || '').trim();
     data = data.filter(l => {
-      const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name);
-      if (!sub || !sub.coordinator) return false;
+      // 1) ใช้ coordinator ที่บันทึกไว้ในใบลาก่อน (ตรงตามช่วงเวลาที่นักศึกษาส่งลา)
+      let coordStr = (l.coordinator || '').trim();
+      // 2) fallback: ค้นจากตาราง subject — match ทั้ง subject_name + semester + academic_year
+      //    เพื่อกันกรณีรายวิชาเดียวกันแต่คนละปี/คนละ batch มีผู้ประสานคนละคน
+      if (!coordStr) {
+        const sub = getDataByType('subject').find(s =>
+          s.subject_name === l.subject_name &&
+          normSem(s.semester) === normSem(l.semester) &&
+          norm(s.academic_year) === norm(l.academic_year)
+        );
+        if (sub && sub.coordinator) coordStr = sub.coordinator;
+      }
+      // 3) สุดท้าย fallback หา subject ใดก็ได้ที่ชื่อตรง (กันใบลาเก่าที่ไม่มี coordinator)
+      if (!coordStr) {
+        const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name);
+        if (sub && sub.coordinator) coordStr = sub.coordinator;
+      }
+      if (!coordStr) return false;
       // Support multiple coordinators separated by comma / และ / and
-      const coords = String(sub.coordinator).split(/[,;|]|\sและ\s|\sand\s/).map(c => c.trim()).filter(Boolean);
+      const coords = String(coordStr).split(/[,;|]|\sและ\s|\sand\s/).map(c => c.trim()).filter(Boolean);
       return coords.some(c => c === myName || c.includes(myName) || myName.includes(c));
     });
   }
