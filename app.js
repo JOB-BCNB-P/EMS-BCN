@@ -462,7 +462,7 @@ function renderCurrentPage() {
 
 // ======================== HELPERS ========================
 // Normalize value from Google Sheet (strip .0, trim whitespace)
-function norm(v) { return String(v || '').replace(/\.0$/, '').trim() }
+function norm(v) { return String(v || '').replace(/\.0$/, '').replace(/\s+/g, ' ').trim() }
 
 // Convert YYYY-MM-DD (Gregorian) to DD/MM/YYYY (Buddhist Era)
 function toBuddhistDate(dateStr) {
@@ -3203,15 +3203,22 @@ function trackingPage() {
   const selectedYear = APP.filters._trackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
-  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+  // dataForStats: รวม record ที่ academic_year ตรง หรือ academic_year ว่าง (บันทึกโดยไม่ระบุปี)
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   // Only show not-submitted and stats when year is selected
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
     // Find subjects not yet in tracking
+    // Match ด้วย full key (name|sem|year) หรือ short key (name|sem) กรณี academic_year ว่างใน tracking sheet
     const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
+    const notSubmitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
+    });
 
     // Status counts
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
@@ -3224,7 +3231,11 @@ function trackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
-    const submitted = subjectsFiltered.filter(s => trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const submitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return trackedKeys.includes(fullKey) || trackedKeysNoYear.includes(shortKey);
+    });
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
         <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
@@ -3438,13 +3449,18 @@ function resultTrackingPage() {
   const selectedYear = APP.filters._resultTrackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
-  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
     const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
+    const notSubmitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
+    });
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.class_teacher_check === 'เสร็จสิ้น' || t.academic_propose === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3456,7 +3472,11 @@ function resultTrackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
-    const submitted = subjectsFiltered.filter(s => trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const submitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return trackedKeys.includes(fullKey) || trackedKeysNoYear.includes(shortKey);
+    });
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
         <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งผลการดำเนินงาน (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
@@ -3602,13 +3622,18 @@ function gradeTrackingPage() {
   const selectedYear = APP.filters._gradeTrackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
-  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
     const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
+    const notSubmitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
+    });
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
@@ -3759,13 +3784,18 @@ function fileTrackingPage() {
   const selectedYear = APP.filters._fileTrackingYear || '';
   const allSubjects = getDataByType('subject');
   const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
-  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear) : data;
+  const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
   let notSubmittedSection = '';
   if (selectedYear) {
     const trackedKeys = dataForStats.map(t => `${norm(t.subject_name)}|${normSem(t.semester)}|${norm(t.academic_year)}`);
-    const notSubmitted = subjectsFiltered.filter(s => !trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
+    const trackedKeysNoYear = dataForStats.filter(t => !norm(t.academic_year)).map(t => `${norm(t.subject_name)}|${normSem(t.semester)}`);
+    const notSubmitted = subjectsFiltered.filter(s => {
+      const fullKey = `${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+      const shortKey = `${norm(s.subject_name)}|${normSem(s.semester)}`;
+      return !trackedKeys.includes(fullKey) && !trackedKeysNoYear.includes(shortKey);
+    });
 
     const completed = dataForStats.filter(t => t.deputy_sign === 'เสร็จสิ้น').length;
     const inProgress = dataForStats.filter(t => (t.coordinator_check === 'เสร็จสิ้น' || t.academic_check === 'เสร็จสิ้น') && t.deputy_sign !== 'เสร็จสิ้น').length;
