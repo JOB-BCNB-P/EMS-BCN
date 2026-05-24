@@ -4097,8 +4097,11 @@ function leavePage() {
       data = data.filter(l => (l.name || '').trim() === leaveStudentName);
     }
   }
-  // ถ้าเป็น role ที่ต้องเลือกนักศึกษา แต่ยังไม่ได้เลือก → ซ่อนข้อมูล (ตามคำขอ user)
-  const requireStudentSelection = showStudentPicker && !leaveStudentName;
+  // ถ้าเป็น role ที่ต้อง "เลือกนักศึกษา" ก่อน แต่ยังไม่ได้เลือก → ซ่อนข้อมูล
+  // - admin / academic / executive / classTeacher → ต้องเลือกนักศึกษา
+  // - teacher → ดูใบลาของนักศึกษาทุกคนในวิชาตัวเองได้เลย (student picker เป็น optional)
+  // - student → ไม่เกี่ยว (เห็นแค่ของตัวเอง)
+  const requireStudentSelection = (isAdmin || isExecutive || isClassTeacher) && !leaveStudentName;
   if (requireStudentSelection) {
     data = []; // ไม่แสดงข้อมูลใบลาในตาราง / summary จนกว่าจะเลือกนักศึกษา
   }
@@ -4280,14 +4283,19 @@ function leavePage() {
 
     const showClearBtn = isTeacher ? !!leaveStudentName : (isClassTeacher ? !!leaveStudentName : (leaveYearLevel || leaveStudentName));
     const dropdownPlaceholder = isTeacher
-      ? '-- กรุณาเลือกนักศึกษา --'
+      ? '-- ทุกคน (นักศึกษาที่ลาในวิชาของคุณ) --'
       : (leaveYearLevel ? '-- เลือกนักศึกษาในชั้นปี ' + leaveYearLevel + ' --' : '-- กรุณาเลือกนักศึกษา --');
+    // Label: บังคับเลือก (มีดอกจันแดง) เฉพาะกรณีที่ requireStudentSelection
+    // teacher → optional filter ไม่บังคับ
+    const studentLabelHTML = isTeacher
+      ? `นักศึกษา <span class="text-[10px] text-gray-400">(เลือกเพื่อกรองเฉพาะคน — ไม่บังคับ)</span>`
+      : `นักศึกษา <span class="text-red-500">*</span> <span class="text-[10px] text-gray-400">(ต้องเลือกเพื่อดูข้อมูล)</span>`;
 
     adminFilterCard = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <div class="flex flex-wrap items-end gap-3">
         ${yearSelectorHTML}
         <div class="flex-1 min-w-[200px]">
-          <label class="block text-xs text-gray-600 mb-1">นักศึกษา <span class="text-red-500">*</span> <span class="text-[10px] text-gray-400">(ต้องเลือกเพื่อดูข้อมูล)</span></label>
+          <label class="block text-xs text-gray-600 mb-1">${studentLabelHTML}</label>
           <select onchange="setLeaveStudent(this.value)" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
             <option value="">${dropdownPlaceholder}</option>
             ${studentOptions}
