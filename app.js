@@ -4069,22 +4069,23 @@ function leavePage() {
   }
   data = applyFilters(data);
 
-  // Admin/Executive/ClassTeacher: extra year-level + student filters + pie chart
-  // - admin/executive: เลือก year ได้อิสระ + เลือกนักศึกษา
+  // Admin/Academic/Executive/ClassTeacher/Teacher: ใช้ student picker
+  // - admin/academic/executive: เลือก year ได้อิสระ + เลือกนักศึกษา
   // - classTeacher: บังคับใช้ year ที่ตัวเองรับผิดชอบ (เลือกได้แค่นักศึกษาในชั้นปีนั้น)
-  const showStudentPicker = isAdmin || isExecutive || isClassTeacher;
+  // - teacher: เลือกนักศึกษาจากที่มีใบลาในรายวิชาที่ตนเองสอน (ไม่ต้องเลือก year)
+  const showStudentPicker = isAdmin || isExecutive || isClassTeacher || isTeacher;
   let leaveYearLevel = '';
   let leaveStudentName = '';
   if (showStudentPicker) {
     if (isClassTeacher) {
       // อาจารย์ประจำชั้น: ล็อก year ไว้ที่ชั้นปีที่รับผิดชอบ
       leaveYearLevel = String(APP.currentUser.responsible_year || '1');
-    } else {
+    } else if (!isTeacher) {
       leaveYearLevel = APP.filters._leaveYearLevel || '';
     }
     leaveStudentName = APP.filters._leaveStudent || '';
-    // ใช้ year filter เฉพาะ admin/executive (classTeacher ถูกกรองตั้งแต่ขั้นต้นแล้ว)
-    if (leaveYearLevel && !isClassTeacher) {
+    // ใช้ year filter เฉพาะ admin/executive (classTeacher/teacher ถูกกรองตั้งแต่ขั้นต้นแล้ว)
+    if (leaveYearLevel && !isClassTeacher && !isTeacher) {
       const stuNameSet = new Set(
         getDataByType('student')
           .filter(s => norm(s.year_level) === norm(leaveYearLevel))
@@ -4095,6 +4096,11 @@ function leavePage() {
     if (leaveStudentName) {
       data = data.filter(l => (l.name || '').trim() === leaveStudentName);
     }
+  }
+  // ถ้าเป็น role ที่ต้องเลือกนักศึกษา แต่ยังไม่ได้เลือก → ซ่อนข้อมูล (ตามคำขอ user)
+  const requireStudentSelection = showStudentPicker && !leaveStudentName;
+  if (requireStudentSelection) {
+    data = []; // ไม่แสดงข้อมูลใบลาในตาราง / summary จนกว่าจะเลือกนักศึกษา
   }
 
   const total = data.length; const paged = paginate(data);
@@ -4213,34 +4219,54 @@ function leavePage() {
     summaryTable = leavePercentSummaryHTML(data, 'student_subject');
   }
 
-  // Admin/Executive/ClassTeacher: year-level + student filter card + pie chart
+  // Admin/Academic/Executive/ClassTeacher/Teacher: year-level + student filter card + pie chart
   let adminFilterCard = '';
   let pieChartCard = '';
   if (showStudentPicker) {
-    // สำหรับ classTeacher: year_level ถูกล็อกไว้ (เลือก year อื่นไม่ได้)
-    // สำหรับ admin/executive: เลือก year ได้อิสระ
-    const allStudents = getDataByType('student');
-    const studentsForDropdown = leaveYearLevel
-      ? allStudents.filter(s => norm(s.year_level) === norm(leaveYearLevel))
-      : allStudents;
-    const studentOptions = studentsForDropdown
-      .map(s => (s.name || '').trim())
-      .filter(Boolean)
-      .sort()
+    // Build student dropdown
+    //   - admin/executive: นักศึกษาทั้งหมด (กรองตาม year ที่เลือก ถ้ามี)
+    //   - classTeacher: นักศึกษาในชั้นปีที่ตัวเองรับผิดชอบ
+    //   - teacher: นักศึกษาที่มีใบลาในรายวิชาที่ตนเองสอน (ดึงจาก leave records)
+    let studentNamesForDropdown = [];
+    if (isTeacher) {
+      // หาจาก leave records ของวิชาที่ teacher คนนี้ดูแล
+      const myName = (APP.currentUser.name || '').trim();
+      const allLeavesForTeacher = getDataByType('leave').filter(l => {
+        if (l.leave_status === 'ปฏิเสธ') return false;
+        let coordStr = (l.coordinator || '').trim();
+        if (!coordStr) {
+          const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name);
+          if (sub) coordStr = sub.coordinator || '';
+        }
+        if (!coordStr) return false;
+        const coords = String(coordStr).split(/[,;|]|\sและ\s|\sand\s/).map(c => c.trim()).filter(Boolean);
+        return coords.some(c => c === myName || c.includes(myName) || myName.includes(c));
+      });
+      studentNamesForDropdown = [...new Set(allLeavesForTeacher.map(l => (l.name || '').trim()).filter(Boolean))].sort();
+    } else {
+      const allStudents = getDataByType('student');
+      const studentsForDropdown = leaveYearLevel
+        ? allStudents.filter(s => norm(s.year_level) === norm(leaveYearLevel))
+        : allStudents;
+      studentNamesForDropdown = studentsForDropdown.map(s => (s.name || '').trim()).filter(Boolean).sort();
+    }
+    const studentOptions = studentNamesForDropdown
       .map(name => `<option value="${name.replace(/"/g, '&quot;')}" ${leaveStudentName === name ? 'selected' : ''}>${name}</option>`)
       .join('');
 
-    // Build year selector — locked label for classTeacher, dropdown for admin/executive
-    const yearSelectorHTML = isClassTeacher
-      ? `<div>
+    // Year selector — locked for classTeacher, hidden for teacher, dropdown for admin/executive
+    let yearSelectorHTML = '';
+    if (isClassTeacher) {
+      yearSelectorHTML = `<div>
           <label class="block text-xs text-gray-600 mb-1">ชั้นปี</label>
           <div class="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 text-sm text-amber-800 font-medium flex items-center gap-2">
             <i data-lucide="lock" class="w-3 h-3"></i>
             ชั้นปีที่ ${leaveYearLevel}
             <span class="text-[10px] text-amber-600 font-normal">(ที่คุณรับผิดชอบ)</span>
           </div>
-        </div>`
-      : `<div>
+        </div>`;
+    } else if (!isTeacher) {
+      yearSelectorHTML = `<div>
           <label class="block text-xs text-gray-600 mb-1">ชั้นปี</label>
           <select onchange="setLeaveYearLevel(this.value)" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
             <option value="">ทุกชั้นปี</option>
@@ -4250,19 +4276,20 @@ function leavePage() {
             <option value="4" ${leaveYearLevel === '4' ? 'selected' : ''}>ชั้นปี 4</option>
           </select>
         </div>`;
+    }
 
-    // ปุ่ม "ล้างตัวกรอง":
-    //   - admin/executive: แสดงเมื่อมี year หรือ student
-    //   - classTeacher: แสดงเฉพาะเมื่อเลือก student แล้ว (ล้างได้แค่ student เพราะ year ล็อก)
-    const showClearBtn = isClassTeacher ? !!leaveStudentName : (leaveYearLevel || leaveStudentName);
+    const showClearBtn = isTeacher ? !!leaveStudentName : (isClassTeacher ? !!leaveStudentName : (leaveYearLevel || leaveStudentName));
+    const dropdownPlaceholder = isTeacher
+      ? '-- กรุณาเลือกนักศึกษา --'
+      : (leaveYearLevel ? '-- เลือกนักศึกษาในชั้นปี ' + leaveYearLevel + ' --' : '-- กรุณาเลือกนักศึกษา --');
 
     adminFilterCard = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <div class="flex flex-wrap items-end gap-3">
         ${yearSelectorHTML}
         <div class="flex-1 min-w-[200px]">
-          <label class="block text-xs text-gray-600 mb-1">นักศึกษา (เลือกเพื่อดูกราฟวงกลม)</label>
+          <label class="block text-xs text-gray-600 mb-1">นักศึกษา <span class="text-red-500">*</span> <span class="text-[10px] text-gray-400">(ต้องเลือกเพื่อดูข้อมูล)</span></label>
           <select onchange="setLeaveStudent(this.value)" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
-            <option value="">${leaveYearLevel ? 'ทุกคนในชั้นปี ' + leaveYearLevel : 'ทุกคน'}</option>
+            <option value="">${dropdownPlaceholder}</option>
             ${studentOptions}
           </select>
         </div>
@@ -4274,12 +4301,20 @@ function leavePage() {
     }
   }
 
+  // ถ้า user เป็น role ที่ต้องเลือกนักศึกษา แต่ยังไม่ได้เลือก → แสดง empty state แทนตาราง+summary
+  const emptyStateMsg = requireStudentSelection
+    ? `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400">
+        <i data-lucide="user-search" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+        <p class="text-sm">กรุณาเลือกนักศึกษาจากตัวกรองด้านบน เพื่อดูข้อมูลการลา</p>
+      </div>`
+    : '';
+
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="calendar-off" class="w-6 h-6 inline mr-2"></i>ระบบการลาของนักศึกษา</h2>
   ${isAdmin ? `<div class="flex gap-2 mb-4"><button onclick="showAddLeaveModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มข้อมูลการลา</button>${csvUploadBtn('leave', 'name,subject_name,leave_hours,leave_percent,semester,academic_year,leave_date,leave_type')}</div>` : ''}
   ${pendingBanner}
   ${form}
   ${adminFilterCard}
-  ${pieChartCard}
+  ${requireStudentSelection ? emptyStateMsg : `${pieChartCard}
   ${summaryTable}
   ${filterBar()}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
@@ -4380,7 +4415,7 @@ function leavePage() {
   }).join('') : '<tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
 }
 
 function showAddLeaveModal() {
