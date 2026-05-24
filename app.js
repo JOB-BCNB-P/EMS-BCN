@@ -1235,6 +1235,14 @@ function subjectsPage() {
   if (isStudent && APP.currentUser.data) {
     const stuBatch = norm(APP.currentUser.data.batch);
     const stuYearLevel = norm(APP.currentUser.data.year_level);
+    // [DIAGNOSTIC] log ข้อมูลก่อนกรอง — เปิด Console (F12) ดูได้
+    try {
+      const beforeFilter = data.length;
+      const geSubjects = data.filter(s => (s.subject_code || '').toUpperCase().startsWith('GE'));
+      console.log('[Subjects] นักศึกษา:', { name: APP.currentUser.data.name, batch: stuBatch, year_level: stuYearLevel });
+      console.log('[Subjects] รายวิชาก่อนกรอง:', beforeFilter, '| GE ทั้งหมดในปี', selectedYear, ':', geSubjects.length);
+      console.table(geSubjects.map(s => ({ code: s.subject_code, name: s.subject_name, batch: s.batch, year_level: s.year_level, sem: s.semester, year: s.academic_year })));
+    } catch (e) { }
     // ขั้น 1) กรองรายวิชาให้ตรงกับนักศึกษา
     //   - ถ้ารายวิชาระบุ batch → batch ต้องตรงกับนักศึกษา
     //   - ถ้ารายวิชาไม่ระบุ batch (เช่นวิชา GE ทั่วไป) → ใช้ year_level ตรงเป็นตัวจับคู่
@@ -1251,6 +1259,7 @@ function subjectsPage() {
     } else {
       data = [];
     }
+    try { console.log('[Subjects] รายวิชาหลังกรองด้วยรุ่น/ชั้นปี:', data.length); } catch (e) { }
     // ขั้น 2) ถ้ามีรายวิชาซ้ำ (รหัสวิชา + ภาค + ปี ตรงกัน) → กรองเพิ่มด้วย year_level
     //         เพื่อเลือกเฉพาะรายวิชาของชั้นปีของนักศึกษา
     if (stuYearLevel) {
@@ -3986,8 +3995,34 @@ function leavePage() {
   let form = '';
   if (isStudent) {
     const stuYearLevel = APP.currentUser.data?.year_level || '';
+    const stuBatch = APP.currentUser.data?.batch || '';
     const allSubjects = getDataByType('subject');
-    const subjects = stuYearLevel ? allSubjects.filter(s => norm(s.year_level) === norm(stuYearLevel)) : allSubjects;
+    // กรองรายวิชาตามนักศึกษา (batch + year_level)
+    //   - ถ้ารายวิชาระบุ batch → batch ต้องตรงกับนักศึกษา
+    //   - ถ้ารายวิชาไม่ระบุ batch (เช่นวิชา GE ทั่วไป) → ใช้ year_level ตรงเป็นตัวจับคู่
+    let subjects = allSubjects;
+    if (norm(stuBatch)) {
+      subjects = subjects.filter(s => {
+        const sBatch = norm(s.batch);
+        if (sBatch) return sBatch === norm(stuBatch);
+        return norm(s.year_level) === norm(stuYearLevel);
+      });
+    } else if (stuYearLevel) {
+      subjects = subjects.filter(s => norm(s.year_level) === norm(stuYearLevel));
+    }
+    // ขจัดรายวิชาซ้ำ: ถ้ามี subject_code+ภาค+ปี ซ้ำกัน → เลือกเฉพาะที่ year_level ตรงกับนักศึกษา
+    if (stuYearLevel) {
+      const keyCounts = {};
+      subjects.forEach(s => {
+        const k = `${norm(s.subject_code)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+        keyCounts[k] = (keyCounts[k] || 0) + 1;
+      });
+      subjects = subjects.filter(s => {
+        const k = `${norm(s.subject_code)}|${normSem(s.semester)}|${norm(s.academic_year)}`;
+        if ((keyCounts[k] || 0) > 1) return norm(s.year_level) === norm(stuYearLevel);
+        return true;
+      });
+    }
     // Auto-detect class teacher from teacher records by responsible_year matching student's year_level
     const allTeachers = getDataByType('teacher');
     const classTeacherRec = stuYearLevel
