@@ -654,29 +654,102 @@ function closeModal() {
   setTimeout(() => { mc.classList.add('hidden'); mc.innerHTML = '' }, 220);
 }
 
+// คืนรายการใบลาที่ "รอ" การอนุมัติของ user ปัจจุบัน (ตามบทบาท teacher/classTeacher/executive)
+// หลังจาก user กดอนุมัติ → leave นั้นจะไม่อยู่ในลิสต์นี้อีก → bell count ลดอัตโนมัติ
+function getPendingLeavesForCurrentRole() {
+  const role = APP.currentRole;
+  if (role !== 'teacher' && role !== 'classTeacher' && role !== 'executive') return [];
+  let leaves = getDataByType('leave').filter(l => l.leave_status !== 'ปฏิเสธ');
+  if (role === 'teacher') {
+    const myName = (APP.currentUser.name || '').trim();
+    leaves = leaves.filter(l => {
+      if ((l.coordinator_approval || 'รอ') !== 'รอ') return false;
+      let coordStr = (l.coordinator || '').trim();
+      if (!coordStr) {
+        const sub = getDataByType('subject').find(s =>
+          s.subject_name === l.subject_name &&
+          normSem(s.semester) === normSem(l.semester) &&
+          norm(s.academic_year) === norm(l.academic_year)
+        );
+        if (sub && sub.coordinator) coordStr = sub.coordinator;
+      }
+      if (!coordStr) {
+        const sub = getDataByType('subject').find(s => s.subject_name === l.subject_name);
+        if (sub && sub.coordinator) coordStr = sub.coordinator;
+      }
+      if (!coordStr) return false;
+      const coords = String(coordStr).split(/[,;|]|\sและ\s|\sand\s/).map(c => c.trim()).filter(Boolean);
+      return coords.some(c => c === myName || c.includes(myName) || myName.includes(c));
+    });
+  } else if (role === 'classTeacher') {
+    const yr = APP.currentUser.responsible_year || '1';
+    const stuNameSet = new Set(
+      getDataByType('student').filter(s => norm(s.year_level) === norm(yr)).map(s => (s.name || '').trim())
+    );
+    const myName = (APP.currentUser.name || '').trim();
+    leaves = leaves.filter(l => {
+      const isMyStudent = stuNameSet.has((l.name || '').trim()) || ((l.class_teacher || '').trim() === myName);
+      return isMyStudent && allCoordinatorsApproved(l) && (l.class_teacher_approval || 'รอ') === 'รอ';
+    });
+  } else if (role === 'executive') {
+    leaves = leaves.filter(l =>
+      l.coordinator_approval === 'อนุมัติ' &&
+      l.class_teacher_approval === 'อนุมัติ' &&
+      (l.deputy_approval || 'รอ') === 'รอ'
+    );
+  }
+  return leaves;
+}
+
 function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
-  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว
+  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว (เฉพาะส่วนประกาศ — ส่วนใบลาจะอัปเดตอัตโนมัติเมื่ออนุมัติ)
   const seenCount = getDataByType('announcement').length;
   try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
-  const b = document.getElementById('notifBadge');
-  if (b) b.classList.add('hidden');
+  updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  // แสดงประกาศใหม่สุดสูงสุด 10 รายการ
   const ann = getDataByType('announcement').slice(-10).reverse();
-  document.getElementById('notifList').innerHTML = ann.length ? ann.map(a => `<div class="p-3 bg-surface rounded-xl"><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500 mt-1">${a.announcement_date || ''}</p><p class="text-xs text-gray-600 mt-1">${a.announcement_content || ''}</p></div>`).join('') : '<p class="text-gray-400 text-center text-sm">ไม่มีการแจ้งเตือน</p>';
+  const pendingLeaves = getPendingLeavesForCurrentRole();
+  let html = '';
+  // === ส่วน "ใบลารออนุมัติ" ===
+  if (pendingLeaves.length) {
+    html += `<div class="mb-3">
+      <p class="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
+        <i data-lucide="alert-circle" class="w-3 h-3"></i>ใบลารออนุมัติของคุณ (${pendingLeaves.length})
+      </p>`;
+    html += pendingLeaves.slice(0, 15).map(l => {
+      const dateText = toBuddhistDateList ? toBuddhistDateList(l.leave_date) : (l.leave_date || '-');
+      return `<div class="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-2 cursor-pointer hover:bg-amber-100 transition" onclick="closeNotifications();navigateTo('leave')">
+        <p class="font-medium text-sm text-gray-800">${l.name || ''}</p>
+        <p class="text-xs text-gray-700 mt-1"><i data-lucide="book-open" class="w-3 h-3 inline mr-0.5"></i>${l.subject_name || ''}</p>
+        <p class="text-xs text-gray-600 mt-1"><i data-lucide="calendar" class="w-3 h-3 inline mr-0.5"></i>${dateText} · ${l.leave_type || ''} · ${l.leave_hours || '-'} ชม.</p>
+        <p class="text-xs text-amber-700 font-medium mt-1">⏳ คลิกเพื่อไปอนุมัติ</p>
+      </div>`;
+    }).join('');
+    html += `</div>`;
+  }
+  // === ส่วน "ประกาศ" ===
+  if (ann.length) {
+    if (pendingLeaves.length) html += `<div class="border-t pt-2 mt-1"></div>`;
+    html += `<p class="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><i data-lucide="megaphone" class="w-3 h-3"></i>ประกาศ (${ann.length})</p>`;
+    html += ann.map(a => `<div class="p-3 bg-surface rounded-xl mb-2"><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500 mt-1">${a.announcement_date || ''}</p><p class="text-xs text-gray-600 mt-1">${a.announcement_content || ''}</p></div>`).join('');
+  }
+  document.getElementById('notifList').innerHTML = html || '<p class="text-gray-400 text-center text-sm">ไม่มีการแจ้งเตือน</p>';
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
-  const total = getDataByType('announcement').length;
-  let seen = 0;
-  try { seen = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
-  const unseen = Math.max(0, total - seen);
-  if (unseen > 0) { b.textContent = unseen > 99 ? '99+' : unseen; b.classList.remove('hidden'); } else b.classList.add('hidden');
+  const annTotal = getDataByType('announcement').length;
+  let seenAnn = 0;
+  try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
+  const unseenAnn = Math.max(0, annTotal - seenAnn);
+  const pendingLeaves = getPendingLeavesForCurrentRole().length;
+  const total = unseenAnn + pendingLeaves;
+  if (total > 0) { b.textContent = total > 99 ? '99+' : total; b.classList.remove('hidden'); } else b.classList.add('hidden');
 }
 
 function paginationHTML(total, perPage, page, onChange) {
@@ -4219,6 +4292,13 @@ function leavePage() {
     else if (!classApproved) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">⏳ รออาจารย์ประจำชั้น</span>';
     else if (!deputyApproved) currentStage = '<span class="px-2 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200">⏳ รอผู้บริหาร</span>';
 
+    // หมายเหตุจากแต่ละขั้นการอนุมัติ (แสดงใต้ workflow steps)
+    const notesList = [];
+    if (l.coordinator_note) notesList.push(`<div class="text-[11px] text-gray-700 bg-gray-50 border-l-2 border-amber-300 px-2 py-1 rounded mt-1" title="หมายเหตุจากอาจารย์ผู้ประสาน"><strong class="text-amber-700">ปสน.:</strong> ${l.coordinator_note}</div>`);
+    if (l.class_teacher_note) notesList.push(`<div class="text-[11px] text-gray-700 bg-gray-50 border-l-2 border-blue-300 px-2 py-1 rounded mt-1" title="หมายเหตุจากอาจารย์ประจำชั้น"><strong class="text-blue-700">ปจช.:</strong> ${l.class_teacher_note}</div>`);
+    if (l.deputy_note) notesList.push(`<div class="text-[11px] text-gray-700 bg-gray-50 border-l-2 border-purple-300 px-2 py-1 rounded mt-1" title="หมายเหตุจากผู้บริหาร"><strong class="text-purple-700">ผบห.:</strong> ${l.deputy_note}</div>`);
+    const notesHTML = notesList.length ? `<div class="mt-1.5">${notesList.join('')}</div>` : '';
+
     const approvalField = isTeacher ? 'coordinator_approval' : isClassTeacher ? 'class_teacher_approval' : isExecutive ? 'deputy_approval' : '';
     const myApprovalStatus = approvalField ? (l[approvalField] || 'รอ') : '';
 
@@ -4228,17 +4308,17 @@ function leavePage() {
     const waitingForLabel = isClassTeacher ? (allCoordsOk ? 'รออาจารย์ผู้ประสานอนุมัติก่อน' : 'รอ coordinator วิชาอื่นอนุมัติครบก่อน') : 'รออาจารย์ประจำชั้นอนุมัติก่อน';
 
     const renderApprovalCell = () => {
-      // Student/admin view: show only the workflow + current stage
+      // Student/admin view: show only the workflow + current stage + notes
       if (!canApprove) {
-        return `${workflowSteps}${currentStage || '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">รอส่ง</span>'}`;
+        return `${workflowSteps}${currentStage || '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">รอส่ง</span>'}${notesHTML}`;
       }
       if (isRejected && myApprovalStatus !== 'ปฏิเสธ' && myApprovalStatus !== 'อนุมัติ') {
-        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ใบลาถูกปฏิเสธแล้ว</span>`;
+        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ใบลาถูกปฏิเสธแล้ว</span>${notesHTML}`;
       }
-      if (myApprovalStatus === 'อนุมัติ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>`;
-      if (myApprovalStatus === 'ปฏิเสธ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>`;
+      if (myApprovalStatus === 'อนุมัติ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700"><i data-lucide="check" class="w-3 h-3 inline"></i> คุณอนุมัติแล้ว</span>${notesHTML}`;
+      if (myApprovalStatus === 'ปฏิเสธ') return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700"><i data-lucide="x" class="w-3 h-3 inline"></i> คุณปฏิเสธแล้ว</span>${notesHTML}`;
       if (cannotActYet) {
-        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ ${waitingForLabel}</span>`;
+        return `${workflowSteps}<span class="px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">⏳ ${waitingForLabel}</span>${notesHTML}`;
       }
       // Coordinator (teacher) — percent modal; class teacher — note modal; executive — note modal
       const onclickApprove = isTeacher
@@ -4251,7 +4331,7 @@ function leavePage() {
       return `${workflowSteps}<div class="flex gap-1">
           <button onclick="${onclickApprove}" class="px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>อนุมัติ</button>
           <button onclick="rejectLeave('${l.__backendId}','${approvalField}')" class="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i>ปฏิเสธ</button>
-        </div>`;
+        </div>${notesHTML}`;
     };
     const approvalButtons = renderApprovalCell();
 
@@ -4883,7 +4963,7 @@ async function approveLeave(id, approvalField, extra) {
   showToast('กำลังบันทึก...', 'loading');
   const r = await GSheetDB.update(rec);
   hideLoadingToast && hideLoadingToast();
-  if (r.isOk) { showToast('อนุมัติการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+  if (r.isOk) { showToast('อนุมัติการลาสำเร็จ'); renderCurrentPage(); updateNotifBadge(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
 }
 
 async function rejectLeave(id, approvalField) {
@@ -4895,7 +4975,7 @@ async function rejectLeave(id, approvalField) {
   showToast('กำลังบันทึก...', 'loading');
   const r = await GSheetDB.update(rec);
   hideLoadingToast && hideLoadingToast();
-  if (r.isOk) { showToast('ปฏิเสธการลาสำเร็จ'); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+  if (r.isOk) { showToast('ปฏิเสธการลาสำเร็จ'); renderCurrentPage(); updateNotifBadge(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
 }
 
 // Coordinator approves leave + fills in leave_percent
