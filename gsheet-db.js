@@ -37,15 +37,21 @@ const GSheetDB = (() => {
 
     // ---------- READ ----------
     async function fetchTab(tabName) {
-        const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1`;
+        // ใช้ range=A1:AZ5000 บังคับให้ gviz อ่านข้อมูลในช่วงนี้ทั้งหมด
+        // (ป้องกัน gviz auto-detect range ผิดเมื่อมี blank row คั่นกลาง)
+        // + cache buster (timestamp) กันเบราว์เซอร์ cache
+        const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1&range=A1:AZ5000&_=${Date.now()}`;
         try {
-            const resp = await fetch(url);
+            const resp = await fetch(url, { cache: 'no-store' });
             if (!resp.ok) return [];
             let text = await resp.text();
             const jsonStr = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
             if (!jsonStr) return [];
             const json = JSON.parse(jsonStr[1]);
-            if (json.status === 'error') return [];
+            if (json.status === 'error') {
+                console.warn(`[GSheet] Tab "${tabName}" error:`, json.errors);
+                return [];
+            }
             if (!json.table || !json.table.cols || !json.table.rows) return [];
 
             let cols = json.table.cols.map(c => (c.label || '').trim());
@@ -54,19 +60,24 @@ const GSheetDB = (() => {
                 if (fr && fr.c) { cols = fr.c.map(cell => cell ? String(cell.v || '').trim() : ''); json.table.rows.shift(); }
             }
 
-            return (json.table.rows || []).map((row, idx) => {
+            const rawRowCount = (json.table.rows || []).length;
+            const result = (json.table.rows || []).map((row, idx) => {
                 const obj = { type: tabName, __backendId: `${tabName}_${idx}`, __rowIndex: idx + 2 };
-                row.c.forEach((cell, i) => {
-                    if (cols[i]) {
-                        let val = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
-                        if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
-                        // Handle scientific notation from Google Sheets (e.g. 1.40932E5)
-                        if (val.match(/^[\d.]+[Ee][+\-]?\d+$/)) { try { val = String(BigInt(Math.round(Number(val)))); } catch (_) { val = String(Math.round(Number(val))); } }
-                        obj[cols[i]] = val;
-                    }
-                });
+                if (row && Array.isArray(row.c)) {
+                    row.c.forEach((cell, i) => {
+                        if (cols[i]) {
+                            let val = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+                            if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
+                            // Handle scientific notation from Google Sheets (e.g. 1.40932E5)
+                            if (val.match(/^[\d.]+[Ee][+\-]?\d+$/)) { try { val = String(BigInt(Math.round(Number(val)))); } catch (_) { val = String(Math.round(Number(val))); } }
+                            obj[cols[i]] = val;
+                        }
+                    });
+                }
                 return obj;
             }).filter(obj => Object.entries(obj).some(([k, v]) => !['type', '__backendId', '__rowIndex'].includes(k) && v !== ''));
+            console.log(`[GSheet] Tab "${tabName}" — raw rows: ${rawRowCount}, valid rows: ${result.length}`);
+            return result;
         } catch (err) { console.warn(`Tab "${tabName}":`, err.message); return []; }
     }
 
