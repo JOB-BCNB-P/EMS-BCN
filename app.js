@@ -3223,10 +3223,17 @@ function trackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
+    const submitted = subjectsFiltered.filter(s => trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
-        <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา)</h3>
-        <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+        <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งรายละเอียด (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
+        <div class="flex flex-wrap gap-2 tracking-list-body">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+      </div>`;
+    }
+    if (submitted.length) {
+      notSubmittedSection += `<div class="bg-green-50 rounded-2xl p-4 border border-green-200 mb-4">
+        <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-green-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="check-circle" class="w-4 h-4"></i>รายวิชาที่ส่งรายละเอียดแล้ว (${submitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
+        <div class="flex flex-wrap gap-2 tracking-list-body hidden">${submitted.map(s => `<span class="px-3 py-1 bg-white border border-green-200 rounded-lg text-xs text-green-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
       </div>`;
     }
   }
@@ -3448,10 +3455,17 @@ function resultTrackingPage() {
       ${statCard('loader', 'กำลังดำเนินการ', inProgress, 'วิชา', 'bg-blue-500')}
       ${statCard('check-circle', 'เสร็จสิ้น', completed, 'วิชา', 'bg-green-500')}
     </div>`;
+    const submitted = subjectsFiltered.filter(s => trackedKeys.includes(`${norm(s.subject_name)}|${normSem(s.semester)}|${norm(s.academic_year)}`));
     if (notSubmitted.length) {
       notSubmittedSection = `<div class="bg-red-50 rounded-2xl p-4 border border-red-200 mb-4">
-        <h3 class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งผลการดำเนินงาน (${notSubmitted.length} วิชา)</h3>
-        <div class="flex flex-wrap gap-2">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+        <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-red-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="alert-triangle" class="w-4 h-4"></i>รายวิชาที่ยังไม่ส่งผลการดำเนินงาน (${notSubmitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
+        <div class="flex flex-wrap gap-2 tracking-list-body">${notSubmitted.map(s => `<span class="px-3 py-1 bg-white border border-red-200 rounded-lg text-xs text-red-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
+      </div>`;
+    }
+    if (submitted.length) {
+      notSubmittedSection += `<div class="bg-green-50 rounded-2xl p-4 border border-green-200 mb-4">
+        <h3 onclick="this.parentElement.querySelector('.tracking-list-body').classList.toggle('hidden')" class="font-bold text-green-700 mb-2 text-sm flex items-center gap-2 cursor-pointer select-none"><i data-lucide="check-circle" class="w-4 h-4"></i>รายวิชาที่ส่งผลการดำเนินงานแล้ว (${submitted.length} วิชา) <i data-lucide="chevron-down" class="w-4 h-4 ml-auto"></i></h3>
+        <div class="flex flex-wrap gap-2 tracking-list-body hidden">${submitted.map(s => `<span class="px-3 py-1 bg-white border border-green-200 rounded-lg text-xs text-green-700">${s.subject_code ? s.subject_code + ' ' : ''}${s.subject_name || ''} <span class="text-gray-400">(ภาค ${s.semester || ''})</span></span>`).join('')}</div>
       </div>`;
     }
   }
