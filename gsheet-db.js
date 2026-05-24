@@ -67,6 +67,12 @@ const GSheetDB = (() => {
                     row.c.forEach((cell, i) => {
                         if (cols[i]) {
                             let val = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+                            // Fallback: ถ้า cell.v ว่าง/null แต่ cell.f (formatted/displayed value) มีค่า — ใช้แทน
+                            // กรณีนี้เกิดเมื่อ cell type ในชีตไม่ตรงกับ column type ที่ gviz auto-detect
+                            // (เช่น column เป็น Number แต่ cell เก็บเป็น Text — gviz return null)
+                            if (!val && cell && cell.f !== undefined && cell.f !== null && String(cell.f).trim() !== '') {
+                                val = String(cell.f).trim();
+                            }
                             if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
                             // Handle scientific notation from Google Sheets (e.g. 1.40932E5)
                             if (val.match(/^[\d.]+[Ee][+\-]?\d+$/)) { try { val = String(BigInt(Math.round(Number(val)))); } catch (_) { val = String(Math.round(Number(val))); } }
