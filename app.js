@@ -1238,11 +1238,27 @@ function subjectsPage() {
     // [DIAGNOSTIC] log ข้อมูลก่อนกรอง — เปิด Console (F12) ดูได้
     try {
       const beforeFilter = data.length;
-      const geSubjects = data.filter(s => (s.subject_code || '').toUpperCase().startsWith('GE'));
+      const allGeRaw = allSubjects.filter(s => (s.subject_code || '').toUpperCase().startsWith('GE'));
+      const allBatch80Raw = allSubjects.filter(s => norm(s.batch) === '80');
       console.log('[Subjects] นักศึกษา:', { name: APP.currentUser.data.name, batch: stuBatch, year_level: stuYearLevel });
-      console.log('[Subjects] รายวิชาก่อนกรอง:', beforeFilter, '| GE ทั้งหมดในปี', selectedYear, ':', geSubjects.length);
-      console.table(geSubjects.map(s => ({ code: s.subject_code, name: s.subject_name, batch: s.batch, year_level: s.year_level, sem: s.semester, year: s.academic_year })));
-    } catch (e) { }
+      console.log('[Subjects] selectedYear =', JSON.stringify(selectedYear), '| ทั้งหมดในชีต =', allSubjects.length, '| ในปีที่เลือก =', beforeFilter);
+      console.log('[Subjects] === GE ทุกตัว (จากทั้งชีต) ===');
+      console.table(allGeRaw.map(s => ({
+        code: s.subject_code, batch: s.batch, year_level: s.year_level, sem: s.semester,
+        academic_year_RAW: s.academic_year,
+        academic_year_norm: norm(s.academic_year),
+        academic_year_type: typeof s.academic_year,
+        academic_year_length: (s.academic_year || '').length,
+        matches_2568: norm(s.academic_year) === '2568'
+      })));
+      console.log('[Subjects] === Batch 80 ทุกตัว (จากทั้งชีต) ===');
+      console.table(allBatch80Raw.map(s => ({
+        code: s.subject_code, year_level: s.year_level, sem: s.semester,
+        academic_year_RAW: s.academic_year,
+        academic_year_norm: norm(s.academic_year),
+        matches_2568: norm(s.academic_year) === '2568'
+      })));
+    } catch (e) { console.error('diag err', e); }
     // ขั้น 1) กรองรายวิชาให้ตรงกับนักศึกษา
     //   - ถ้ารายวิชาระบุ batch → batch ต้องตรงกับนักศึกษา
     //   - ถ้ารายวิชาไม่ระบุ batch (เช่นวิชา GE ทั่วไป) → ใช้ year_level ตรงเป็นตัวจับคู่
