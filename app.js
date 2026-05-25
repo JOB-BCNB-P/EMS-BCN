@@ -572,6 +572,16 @@ function normSem(v) {
   return s;
 }
 
+// ตรวจว่ารายวิชาๆ หนึ่งมีอาจารย์คนนี้เป็น coordinator หรือไม่
+// coordinator ในรายวิชาอาจเก็บเป็นรายชื่อ คั่นด้วย ',' หรือ '/'
+function subjectHasCoordinator(subject, teacherName) {
+  const name = norm(teacherName);
+  if (!name) return false;
+  const list = String(subject.coordinator || '').split(/[,\/]/).map(s => norm(s)).filter(Boolean);
+  if (!list.length) return false;
+  return list.some(c => c === name || c.includes(name) || name.includes(c));
+}
+
 // ตัวช่วยจับคู่รายวิชา ↔ tracking record
 // คืนค่าฟังก์ชัน isTracked(subject) ที่จะ true ถ้ารายวิชานี้มี tracking record อยู่แล้ว
 // กฎ:
@@ -3239,12 +3249,14 @@ function trackingPage() {
   const canApprove = isAdmin || isExecutive;
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('tracking').filter(t => t.subject_name && t.subject_name.trim());
-  if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+  if (APP.currentRole === 'teacher') data = data.filter(t => subjectHasCoordinator({ coordinator: t.coordinator }, APP.currentUser.name));
 
   // Year filter for stats
   const selectedYear = APP.filters._trackingYear || '';
   const allSubjects = getDataByType('subject');
-  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  let subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  // teacher: เห็นเฉพาะวิชาที่ตัวเองเป็นผู้ประสานงาน
+  if (APP.currentRole === 'teacher') subjectsFiltered = subjectsFiltered.filter(s => subjectHasCoordinator(s, APP.currentUser.name));
   // dataForStats: รวม record ที่ academic_year ตรง หรือ academic_year ว่าง (บันทึกโดยไม่ระบุปี)
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
@@ -3497,11 +3509,12 @@ function resultTrackingPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('result_tracking').filter(t => t.subject_name && t.subject_name.trim());
-  if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+  if (APP.currentRole === 'teacher') data = data.filter(t => subjectHasCoordinator({ coordinator: t.coordinator }, APP.currentUser.name));
 
   const selectedYear = APP.filters._resultTrackingYear || '';
   const allSubjects = getDataByType('subject');
-  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  let subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  if (APP.currentRole === 'teacher') subjectsFiltered = subjectsFiltered.filter(s => subjectHasCoordinator(s, APP.currentUser.name));
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
@@ -3678,11 +3691,12 @@ function gradeTrackingPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('grade_tracking').filter(t => t.subject_name && t.subject_name.trim());
-  if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+  if (APP.currentRole === 'teacher') data = data.filter(t => subjectHasCoordinator({ coordinator: t.coordinator }, APP.currentUser.name));
 
   const selectedYear = APP.filters._gradeTrackingYear || '';
   const allSubjects = getDataByType('subject');
-  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  let subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  if (APP.currentRole === 'teacher') subjectsFiltered = subjectsFiltered.filter(s => subjectHasCoordinator(s, APP.currentUser.name));
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
@@ -3852,11 +3866,12 @@ function fileTrackingPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   let data = getDataByType('file_tracking').filter(t => t.subject_name && t.subject_name.trim());
-  if (APP.currentRole === 'teacher') data = data.filter(t => t.coordinator === APP.currentUser.name);
+  if (APP.currentRole === 'teacher') data = data.filter(t => subjectHasCoordinator({ coordinator: t.coordinator }, APP.currentUser.name));
 
   const selectedYear = APP.filters._fileTrackingYear || '';
   const allSubjects = getDataByType('subject');
-  const subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  let subjectsFiltered = selectedYear ? allSubjects.filter(s => norm(s.academic_year) === selectedYear) : allSubjects;
+  if (APP.currentRole === 'teacher') subjectsFiltered = subjectsFiltered.filter(s => subjectHasCoordinator(s, APP.currentUser.name));
   const dataForStats = selectedYear ? data.filter(t => norm(t.academic_year) === selectedYear || !norm(t.academic_year)) : data;
 
   let statsSection = '';
