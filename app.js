@@ -754,6 +754,42 @@ function getPendingLeavesForCurrentRole() {
   return leaves;
 }
 
+// คืนรายการ tracking record (รายละเอียด/ผลการดำเนินงาน/เกรด/แฟ้ม)
+// ที่ "รอ" การอนุมัติของ user ปัจจุบัน (classTeacher/academic/admin/executive)
+// type: tracking/result_tracking ใช้ field class_teacher_check, academic_propose, deputy_sign
+// type: grade_tracking/file_tracking ใช้ field coordinator_check, academic_check, deputy_sign
+function getPendingTrackingsForCurrentRole() {
+  const role = APP.currentRole;
+  if (role !== 'classTeacher' && role !== 'admin' && role !== 'academic' && role !== 'executive') return [];
+  const types = [
+    { type: 'tracking', page: 'tracking', label: 'รายละเอียดรายวิชา', step1: 'class_teacher_check', step2: 'academic_propose', step3: 'deputy_sign' },
+    { type: 'result_tracking', page: 'resultTracking', label: 'ผลการดำเนินงาน', step1: 'class_teacher_check', step2: 'academic_propose', step3: 'deputy_sign' },
+    { type: 'grade_tracking', page: 'gradeTracking', label: 'เกรด', step1: 'coordinator_check', step2: 'academic_check', step3: 'deputy_sign' },
+    { type: 'file_tracking', page: 'fileTracking', label: 'แฟ้มรายวิชา', step1: 'coordinator_check', step2: 'academic_check', step3: 'deputy_sign' },
+  ];
+  const isPendingForRole = (rec, t) => {
+    const s1 = rec[t.step1], s2 = rec[t.step2], s3 = rec[t.step3];
+    if (role === 'classTeacher') {
+      return (!s1 || s1 === 'รอ' || s1 === 'ส่งกลับแก้ไข');
+    }
+    if (role === 'admin' || role === 'academic') {
+      return s1 === 'เสร็จสิ้น' && (!s2 || s2 === 'รอ' || s2 === 'ส่งกลับแก้ไข');
+    }
+    if (role === 'executive') {
+      return s2 === 'เสร็จสิ้น' && (!s3 || s3 === 'รอ' || s3 === 'ส่งกลับแก้ไข');
+    }
+    return false;
+  };
+  const pendings = [];
+  types.forEach(t => {
+    const records = getDataByType(t.type).filter(r => r.subject_name && r.subject_name.trim());
+    records.forEach(r => {
+      if (isPendingForRole(r, t)) pendings.push({ rec: r, type: t });
+    });
+  });
+  return pendings;
+}
+
 function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
@@ -766,6 +802,7 @@ function closeNotifications() { document.getElementById('notifPanel').style.tran
 function renderNotifications() {
   const ann = getDataByType('announcement').slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
+  const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
   // === ส่วน "ใบลารออนุมัติ" ===
   if (pendingLeaves.length) {
@@ -784,9 +821,31 @@ function renderNotifications() {
     }).join('');
     html += `</div>`;
   }
+  // === ส่วน "ติดตามการส่งรออนุมัติ" ===
+  if (pendingTracks.length) {
+    if (pendingLeaves.length) html += `<div class="border-t pt-2 mt-1"></div>`;
+    html += `<div class="mb-3">
+      <p class="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1">
+        <i data-lucide="file-check" class="w-3 h-3"></i>ติดตามการส่งรออนุมัติของคุณ (${pendingTracks.length})
+      </p>`;
+    html += pendingTracks.slice(0, 20).map(p => {
+      const r = p.rec, t = p.type;
+      const semText = r.semester ? ` · ภาค ${r.semester}` : '';
+      const yrText = r.academic_year ? `/${r.academic_year}` : '';
+      const coordText = r.coordinator ? ` · ${r.coordinator}` : '';
+      const subText = `${r.subject_code ? r.subject_code + ' ' : ''}${r.subject_name || ''}`;
+      return `<div class="p-3 bg-orange-50 border border-orange-200 rounded-xl mb-2 cursor-pointer hover:bg-orange-100 transition" onclick="closeNotifications();navigateTo('${t.page}')">
+        <p class="text-[10px] text-orange-600 font-semibold uppercase">${t.label}</p>
+        <p class="font-medium text-sm text-gray-800 mt-0.5"><i data-lucide="book-open" class="w-3 h-3 inline mr-0.5"></i>${subText}</p>
+        <p class="text-xs text-gray-600 mt-1">${semText}${yrText}${coordText}</p>
+        <p class="text-xs text-orange-700 font-medium mt-1">⏳ คลิกเพื่อไปอนุมัติ</p>
+      </div>`;
+    }).join('');
+    html += `</div>`;
+  }
   // === ส่วน "ประกาศ" ===
   if (ann.length) {
-    if (pendingLeaves.length) html += `<div class="border-t pt-2 mt-1"></div>`;
+    if (pendingLeaves.length || pendingTracks.length) html += `<div class="border-t pt-2 mt-1"></div>`;
     html += `<p class="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><i data-lucide="megaphone" class="w-3 h-3"></i>ประกาศ (${ann.length})</p>`;
     html += ann.map(a => `<div class="p-3 bg-surface rounded-xl mb-2"><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500 mt-1">${a.announcement_date || ''}</p><p class="text-xs text-gray-600 mt-1">${a.announcement_content || ''}</p></div>`).join('');
   }
@@ -801,7 +860,8 @@ function updateNotifBadge() {
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
   const pendingLeaves = getPendingLeavesForCurrentRole().length;
-  const total = unseenAnn + pendingLeaves;
+  const pendingTracks = getPendingTrackingsForCurrentRole().length;
+  const total = unseenAnn + pendingLeaves + pendingTracks;
   if (total > 0) { b.textContent = total > 99 ? '99+' : total; b.classList.remove('hidden'); } else b.classList.add('hidden');
 }
 
@@ -3466,7 +3526,7 @@ async function updateTrackingField(id, field, value) {
     if (field === 'deputy_sign' && value === 'เสร็จสิ้น') rec.approved_date = new Date().toISOString().split('T')[0];
 
     const r = await GSheetDB.update(rec);
-    if (r.isOk) { showToast('อัปเดตสำเร็จ'); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    if (r.isOk) { showToast('อัปเดตสำเร็จ'); renderCurrentPage(); updateNotifBadge(); } else showToast('เกิดข้อผิดพลาด', 'error');
   });
 }
 
