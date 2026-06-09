@@ -439,6 +439,7 @@ function navigateTo(page) {
   APP.filters._engYearLevel = '';
   APP.filters._gradeYearLevel = '';
   APP._directoryTab = 'all';
+  APP._directoryView = 'list';
   APP.filters._directoryYear = '';
   APP.filters._pageYear = '';
   APP.filters._subjectBatch = '';
@@ -2023,7 +2024,7 @@ function _renderTranscript(stu) {
     <div id="transcriptContent" class="bg-white p-4 relative overflow-hidden" style="max-width:700px;margin:auto;">
       <div class="relative">
       <div class="text-center mb-3">
-        <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="this.style.display='none'">
+        <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png" alt="Logo" data-li="0" style="width:60px;height:auto;margin:0 auto 6px auto;display:block;" onerror="if(typeof logoFallback==='function'){logoFallback(this)}else{this.style.display='none'}">
         <p class="font-bold text-sm">${APP.config.college_name}</p>
         <p class="text-xs text-gray-600">ใบรายงานผลการเรียนนักศึกษารายภาคการศึกษา</p>
         <p class="text-xs text-gray-600">${studentProgram} ระดับ ${studentLevel}${studentBatch ? ' รุ่นที่ ' + studentBatch : ''}${studentYearLevel ? ' ชั้นปีที่ ' + studentYearLevel : ''}</p>
@@ -2101,7 +2102,10 @@ async function downloadTranscriptPDF(studentKey) {
   const gpax = totalCreditsAll ? (totalPointsAll / totalCreditsAll).toFixed(2) : 'N/A';
 
   let logoBase64 = '';
-  try { const resp = await fetch('https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png'); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } } catch (e) { }
+  const _logoSrcs = (window.LOGO_SOURCES || ['https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png']);
+  for (const _src of _logoSrcs) {
+    try { const resp = await fetch(_src); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); break; } } catch (e) { }
+  }
 
   const studentProgram = stu.program || 'หลักสูตรพยาบาลศาสตรบัณฑิต';
   const studentLevel = stu.level || 'ปริญญาตรี';
@@ -3152,14 +3156,26 @@ function teacherDirectoryPage() {
   }
 
   const total = data.length; const paged = paginate(data);
+  const view = APP._directoryView || 'list';
+
+  function viewBtn(id, label, icon) {
+    const active = view === id;
+    return `<button onclick="APP._directoryView='${id}';APP.pagination.page=1;renderCurrentPage()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${active ? 'bg-primary text-white shadow' : 'bg-white text-gray-600 hover:bg-surface border border-gray-200'}"><i data-lucide="${icon}" class="w-4 h-4"></i>${label}</button>`;
+  }
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
     <div class="flex flex-wrap gap-2">
-      <button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
+      ${view === 'list' ? `<button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
       ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>
-      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}
+      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}` : (isAdmin && selectedYear ? `<button onclick="showEditDirectorySummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขสรุป</button>
+      <button onclick="printDirectorySummary('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="printer" class="w-4 h-4"></i>พิมพ์</button>` : '')}
     </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    ${viewBtn('list', 'รายชื่ออาจารย์', 'list')}
+    ${viewBtn('summary', 'สรุป (แดชบอร์ด)', 'bar-chart-3')}
   </div>
 
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
@@ -3173,7 +3189,9 @@ function teacherDirectoryPage() {
     </div>
   </div>
 
-  ${selectedYear ? renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) : noYearSelectedMsg('ทำเนียบอาจารย์')}`;
+  ${!selectedYear ? noYearSelectedMsg('ทำเนียบอาจารย์')
+    : (view === 'summary' ? directorySummaryView(selectedYear, isAdmin)
+      : renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin))}`;
 }
 
 function showTeacherDirectoryDetail(id) {
@@ -3393,6 +3411,354 @@ function showEditSpecialTeacherModal(id) {
       if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
     });
   };
+}
+
+// ======================== TEACHER DIRECTORY — สรุป/แดชบอร์ด ========================
+// ตัวเลขที่กรอกเองเก็บเป็น JSON ในแท็บ directory_summary (1 แถว/ปีการศึกษา)
+
+// จัดกลุ่มตำแหน่งทางวิชาการจากข้อความอิสระ
+function classifyRank(pos) {
+  const s = norm(pos);
+  if (/รองศาสตราจารย์|(^|[\s(.])รศ/.test(s)) return 'assoc';
+  if (/ผู้ช่วยศาสตราจารย์|(^|[\s(.])ผศ/.test(s)) return 'asst';
+  if (/ศาสตราจารย์|(^|[\s(.])ศ\.?\s?ด|(^|[\s(.])ศ\s/.test(s)) return 'prof';
+  return 'ajarn';
+}
+
+// จัดวุฒิอาจารย์ (เอก/โท × สาขาพยาบาล/สัมพันธ์) จากข้อความวุฒิ
+function classifyTeacherEdu(eduStr) {
+  const items = (eduStr || '').split('||').map(v => norm(v)).filter(Boolean);
+  const isPhd = s => /ปร\.?ด|ปริญญาเอก|ph\.?\s?d|ดุษฎี|d\.?n\.?s|ด\.\s?$/i.test(s);
+  const isMaster = s => /ปริญญาโท|พย\.?ม|วท\.?ม|ศศ\.?ม|ค\.?ม|กศ\.?ม|สม\.|m\.?\s?(s|sc|a|ed|ns|ph)/i.test(s);
+  const phd = items.find(isPhd);
+  const master = items.find(isMaster);
+  if (phd) return { level: 'phd', nursing: /พยาบาล|nurs/i.test(phd) };
+  if (master) return { level: 'master', nursing: /พยาบาล|nurs/i.test(master) };
+  return { level: '', nursing: false };
+}
+
+// คำนวณตัวเลขอัตโนมัติจากข้อมูล teacher_directory ของปีที่เลือก
+function computeDirectoryAuto(year) {
+  let data = getDataByType('teacher_directory');
+  if (year) data = data.filter(d => norm(d.academic_year) === norm(year));
+  const byCat = cat => data.filter(d => (d.teacher_category || '') === cat);
+  const cResp = byCat('อาจารย์ผู้รับผิดชอบหลักสูตร');
+  const cCurr = byCat('อาจารย์ประจำหลักสูตร');
+  const cReg = byCat('อาจารย์ประจำ');
+  const cLeave = byCat('อาจารย์ที่ลาศึกษาต่อ');
+  const cSpec = byCat('อาจารย์พิเศษ');
+  const rankCount = (arr, r) => arr.filter(t => classifyRank(t.academic_position) === r).length;
+
+  const edu = { phd_nursing: 0, phd_related: 0, master_nursing: 0, master_related: 0 };
+  cCurr.forEach(t => {
+    const e = classifyTeacherEdu(t.education);
+    if (e.level === 'phd') { e.nursing ? edu.phd_nursing++ : edu.phd_related++; }
+    else if (e.level === 'master') { e.nursing ? edu.master_nursing++ : edu.master_related++; }
+  });
+
+  const internal = [...cResp, ...cCurr, ...cReg, ...cLeave];
+  const exp = { le5: 0, b6_10: 0, b10_15: 0, b15_20: 0, gt20: 0 };
+  internal.forEach(t => {
+    const y = parseFloat(t.nursing_teaching_years);
+    if (isNaN(y)) return;
+    if (y <= 5) exp.le5++; else if (y <= 10) exp.b6_10++; else if (y <= 15) exp.b10_15++; else if (y <= 20) exp.b15_20++; else exp.gt20++;
+  });
+
+  const works = cCurr.map(t => (t.academic_work || '').split('||').map(v => v.trim()).filter(Boolean).length).filter(n => n > 0);
+  const workMin = works.length ? Math.min(...works) : '';
+  const workMax = works.length ? Math.max(...works) : '';
+
+  return {
+    internal_total: cResp.length + cCurr.length + cReg.length + cLeave.length,
+    responsible_total: cResp.length,
+    responsible_ajarn: rankCount(cResp, 'ajarn'), responsible_asst: rankCount(cResp, 'asst'),
+    responsible_assoc: rankCount(cResp, 'assoc'), responsible_prof: rankCount(cResp, 'prof'),
+    curriculum_total: cCurr.length,
+    curriculum_ajarn: rankCount(cCurr, 'ajarn'), curriculum_asst: rankCount(cCurr, 'asst'),
+    curriculum_assoc: rankCount(cCurr, 'assoc'), curriculum_prof: rankCount(cCurr, 'prof'),
+    edu_phd_nursing: edu.phd_nursing, edu_phd_related: edu.phd_related,
+    edu_master_nursing: edu.master_nursing, edu_master_related: edu.master_related,
+    work_min: workMin, work_max: workMax,
+    regular_total: cReg.length, studyleave_total: cLeave.length, special_total: cSpec.length,
+    exp_le5: exp.le5, exp_6_10: exp.b6_10, exp_10_15: exp.b10_15, exp_15_20: exp.b15_20, exp_gt20: exp.gt20
+  };
+}
+
+// ฟิลด์ทั้งหมดของหน้าสรุป (ขับฟอร์มแก้ไข + การแสดงผล)
+const DS_FIELDS = [
+  { sec: 'อาจารย์ผู้สอนภายใน', key: 'internal_total', label: 'อาจารย์ภายใน รวมทั้งหมด (คน)' },
+  { sec: 'อาจารย์ผู้รับผิดชอบหลักสูตร', key: 'responsible_total', label: 'รวมทั้งหมด' },
+  { key: 'responsible_ajarn', label: '• ตำแหน่งอาจารย์' },
+  { key: 'responsible_asst', label: '• ผู้ช่วยศาสตราจารย์' },
+  { key: 'responsible_assoc', label: '• รองศาสตราจารย์' },
+  { key: 'responsible_prof', label: '• ศาสตราจารย์' },
+  { sec: 'อาจารย์ประจำหลักสูตร', key: 'curriculum_total', label: 'รวมทั้งหมด (รวมผู้รับผิดชอบหลักสูตร)' },
+  { key: 'curriculum_asst', label: '• ผู้ช่วยศาสตราจารย์' },
+  { key: 'curriculum_ajarn', label: '• ตำแหน่งอาจารย์' },
+  { key: 'curriculum_assoc', label: '• รองศาสตราจารย์' },
+  { key: 'curriculum_prof', label: '• ศาสตราจารย์' },
+  { key: 'edu_phd_nursing', label: 'วุฒิ ป.เอก สาขาการพยาบาล' },
+  { key: 'edu_phd_related', label: 'วุฒิ ป.เอก สาขาที่สัมพันธ์ฯ' },
+  { key: 'edu_master_nursing', label: 'วุฒิ ป.โท สาขาการพยาบาล' },
+  { key: 'edu_master_related', label: 'วุฒิ ป.โท สาขาที่สัมพันธ์ฯ' },
+  { key: 'work_min', label: 'ผลงานวิชาการ ต่ำสุด (ผลงาน)' },
+  { key: 'work_max', label: 'ผลงานวิชาการ สูงสุด (ผลงาน)' },
+  { sec: 'ประเภทอื่น', key: 'regular_total', label: 'อาจารย์ประจำ' },
+  { key: 'studyleave_total', label: 'อาจารย์ที่ลาศึกษาต่อ' },
+  { key: 'special_total', label: 'อาจารย์พิเศษ' },
+  { sec: 'ประสบการณ์การสอนทางการพยาบาล', key: 'exp_le5', label: 'น้อยกว่าหรือเท่ากับ 5 ปี' },
+  { key: 'exp_6_10', label: 'มากกว่า 6 ถึง 10 ปี' },
+  { key: 'exp_10_15', label: 'มากกว่า 10 ถึง 15 ปี' },
+  { key: 'exp_15_20', label: 'มากกว่า 15 ถึง 20 ปี' },
+  { key: 'exp_gt20', label: 'มากกว่า 20 ปีขึ้นไป' },
+  { sec: 'อาจารย์ผู้สอนภายนอก/อาจารย์พิเศษ', key: 'external_total', label: 'รวมทั้งหมด' },
+  { key: 'theory_total', label: 'ภาคทฤษฎี รวม' },
+  { key: 'theory_phd', label: '• ระดับปริญญาเอก' },
+  { key: 'theory_master', label: '• ระดับปริญญาโท' },
+  { key: 'theory_bachelor', label: '• ระดับปริญญาตรี' },
+  { key: 'practice_total', label: 'ภาคปฏิบัติ รวม' },
+  { key: 'practice_master', label: '• ระดับปริญญาโท' },
+  { key: 'practice_bachelor', label: '• ระดับปริญญาตรี' }
+];
+
+function getDirectorySummary(year) {
+  const rec = getDataByType('directory_summary').find(d => norm(d.academic_year) === norm(year));
+  if (!rec) return {};
+  try { return JSON.parse(rec.summary_json || '{}'); } catch (e) { return {}; }
+}
+
+async function saveDirectorySummary(year, obj) {
+  const rec = APP.allData.find(d => d.type === 'directory_summary' && norm(d.academic_year) === norm(year));
+  if (rec) { rec.summary_json = JSON.stringify(obj); return GSheetDB.update(rec); }
+  return GSheetDB.create({ type: 'directory_summary', academic_year: year, summary_json: JSON.stringify(obj), created_at: new Date().toISOString() });
+}
+
+// ค่าแสดงผล: ใช้ค่าที่บันทึกเองก่อน ถ้าไม่มีใช้ค่าที่คำนวณอัตโนมัติ
+function dsResolve(saved, auto, key) {
+  if (saved && saved[key] !== undefined && String(saved[key]) !== '') return saved[key];
+  if (auto && auto[key] !== undefined && String(auto[key]) !== '') return auto[key];
+  return '';
+}
+
+// กราฟโดนัท (CSS conic-gradient)
+function dsDonut(segments, centerLabel) {
+  const total = segments.reduce((s, x) => s + (parseFloat(x.value) || 0), 0);
+  let acc = 0;
+  const stops = segments.map(s => {
+    const start = total ? acc / total * 360 : 0; acc += (parseFloat(s.value) || 0);
+    const end = total ? acc / total * 360 : 0; return `${s.color} ${start}deg ${end}deg`;
+  }).join(', ');
+  return `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+    <div style="width:150px;height:150px;border-radius:50%;background:conic-gradient(${stops || '#e5e7eb 0deg 360deg'});position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:26px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:26px;font-weight:700;color:#1e6fba">${total || 0}</span><span style="font-size:11px;color:#94a3b8">${centerLabel || 'รวม'}</span></div>
+    </div>
+    <div style="flex:1;min-width:180px">${segments.map(s => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px"><span style="width:13px;height:13px;border-radius:3px;background:${s.color};flex-shrink:0"></span><span style="flex:1;color:#475569">${s.label}</span><b style="color:#1e293b">${s.value || 0}</b></div>`).join('')}</div>
+  </div>`;
+}
+
+// กราฟแท่งแนวนอน (CSS)
+function dsBars(items, color) {
+  const max = Math.max(1, ...items.map(i => parseFloat(i.value) || 0));
+  return `<div class="space-y-3">${items.map(i => {
+    const w = Math.round((parseFloat(i.value) || 0) / max * 100);
+    return `<div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span style="color:#475569">${i.label}</span><b style="color:#1e293b">${i.value || 0}</b></div><div style="background:#eef2f7;border-radius:7px;height:16px;overflow:hidden"><div style="width:${w}%;height:100%;background:${color};border-radius:7px;transition:width .3s"></div></div></div>`;
+  }).join('')}</div>`;
+}
+
+function dsBigCard(num, label, color, sub) {
+  return `<div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+    <p class="text-3xl font-bold" style="color:${color}">${num === '' || num === undefined ? '-' : num}</p>
+    <p class="text-sm text-gray-600 mt-1">${label}</p>
+    ${sub ? `<p class="text-xs text-gray-400 mt-1">${sub}</p>` : ''}
+  </div>`;
+}
+
+function directorySummaryView(year, isAdmin) {
+  const saved = getDirectorySummary(year);
+  const auto = computeDirectoryAuto(year);
+  const v = k => { const r = dsResolve(saved, auto, k); return r === '' ? '' : r; };
+  const n = k => { const r = v(k); return r === '' ? '-' : r; };
+  const hasSaved = saved && Object.keys(saved).length;
+
+  // การ์ดภาพรวม
+  let html = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    ${dsBigCard(n('internal_total'), 'อาจารย์ผู้สอนภายใน', '#1e6fba', 'รวมทุกประเภทภายใน')}
+    ${dsBigCard(n('external_total'), 'อาจารย์ผู้สอนภายนอก/พิเศษ', '#0ea5e9', 'ทฤษฎี + ปฏิบัติ')}
+    ${dsBigCard(n('curriculum_total'), 'อาจารย์ประจำหลักสูตร', '#7c3aed', 'รวมผู้รับผิดชอบหลักสูตร')}
+    ${dsBigCard(n('responsible_total'), 'อาจารย์ผู้รับผิดชอบหลักสูตร', '#4f46e5', '')}
+  </div>`;
+
+  // การ์ดประเภทย่อย
+  html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+    ${dsBigCard(n('regular_total'), 'อาจารย์ประจำ', '#2563eb', '')}
+    ${dsBigCard(n('studyleave_total'), 'อาจารย์ที่ลาศึกษาต่อ', '#d97706', '')}
+    ${dsBigCard(n('special_total'), 'อาจารย์พิเศษ (ภายใน)', '#059669', '')}
+    ${dsBigCard(n('external_total'), 'อาจารย์ภายนอกทั้งหมด', '#0891b2', '')}
+  </div>`;
+
+  // กราฟ: วุฒิ (โดนัท) + ประสบการณ์ (แท่ง)
+  html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+    <div class="bg-white rounded-2xl p-5 border border-blue-100">
+      <h3 class="font-bold text-gray-800 mb-3 text-sm"><i data-lucide="graduation-cap" class="w-4 h-4 inline mr-1"></i>วุฒิการศึกษา — อาจารย์ประจำหลักสูตร</h3>
+      ${dsDonut([
+        { label: 'ป.เอก สาขาการพยาบาล', value: v('edu_phd_nursing'), color: '#7c3aed' },
+        { label: 'ป.เอก สาขาที่สัมพันธ์ฯ', value: v('edu_phd_related'), color: '#a78bfa' },
+        { label: 'ป.โท สาขาการพยาบาล', value: v('edu_master_nursing'), color: '#2563eb' },
+        { label: 'ป.โท สาขาที่สัมพันธ์ฯ', value: v('edu_master_related'), color: '#60a5fa' }
+      ], 'คน')}
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-blue-100">
+      <h3 class="font-bold text-gray-800 mb-3 text-sm"><i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>ประสบการณ์การสอนทางการพยาบาล</h3>
+      ${dsBars([
+        { label: '≤ 5 ปี', value: v('exp_le5') },
+        { label: '> 6–10 ปี', value: v('exp_6_10') },
+        { label: '> 10–15 ปี', value: v('exp_10_15') },
+        { label: '> 15–20 ปี', value: v('exp_15_20') },
+        { label: '> 20 ปีขึ้นไป', value: v('exp_gt20') }
+      ], '#1e6fba')}
+    </div>
+  </div>`;
+
+  // กราฟ: อาจารย์ภายนอก ทฤษฎี/ปฏิบัติ
+  html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+    <div class="bg-white rounded-2xl p-5 border border-blue-100">
+      <h3 class="font-bold text-gray-800 mb-3 text-sm"><i data-lucide="book-open" class="w-4 h-4 inline mr-1"></i>อาจารย์ภายนอก — ภาคทฤษฎี (${n('theory_total')} คน)</h3>
+      ${dsBars([
+        { label: 'ปริญญาเอก', value: v('theory_phd') },
+        { label: 'ปริญญาโท', value: v('theory_master') },
+        { label: 'ปริญญาตรี', value: v('theory_bachelor') }
+      ], '#0ea5e9')}
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-blue-100">
+      <h3 class="font-bold text-gray-800 mb-3 text-sm"><i data-lucide="activity" class="w-4 h-4 inline mr-1"></i>อาจารย์ภายนอก — ภาคปฏิบัติ (${n('practice_total')} คน)</h3>
+      ${dsBars([
+        { label: 'ปริญญาโท', value: v('practice_master') },
+        { label: 'ปริญญาตรี', value: v('practice_bachelor') }
+      ], '#06b6d4')}
+    </div>
+  </div>`;
+
+  // รายงานข้อความ (เหมือนรูปต้นฉบับ)
+  html += dsTextReport(year, v, n);
+
+  if (!hasSaved) {
+    html += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800"><i data-lucide="info" class="w-4 h-4 inline mr-1"></i>ตัวเลขที่แสดงมาจากการคำนวณอัตโนมัติ ${isAdmin ? 'กดปุ่ม "แก้ไขตัวเลขสรุป" ด้านบนเพื่อปรับ/เติมค่าที่ระบบคำนวณไม่ได้ (เช่น อาจารย์ภายนอก)' : ''}</div>`;
+  }
+  return html;
+}
+
+// รายงานข้อความตามรูปแบบเอกสารต้นฉบับ
+function dsTextReport(year, v, n) {
+  const row = (label, num) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0"><span>${label}</span><span style="white-space:nowrap"><b>${num}</b> คน</span></div>`;
+  return `<div class="bg-white rounded-2xl p-5 border border-blue-100" id="dsTextReport">
+    <h3 class="font-bold text-gray-800 mb-3"><i data-lucide="file-text" class="w-5 h-5 inline mr-1"></i>สรุปอัตรากำลังอาจารย์ผู้สอน ปีการศึกษา ${year}</h3>
+    <div class="text-sm text-gray-700 leading-relaxed space-y-3">
+      <div>
+        <p class="font-bold text-primary">อาจารย์ผู้สอนภายใน มีจำนวน ${n('internal_total')} คน โดยแบ่งได้ดังนี้</p>
+        <div class="pl-3 mt-2 space-y-2">
+          <div>
+            <p class="font-semibold">- อาจารย์ผู้รับผิดชอบหลักสูตร จำนวนทั้งหมด ${n('responsible_total')} คน</p>
+            <p class="text-gray-500 text-xs pl-3">แยกตามตำแหน่งทางวิชาการ: อาจารย์ ${n('responsible_ajarn')} คน · ผศ. ${n('responsible_asst')} คน · รศ. ${n('responsible_assoc')} คน · ศ. ${n('responsible_prof')} คน</p>
+          </div>
+          <div>
+            <p class="font-semibold">- อาจารย์ประจำหลักสูตร จำนวนทั้งหมด ${n('curriculum_total')} คน (รวมอาจารย์ผู้รับผิดชอบหลักสูตร)</p>
+            <p class="text-gray-500 text-xs pl-3">แยกตามตำแหน่งทางวิชาการ: ผศ. ${n('curriculum_asst')} คน · อาจารย์ ${n('curriculum_ajarn')} คน · รศ. ${n('curriculum_assoc')} คน · ศ. ${n('curriculum_prof')} คน</p>
+            <div class="pl-3 mt-1 max-w-md">
+              <p class="text-xs text-gray-500 mb-1">แยกตามวุฒิการศึกษา:</p>
+              ${row('ปริญญาเอกในสาขาการพยาบาล', n('edu_phd_nursing'))}
+              ${row('ปริญญาเอกในสาขาที่สัมพันธ์ทางการพยาบาล', n('edu_phd_related'))}
+              ${row('ปริญญาโทในสาขาการพยาบาล', n('edu_master_nursing'))}
+              ${row('ปริญญาโทในสาขาที่สัมพันธ์ทางการพยาบาล', n('edu_master_related'))}
+              <p class="text-xs text-gray-400 mt-1">(ผลงานทางวิชาการของอาจารย์ประจำหลักสูตรอยู่ระหว่าง ${n('work_min')} – ${n('work_max')} ผลงาน)</p>
+            </div>
+          </div>
+          <p class="font-semibold">- อาจารย์ประจำ จำนวนทั้งหมด ${n('regular_total')} คน</p>
+          <p class="font-semibold">- อาจารย์ที่ลาศึกษาต่อ จำนวนทั้งหมด ${n('studyleave_total')} คน</p>
+          <p class="font-semibold">- อาจารย์พิเศษ จำนวนทั้งหมด ${n('special_total')} คน</p>
+        </div>
+      </div>
+      <div>
+        <p class="font-bold text-primary">ประสบการณ์การสอนทางการพยาบาล</p>
+        <div class="pl-3 mt-1 max-w-md">
+          ${row('น้อยกว่าหรือเท่ากับ 5 ปี', n('exp_le5'))}
+          ${row('มากกว่า 6 ถึง 10 ปี', n('exp_6_10'))}
+          ${row('มากกว่า 10 ปี ถึง 15 ปี', n('exp_10_15'))}
+          ${row('มากกว่า 15 ปี ถึง 20 ปี', n('exp_15_20'))}
+          ${row('มากกว่า 20 ปีขึ้นไป', n('exp_gt20'))}
+        </div>
+      </div>
+      <div>
+        <p class="font-bold text-primary">อาจารย์ผู้สอนภายนอก/อาจารย์พิเศษ มีจำนวน ${n('external_total')} คน โดยแบ่งได้ดังนี้</p>
+        <div class="pl-3 mt-1 space-y-1">
+          <p class="font-semibold">- ภาคทฤษฎี จำนวน ${n('theory_total')} คน</p>
+          <div class="pl-3 max-w-md">
+            ${row('ระดับปริญญาเอก', n('theory_phd'))}
+            ${row('ระดับปริญญาโท', n('theory_master'))}
+            ${row('ระดับปริญญาตรี', n('theory_bachelor'))}
+          </div>
+          <p class="font-semibold">- ภาคปฏิบัติ จำนวน ${n('practice_total')} คน</p>
+          <div class="pl-3 max-w-md">
+            ${row('ระดับปริญญาโท', n('practice_master'))}
+            ${row('ระดับปริญญาตรี', n('practice_bachelor'))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function showEditDirectorySummaryModal(year) {
+  const saved = getDirectorySummary(year);
+  const auto = computeDirectoryAuto(year);
+  window.__dsAuto = auto;
+  let body = '';
+  DS_FIELDS.forEach(f => {
+    if (f.sec) body += `<p class="text-sm font-bold text-primary mt-3 mb-1 border-b border-gray-200 pb-1">${f.sec}</p>`;
+    const cur = (saved && saved[f.key] !== undefined) ? saved[f.key] : '';
+    const hint = (auto[f.key] !== undefined && String(auto[f.key]) !== '') ? 'auto: ' + auto[f.key] : 'กรอกเอง';
+    body += `<div class="flex items-center gap-2 mb-1"><label class="text-xs text-gray-600 flex-1">${f.label}</label><input name="${f.key}" value="${cur}" inputmode="decimal" class="w-24 border rounded-lg px-2 py-1 text-sm text-right" placeholder="${hint}"></div>`;
+  });
+  showModal('แก้ไขตัวเลขสรุป — ปีการศึกษา ' + year, `
+    <form id="dsForm" style="max-height:70vh;overflow-y:auto;padding-right:4px">
+      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">ช่องที่เว้นว่าง = ใช้ค่าที่ระบบคำนวณอัตโนมัติ (ตัวเลข auto ในช่อง placeholder) · กรอกตัวเลขเพื่อกำหนดเอง รองรับทศนิยม เช่น 48.5</div>
+      <button type="button" onclick="dsAutoFill()" class="mb-3 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"><i data-lucide="wand-2" class="w-4 h-4 inline"></i> เติมค่าอัตโนมัติทั้งหมด</button>
+      ${body}
+      <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  lucide.createIcons();
+  document.getElementById('dsForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const obj = {};
+      DS_FIELDS.forEach(f => { const el = e.target.querySelector('[name="' + f.key + '"]'); if (el && el.value.trim() !== '') obj[f.key] = el.value.trim(); });
+      const r = await saveDirectorySummary(year, obj);
+      if (r.isOk) { showToast('บันทึกข้อมูลสรุปสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
+  };
+}
+
+function dsAutoFill() {
+  const auto = window.__dsAuto || {};
+  const form = document.getElementById('dsForm'); if (!form) return;
+  DS_FIELDS.forEach(f => {
+    const el = form.querySelector('[name="' + f.key + '"]');
+    if (el && auto[f.key] !== undefined && String(auto[f.key]) !== '') el.value = auto[f.key];
+  });
+  showToast('เติมค่าอัตโนมัติแล้ว — ปรับแก้ได้ตามต้องการ');
+}
+
+function printDirectorySummary(year) {
+  const el = document.getElementById('dsTextReport');
+  if (!el) { showToast('ไม่พบรายงาน', 'error'); return; }
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สรุปอัตรากำลังอาจารย์ ${year}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Sarabun',sans-serif;font-size:14px;color:#222;padding:24px;line-height:1.7}@page{size:A4;margin:18mm}.font-bold{font-weight:700}.text-primary{color:#1e6fba}b{font-weight:600}.pl-3{padding-left:14px}.space-y-1>*+*,.space-y-2>*+*,.space-y-3>*+*{margin-top:6px}h3{font-size:17px;color:#1e6fba;margin-bottom:10px}.max-w-md{max-width:520px}[data-lucide]{display:none}</style>
+    </head><body>${el.innerHTML}</body></html>`);
+  printWin.document.close();
+  printWin.onload = () => setTimeout(() => printWin.print(), 400);
+  showToast('เปิดหน้าต่างพิมพ์แล้ว — เลือก "Save as PDF" ได้');
 }
 
 // ======================== SERVICES ========================
