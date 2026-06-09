@@ -2943,37 +2943,103 @@ function maskNationalId(nid) {
   return s.substring(0, s.length - 4) + 'xxxx';
 }
 
+// ---- Teacher category metadata (5 ประเภท) ----
+const TEACHER_CAT_META = {
+  'อาจารย์ประจำหลักสูตร': { tab: 'curriculum', badge: 'bg-purple-100 text-purple-700', num: 'text-purple-600', ring: 'ring-purple-500' },
+  'อาจารย์ประจำ': { tab: 'regular', badge: 'bg-blue-100 text-blue-700', num: 'text-blue-600', ring: 'ring-blue-500' },
+  'อาจารย์ผู้รับผิดชอบหลักสูตร': { tab: 'responsible', badge: 'bg-indigo-100 text-indigo-700', num: 'text-indigo-600', ring: 'ring-indigo-500' },
+  'อาจารย์ที่ลาศึกษาต่อ': { tab: 'studyleave', badge: 'bg-amber-100 text-amber-700', num: 'text-amber-600', ring: 'ring-amber-500' },
+  'อาจารย์พิเศษ': { tab: 'special', badge: 'bg-emerald-100 text-emerald-700', num: 'text-emerald-600', ring: 'ring-emerald-500' },
+};
+// Ordered category list for tabs/cards/dropdowns
+const TEACHER_CATEGORIES = Object.keys(TEACHER_CAT_META);
+// Categories that use the full directory form (everything except special)
+const TEACHER_FULL_CATEGORIES = TEACHER_CATEGORIES.filter(c => c !== 'อาจารย์พิเศษ');
+function catBadge(cat) { return (TEACHER_CAT_META[cat] || {}).badge || 'bg-gray-100 text-gray-600'; }
+function catFromTab(tabId) { for (const k in TEACHER_CAT_META) { if (TEACHER_CAT_META[k].tab === tabId) return k; } return ''; }
+function isSpecialTeacher(t) { return (t.teacher_category || '') === 'อาจารย์พิเศษ'; }
+
+// Build <option> list for the subject datalist (รหัส + ชื่อวิชา จากแท็บ subject)
+function subjectDatalistOptions() {
+  const subs = [...new Set(getDataByType('subject').map(s => {
+    const c = norm(s.subject_code); const n = norm(s.subject_name);
+    return [c, n].filter(Boolean).join(' ');
+  }).filter(Boolean))].sort();
+  return subs.map(s => `<option value="${s.replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
+// Multi-row subject picker: เลือกจาก datalist หรือพิมพ์เองได้ (เก็บเป็น || )
+function multiSubjectField(name, label, values) {
+  const items = values ? values.split('||').map(v => v.trim()).filter(Boolean) : [''];
+  if (!items.length) items.push('');
+  return `
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">${label} <span class="text-gray-400">(เลือกจากรายการหรือพิมพ์เอง · กดปุ่ม + เพื่อเพิ่มวิชา)</span></label>
+      <datalist id="subjectDatalist">${subjectDatalistOptions()}</datalist>
+      <div id="multi_${name}" class="space-y-2">
+        ${items.map((v, i) => `<div class="flex gap-2"><input name="${name}__multi" list="subjectDatalist" value="${String(v).replace(/"/g, '&quot;')}" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="เลือกหรือพิมพ์ชื่อวิชา">${i > 0 ? `<button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-2" title="ลบ">✕</button>` : '<div class="w-8"></div>'}</div>`).join('')}
+      </div>
+      <button type="button" onclick="addMultiSubjectInput('${name}')" class="mt-1 text-xs text-primary hover:underline flex items-center gap-1"><span>＋</span> เพิ่มวิชา</button>
+    </div>`;
+}
+
+function addMultiSubjectInput(name) {
+  const container = document.getElementById('multi_' + name);
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'flex gap-2';
+  div.innerHTML = `<input name="${name}__multi" list="subjectDatalist" value="" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="เลือกหรือพิมพ์ชื่อวิชา"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-2" title="ลบ">✕</button>`;
+  container.appendChild(div);
+}
+
 // Export to PDF via print
 function exportTeacherDirectoryPDF() {
   let data = getDataByType('teacher_directory');
   const activeTab = APP._directoryTab || 'all';
   const selectedYear = APP.filters._directoryYear || '';
   if (selectedYear) data = data.filter(d => (d.academic_year || '') === selectedYear);
-  if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
-  else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
+  if (activeTab !== 'all') {
+    const cat = catFromTab(activeTab);
+    if (cat) data = data.filter(d => (d.teacher_category || '') === cat);
+  }
 
   if (!data.length) { showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error'); return; }
 
-  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : activeTab === 'curriculum' ? 'อาจารย์ประจำหลักสูตร' : 'อาจารย์ประจำ';
+  const tabLabel = activeTab === 'all' ? 'ทั้งหมด' : (catFromTab(activeTab) || 'ทั้งหมด');
   const title = `ทำเนียบอาจารย์ — ${tabLabel}` + (selectedYear ? ` ปีการศึกษา ${selectedYear}` : '');
 
-  const headers = ['#', 'ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่งทางวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
-
-  let tableRows = '';
-  data.forEach((row, i) => {
-    tableRows += `<tr>
-      <td style="text-align:center">${i + 1}</td>
-      <td>${(row.name || '').replace(/\|\|/g, ', ')}</td>
-      <td style="text-align:center">${maskNationalId(row.national_id)}</td>
-      <td style="text-align:center">${row.license_no || ''}</td>
-      <td>${row.academic_position || ''}</td>
-      <td>${(row.education || '').replace(/\|\|/g, '<br>')}</td>
-      <td style="text-align:center">${row.nursing_teaching_years || ''}</td>
-      <td style="text-align:center">${row.nursing_practice_years || ''}</td>
-      <td>${(row.academic_work || '').replace(/\|\|/g, '<br>')}</td>
-      <td>${row.teacher_category || ''}</td>
-    </tr>`;
-  });
+  // อาจารย์พิเศษ — ตารางแบบย่อ (ชื่อ · ตำแหน่ง · หน่วยงาน · รายวิชาที่สอน)
+  const specialOnly = activeTab === 'special';
+  let headers, tableRows = '';
+  if (specialOnly) {
+    headers = ['#', 'ชื่อ-สกุล', 'ตำแหน่ง', 'หน่วยงาน', 'รายวิชาที่สอน'];
+    data.forEach((row, i) => {
+      tableRows += `<tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td>${(row.name || '').replace(/\|\|/g, ', ')}</td>
+        <td>${row.academic_position || ''}</td>
+        <td>${row.agency || ''}</td>
+        <td>${(row.subjects_taught || '').replace(/\|\|/g, '<br>')}</td>
+      </tr>`;
+    });
+  } else {
+    headers = ['#', 'ชื่อ-สกุล', 'เลขบัตรประชาชน', 'เลขใบประกอบวิชาชีพ', 'ตำแหน่ง/ตำแหน่งวิชาการ', 'วุฒิการศึกษา', 'ประสบการณ์สอน (ปี)', 'ประสบการณ์ปฏิบัติการ (ปี)', 'ผลงานวิชาการ (ย้อนหลัง 5 ปี)', 'ประเภทอาจารย์'];
+    data.forEach((row, i) => {
+      const special = isSpecialTeacher(row);
+      tableRows += `<tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td>${(row.name || '').replace(/\|\|/g, ', ')}</td>
+        <td style="text-align:center">${special ? '' : maskNationalId(row.national_id)}</td>
+        <td style="text-align:center">${special ? '' : (row.license_no || '')}</td>
+        <td>${row.academic_position || ''}</td>
+        <td>${special ? ('หน่วยงาน: ' + (row.agency || '-')) : (row.education || '').replace(/\|\|/g, '<br>')}</td>
+        <td style="text-align:center">${special ? '' : (row.nursing_teaching_years || '')}</td>
+        <td style="text-align:center">${special ? '' : (row.nursing_practice_years || '')}</td>
+        <td>${special ? ('รายวิชาที่สอน: ' + (row.subjects_taught || '').replace(/\|\|/g, ', ')) : (row.academic_work || '').replace(/\|\|/g, '<br>')}</td>
+        <td>${row.teacher_category || ''}</td>
+      </tr>`;
+    });
+  }
 
   const printHTML = `<!DOCTYPE html>
 <html lang="th">
@@ -3016,33 +3082,48 @@ function exportTeacherDirectoryPDF() {
   showToast('เปิดหน้าต่างพิมพ์ PDF แล้ว — กรุณาเลือก "Save as PDF"');
 }
 
-function renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) {
-  let html = '<div class="grid grid-cols-3 gap-3 mb-4">';
-  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ' + (activeTab === 'all' ? 'ring-2 ring-primary' : '') + '" onclick="APP._directoryTab=\'all\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-primary">' + catAll + '</p><p class="text-xs text-gray-500">ทั้งหมด</p></div>';
-  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-purple-100 text-center cursor-pointer ' + (activeTab === 'curriculum' ? 'ring-2 ring-purple-500' : '') + '" onclick="APP._directoryTab=\'curriculum\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-purple-600">' + catCurriculum + '</p><p class="text-xs text-gray-500">อ.ประจำหลักสูตร</p></div>';
-  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ' + (activeTab === 'regular' ? 'ring-2 ring-blue-500' : '') + '" onclick="APP._directoryTab=\'regular\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-blue-600">' + catRegular + '</p><p class="text-xs text-gray-500">อ.ประจำ</p></div>';
+function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
+  // Stat cards: ทั้งหมด + 5 ประเภท
+  let html = '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">';
+  html += '<div class="card-stat bg-white rounded-2xl p-4 border border-blue-100 text-center cursor-pointer ' + (activeTab === 'all' ? 'ring-2 ring-primary' : '') + '" onclick="APP._directoryTab=\'all\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold text-primary">' + (counts.all || 0) + '</p><p class="text-xs text-gray-500">ทั้งหมด</p></div>';
+  TEACHER_CATEGORIES.forEach(cat => {
+    const m = TEACHER_CAT_META[cat];
+    html += '<div class="card-stat bg-white rounded-2xl p-4 border border-gray-100 text-center cursor-pointer ' + (activeTab === m.tab ? 'ring-2 ' + m.ring : '') + '" onclick="APP._directoryTab=\'' + m.tab + '\';APP.pagination.page=1;renderCurrentPage()"><p class="text-2xl font-bold ' + m.num + '">' + (counts[m.tab] || 0) + '</p><p class="text-xs text-gray-500 leading-tight">' + cat + '</p></div>';
+  });
   html += '</div>';
   html += filterBar({ semester: false, year: false });
+  const isSpecialTab = activeTab === 'special';
   html += '<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm">';
-  html += '<thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่งทางวิชาการ</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3"></th></tr></thead>';
+  if (isSpecialTab) {
+    html += '<thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">รายวิชาที่สอน</th><th class="px-4 py-3"></th></tr></thead>';
+  } else {
+    html += '<thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3"></th></tr></thead>';
+  }
   html += '<tbody>';
+  const colspan = isSpecialTab ? 5 : 4;
   if (paged.length) {
     paged.forEach(t => {
-      const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+      const special = isSpecialTeacher(t);
+      const editFn = special ? 'showEditSpecialTeacherModal' : 'showEditTeacherDirectoryModal';
       html += '<tr class="border-t hover:bg-gray-50">';
       html += '<td class="px-4 py-3 font-medium">' + (t.name || '') + '</td>';
       html += '<td class="px-4 py-3">' + (t.academic_position || '-') + '</td>';
-      html += '<td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ' + catColor + '">' + (t.teacher_category || '-') + '</span></td>';
+      if (isSpecialTab) {
+        html += '<td class="px-4 py-3">' + (t.agency || '-') + '</td>';
+        html += '<td class="px-4 py-3 text-xs">' + multiValList(t.subjects_taught) + '</td>';
+      } else {
+        html += '<td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ' + catBadge(t.teacher_category) + '">' + (t.teacher_category || '-') + '</span></td>';
+      }
       html += '<td class="px-4 py-3"><div class="flex gap-1">';
       html += '<button onclick="showTeacherDirectoryDetail(\'' + t.__backendId + '\')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>';
       if (isAdmin) {
-        html += '<button onclick="showEditTeacherDirectoryModal(\'' + t.__backendId + '\')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>';
+        html += '<button onclick="' + editFn + '(\'' + t.__backendId + '\')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>';
         html += '<button onclick="deleteRecord(\'' + t.__backendId + '\')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>';
       }
       html += '</div></td></tr>';
     });
   } else {
-    html += '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
+    html += '<tr><td colspan="' + colspan + '" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
   }
   html += '</tbody></table></div></div>';
   html += paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage');
@@ -3059,28 +3140,25 @@ function teacherDirectoryPage() {
   if (selectedYear) allData = allData.filter(d => (d.academic_year || '') === selectedYear);
   let data = allData;
 
-  // Counts by category
-  const catAll = data.length;
-  const catCurriculum = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร').length;
-  const catRegular = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ').length;
+  // Counts by category (keyed by tab id)
+  const counts = { all: data.length };
+  TEACHER_CATEGORIES.forEach(cat => { counts[TEACHER_CAT_META[cat].tab] = data.filter(d => (d.teacher_category || '') === cat).length; });
 
   // Tab filter
   const activeTab = APP._directoryTab || 'all';
-  if (activeTab === 'curriculum') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
-  else if (activeTab === 'regular') data = data.filter(d => (d.teacher_category || '') === 'อาจารย์ประจำ');
+  if (activeTab !== 'all') {
+    const cat = catFromTab(activeTab);
+    if (cat) data = data.filter(d => (d.teacher_category || '') === cat);
+  }
 
   const total = data.length; const paged = paginate(data);
 
-  function tabBtn(id, label, count) {
-    const active = activeTab === id;
-    return `<button onclick="APP._directoryTab='${id}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium transition ${active ? 'bg-primary text-white shadow' : 'bg-white text-gray-600 hover:bg-surface border border-gray-200'}">${label} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs ${active ? 'bg-white/20' : 'bg-gray-100'}">${count}</span></button>`;
-  }
-
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="award" class="w-6 h-6 inline mr-2"></i>ทำเนียบอาจารย์</h2>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
-      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}
+      ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>
+      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_exp,nursing_practice_years,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}
     </div>
   </div>
 
@@ -3095,12 +3173,12 @@ function teacherDirectoryPage() {
     </div>
   </div>
 
-  ${selectedYear ? renderDirectoryDataSection(paged, total, catAll, catCurriculum, catRegular, activeTab, isAdmin) : noYearSelectedMsg('ทำเนียบอาจารย์')}`;
+  ${selectedYear ? renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) : noYearSelectedMsg('ทำเนียบอาจารย์')}`;
 }
 
 function showTeacherDirectoryDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
-  const catColor = (t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+  const catColor = catBadge(t.teacher_category);
 
   function detailList(val) {
     if (!val) return '<span class="text-gray-400">-</span>';
@@ -3108,6 +3186,22 @@ function showTeacherDirectoryDetail(id) {
     if (!items.length) return '<span class="text-gray-400">-</span>';
     if (items.length === 1) return `<span class="text-sm">${items[0]}</span>`;
     return '<ul class="list-disc list-inside text-sm space-y-1">' + items.map(v => `<li>${v}</li>`).join('') + '</ul>';
+  }
+
+  // อาจารย์พิเศษ — รายละเอียดแบบย่อ
+  if (isSpecialTeacher(t)) {
+    showModal('ข้อมูลอาจารย์พิเศษ', `
+    <div class="space-y-3">
+      <div class="flex items-center gap-3 mb-2"><div class="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center"><i data-lucide="user" class="w-6 h-6 text-white"></i></div><div><p class="font-bold text-lg">${t.name || '-'}</p><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></div></div>
+      <div class="grid grid-cols-2 gap-3">
+        ${infoRow('ตำแหน่ง', t.academic_position)}
+        ${infoRow('หน่วยงาน', t.agency)}
+        ${infoRow('ปีการศึกษา', t.academic_year)}
+      </div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">รายวิชาที่สอน</p>${detailList(t.subjects_taught)}</div>
+    </div>
+  `);
+    return;
   }
 
   showModal('ข้อมูลทำเนียบอาจารย์', `
@@ -3153,8 +3247,7 @@ function showAddTeacherDirectoryModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์ *</label>
           <select name="teacher_category" required class="w-full border rounded-xl px-3 py-2 text-sm">
             <option value="">-- เลือกประเภท --</option>
-            <option>อาจารย์ประจำหลักสูตร</option>
-            <option>อาจารย์ประจำ</option>
+            ${TEACHER_FULL_CATEGORIES.map(c => `<option>${c}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -3211,8 +3304,7 @@ function showEditTeacherDirectoryModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">ประเภทอาจารย์</label>
           <select name="teacher_category" class="w-full border rounded-xl px-3 py-2 text-sm">
             <option value="">-- เลือกประเภท --</option>
-            <option ${(t.teacher_category || '') === 'อาจารย์ประจำหลักสูตร' ? 'selected' : ''}>อาจารย์ประจำหลักสูตร</option>
-            <option ${(t.teacher_category || '') === 'อาจารย์ประจำ' ? 'selected' : ''}>อาจารย์ประจำ</option>
+            ${TEACHER_FULL_CATEGORIES.map(c => `<option ${(t.teacher_category || '') === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -3236,6 +3328,67 @@ function showEditTeacherDirectoryModal(id) {
       rec.academic_work = collectMultiInputs(form, 'academic_work');
       rec.academic_year = form.querySelector('[name="academic_year"]').value;
       rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
+      const r = await GSheetDB.update(rec);
+      if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
+  };
+}
+
+// ---- อาจารย์พิเศษ (ฟอร์มย่อ: ชื่อ-สกุล · ตำแหน่ง · หน่วยงาน · รายวิชาที่สอน) ----
+// เก็บในแท็บ teacher_directory เดิม: ตำแหน่ง→academic_position, หน่วยงาน→agency, รายวิชา→subjects_taught
+function specialTeacherFormBody(t) {
+  t = t || {};
+  return `
+    <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required value="${(t.name || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นพ.สมชาย ใจดี"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
+    </div>
+    ${multiSubjectField('subjects_taught', 'รายวิชาที่สอน (เลือกได้หลายวิชา)', t.subjects_taught || '')}
+    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required value="${(t.academic_year || '2568').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+    <input type="hidden" name="teacher_category" value="อาจารย์พิเศษ">`;
+}
+
+function collectSpecialTeacher(form, obj) {
+  obj.name = form.querySelector('[name="name"]').value;
+  obj.academic_position = form.querySelector('[name="academic_position"]').value;
+  obj.agency = form.querySelector('[name="agency"]').value;
+  obj.subjects_taught = collectMultiInputs(form, 'subjects_taught');
+  obj.academic_year = form.querySelector('[name="academic_year"]').value;
+  obj.teacher_category = 'อาจารย์พิเศษ';
+  return obj;
+}
+
+function showAddSpecialTeacherModal() {
+  showModal('เพิ่มอาจารย์พิเศษ', `
+    <form id="addSpecialTeacherForm" class="space-y-3" style="max-height:70vh;overflow-y:auto;padding-right:4px">
+      ${specialTeacherFormBody({})}
+      <button type="submit" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl hover:bg-emerald-700">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addSpecialTeacherForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const obj = collectSpecialTeacher(e.target, { type: 'teacher_directory', created_at: new Date().toISOString() });
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มอาจารย์พิเศษสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
+}
+
+function showEditSpecialTeacherModal(id) {
+  const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  showModal('แก้ไขข้อมูลอาจารย์พิเศษ', `
+    <form id="editSpecialTeacherForm" class="space-y-3" style="max-height:70vh;overflow-y:auto;padding-right:4px">
+      ${specialTeacherFormBody(t)}
+      <button type="submit" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl hover:bg-emerald-700">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editSpecialTeacherForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+      collectSpecialTeacher(e.target, rec);
       const r = await GSheetDB.update(rec);
       if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
     });
