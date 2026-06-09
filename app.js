@@ -2953,12 +2953,12 @@ function awParse(values) {
 }
 function awRowHTML(r) {
   r = r || { type: '', detail: '' };
-  return `<div class="aw-row flex gap-2 items-start"><input name="aw_type__multi" list="awTypeList" value="${(r.type || '').replace(/"/g, '&quot;')}" class="w-32 border rounded-xl px-2 py-2 text-sm flex-shrink-0" placeholder="ประเภท"><input name="aw_detail__multi" value="${(r.detail || '').replace(/"/g, '&quot;')}" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="รายละเอียดผลงาน"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button></div>`;
+  return `<div class="aw-row flex gap-2 items-start"><input name="aw_type__multi" list="awTypeList" autocomplete="off" value="${(r.type || '').replace(/"/g, '&quot;')}" class="w-36 border rounded-xl px-2 py-2 text-sm flex-shrink-0" placeholder="เลือก/พิมพ์เอง"><input name="aw_detail__multi" value="${(r.detail || '').replace(/"/g, '&quot;')}" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="รายละเอียดผลงาน"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button></div>`;
 }
 function multiAcademicWorkField(values) {
   const rows = awParse(values); if (!rows.length) rows.push({ type: '', detail: '' });
   return `<div>
-    <label class="block text-xs text-gray-600 mb-1">ผลงานวิชาการ (ย้อนหลัง 5 ปี) <span class="text-gray-400">(เลือกประเภท + ใส่รายละเอียด · กดปุ่ม + เพื่อเพิ่ม)</span></label>
+    <label class="block text-xs text-gray-600 mb-1">ผลงานวิชาการ (ย้อนหลัง 5 ปี) <span class="text-gray-400">(ช่องประเภทเลือกหรือพิมพ์เองก็ได้ · กดปุ่ม + เพื่อเพิ่ม)</span></label>
     <datalist id="awTypeList"><option value="บทความวิชาการ"></option><option value="บทความวิจัย"></option><option value="อื่นๆ"></option></datalist>
     <div id="multi_academic_work" class="space-y-2">${rows.map(awRowHTML).join('')}</div>
     <button type="button" onclick="addAcademicWorkInput()" class="mt-1 text-xs text-primary hover:underline flex items-center gap-1"><span>＋</span> เพิ่มผลงาน</button>
@@ -2968,7 +2968,7 @@ function addAcademicWorkInput() {
   const c = document.getElementById('multi_academic_work'); if (!c) return;
   const div = document.createElement('div');
   div.className = 'aw-row flex gap-2 items-start';
-  div.innerHTML = `<input name="aw_type__multi" list="awTypeList" value="" class="w-32 border rounded-xl px-2 py-2 text-sm flex-shrink-0" placeholder="ประเภท"><input name="aw_detail__multi" value="" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="รายละเอียดผลงาน"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button>`;
+  div.innerHTML = `<input name="aw_type__multi" list="awTypeList" autocomplete="off" value="" class="w-36 border rounded-xl px-2 py-2 text-sm flex-shrink-0" placeholder="เลือก/พิมพ์เอง"><input name="aw_detail__multi" value="" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="รายละเอียดผลงาน"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button>`;
   c.appendChild(div);
 }
 function collectAcademicWork(form) {
@@ -3014,6 +3014,50 @@ function branchEduFields(t) {
       </div>
     </div>
   </div>`;
+}
+
+// ---- คำนำหน้าชื่อ: ปุ่มเลือก (นาง/นางสาว/นาย) + พิมพ์เองได้ — เก็บรวมในชื่อ ----
+const TITLE_PREFIXES = ['นางสาว', 'นายแพทย์', 'แพทย์หญิง', 'ว่าที่ร้อยตรีหญิง', 'ว่าที่ร้อยตรี', 'นพ.', 'พญ.', 'ผศ.ดร.', 'รศ.ดร.', 'ผศ.', 'รศ.', 'ดร.', 'ศ.', 'นาง', 'นาย'];
+function parseTitlePrefix(fullName) {
+  const s = String(fullName || '').trim();
+  for (const p of TITLE_PREFIXES) { if (s.startsWith(p)) return { prefix: p, rest: s.slice(p.length).trim() }; }
+  return { prefix: '', rest: s };
+}
+function titlePrefixField(fullName) {
+  const { prefix, rest } = parseTitlePrefix(fullName || '');
+  const chip = v => `<button type="button" onclick="setTitlePrefix(this,'${v}')" class="tp-chip px-3 py-1.5 rounded-lg border text-sm transition ${prefix === v ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:bg-surface'}">${v}</button>`;
+  return `
+  <div class="title-prefix-wrap">
+    <label class="block text-xs text-gray-600 mb-1">คำนำหน้า</label>
+    <div class="flex gap-2 flex-wrap items-center mb-2">
+      ${['นาง', 'นางสาว', 'นาย'].map(chip).join('')}
+      <input name="title_prefix" value="${prefix.replace(/"/g, '&quot;')}" oninput="syncTitlePrefixChips(this)" class="w-28 border rounded-lg px-2 py-1.5 text-sm" placeholder="หรือพิมพ์เอง">
+    </div>
+    <label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label>
+    <input name="name" required value="${rest.replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น อุบล สุทธิเนียม">
+  </div>`;
+}
+function setTitlePrefix(btn, val) {
+  const wrap = btn.closest('.title-prefix-wrap'); if (!wrap) return;
+  const inp = wrap.querySelector('[name="title_prefix"]');
+  if (inp) inp.value = val;
+  wrap.querySelectorAll('.tp-chip').forEach(c => { c.classList.remove('bg-primary', 'text-white', 'border-primary'); c.classList.add('bg-white', 'text-gray-700', 'border-gray-300'); });
+  btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+  btn.classList.add('bg-primary', 'text-white', 'border-primary');
+}
+function syncTitlePrefixChips(inp) {
+  const wrap = inp.closest('.title-prefix-wrap'); if (!wrap) return;
+  wrap.querySelectorAll('.tp-chip').forEach(c => {
+    const on = c.textContent.trim() === inp.value.trim();
+    c.classList.toggle('bg-primary', on); c.classList.toggle('text-white', on); c.classList.toggle('border-primary', on);
+    c.classList.toggle('bg-white', !on); c.classList.toggle('text-gray-700', !on); c.classList.toggle('border-gray-300', !on);
+  });
+}
+// รวมคำนำหน้า + ชื่อ เป็นชื่อเต็ม
+function combineName(form) {
+  const p = ((form.querySelector('[name="title_prefix"]') || {}).value || '').trim();
+  const n = ((form.querySelector('[name="name"]') || {}).value || '').trim();
+  return (p + n).trim();
 }
 
 // Helper: mask national ID — show first 9 digits, last 4 as xxxx
@@ -3343,7 +3387,7 @@ function showTeacherDirectoryDetail(id) {
 function showAddTeacherDirectoryModal() {
   showModal('เพิ่มอาจารย์ (ทำเนียบ)', `
     <form id="addTeacherDirForm" class="space-y-3" style="max-height:70vh;overflow-y:auto;padding-right:4px">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${titlePrefixField('')}
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="13 หลัก"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3379,7 +3423,7 @@ function showAddTeacherDirectoryModal() {
     await withLoading(e.target, async () => {
       const form = e.target;
       const obj = { type: 'teacher_directory', created_at: new Date().toISOString() };
-      obj.name = form.querySelector('[name="name"]').value;
+      obj.name = combineName(form);
       obj.national_id = form.querySelector('[name="national_id"]').value;
       obj.license_no = form.querySelector('[name="license_no"]').value;
       obj.academic_position = form.querySelector('[name="academic_position"]').value;
@@ -3406,7 +3450,7 @@ function showEditTeacherDirectoryModal(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
   showModal('แก้ไขข้อมูลทำเนียบอาจารย์', `
     <form id="editTeacherDirForm" class="space-y-3" style="max-height:70vh;overflow-y:auto;padding-right:4px">
-      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${t.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${titlePrefixField(t.name || '')}
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${t.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" value="${t.license_no || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3442,7 +3486,7 @@ function showEditTeacherDirectoryModal(id) {
     await withLoading(e.target, async () => {
       const form = e.target;
       const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
-      rec.name = form.querySelector('[name="name"]').value;
+      rec.name = combineName(form);
       rec.national_id = form.querySelector('[name="national_id"]').value;
       rec.license_no = form.querySelector('[name="license_no"]').value;
       rec.academic_position = form.querySelector('[name="academic_position"]').value;
@@ -3470,7 +3514,7 @@ function showEditTeacherDirectoryModal(id) {
 function specialTeacherFormBody(t) {
   t = t || {};
   return `
-    <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required value="${(t.name || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นพ.สมชาย ใจดี"></div>
+    ${titlePrefixField(t.name || '')}
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
       <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
@@ -3489,7 +3533,7 @@ function specialTeacherFormBody(t) {
 }
 
 function collectSpecialTeacher(form, obj) {
-  obj.name = form.querySelector('[name="name"]').value;
+  obj.name = combineName(form);
   obj.academic_position = form.querySelector('[name="academic_position"]').value;
   obj.agency = form.querySelector('[name="agency"]').value;
   obj.subjects_taught = collectMultiInputs(form, 'subjects_taught');
