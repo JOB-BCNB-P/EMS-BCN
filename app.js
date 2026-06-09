@@ -3328,6 +3328,8 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('เลขบัตรประชาชน', maskNationalId(t.national_id))}
         ${infoRow('เลขใบประกอบวิชาชีพ', t.license_no)}
         ${infoRow('ตำแหน่งทางวิชาการ', t.academic_position)}
+        ${infoRow('สาขาวิชา', t.nursing_branch)}
+        ${infoRow('ระดับวุฒิ', [t.edu_level, t.edu_field].filter(Boolean).join(' · '))}
         ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">วุฒิการศึกษา</p>${detailList(t.education)}</div>
