@@ -2985,6 +2985,37 @@ function collectAcademicWork(form) {
   return out.join(' || ');
 }
 
+// สาขาวิชามาตรฐาน (สำหรับแดชบอร์ดสรุปตามสาขา)
+const NURSING_BRANCHES = [
+  'การพยาบาลผู้ใหญ่และผู้สูงอายุ',
+  'การพยาบาลเด็ก',
+  'การพยาบาลอนามัยชุมชน',
+  'การพยาบาลมารดา ทารก และผดุงครรภ์',
+  'การพยาบาลจิตเวชและสุขภาพจิต'
+];
+
+// ฟิลด์เสริมสำหรับป้อนแดชบอร์ดสรุป: สาขาวิชา + ระดับวุฒิ + กลุ่มสาขาวุฒิ
+function branchEduFields(t) {
+  t = t || {};
+  const opt = (v, cur) => `<option ${norm(cur) === v ? 'selected' : ''}>${v}</option>`;
+  return `
+  <div class="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
+    <p class="text-xs font-semibold text-primary"><i data-lucide="bar-chart-3" class="w-3 h-3 inline"></i> ข้อมูลสำหรับแดชบอร์ดสรุป</p>
+    <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชา</label>
+      <input name="nursing_branch" list="branchList" value="${(t.nursing_branch || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือกหรือพิมพ์สาขา">
+      <datalist id="branchList">${NURSING_BRANCHES.map(b => `<option value="${b}"></option>`).join('')}</datalist>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ระดับวุฒิ (สูงสุด)</label>
+        <select name="edu_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['ปริญญาเอก', 'ปริญญาโท', 'ปริญญาตรี', 'อื่นๆ'].map(v => opt(v, t.edu_level)).join('')}</select>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">กลุ่มสาขาวุฒิ</label>
+        <select name="edu_field" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['สาขาการพยาบาล', 'สาขาที่สัมพันธ์ทางการพยาบาล'].map(v => opt(v, t.edu_field)).join('')}</select>
+      </div>
+    </div>
+  </div>`;
+}
+
 // Helper: mask national ID — show first 9 digits, last 4 as xxxx
 function maskNationalId(nid) {
   if (!nid) return '-';
@@ -3229,14 +3260,18 @@ function teacherDirectoryPage() {
     <div class="flex flex-wrap gap-2">
       ${view === 'list' ? `<button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
       ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>
-      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_months,nursing_teaching_exp,nursing_practice_years,nursing_practice_months,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}` : (isAdmin && selectedYear ? `<button onclick="showEditDirectorySummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขสรุป</button>
-      <button onclick="printDirectorySummary('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="printer" class="w-4 h-4"></i>พิมพ์</button>` : '')}
+      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,nursing_branch,edu_level,edu_field,teaching_type,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_months,nursing_teaching_exp,nursing_practice_years,nursing_practice_months,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}`
+      : view === 'summary' ? (isAdmin && selectedYear ? `<button onclick="showEditDirectorySummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขสรุป</button>
+      <button onclick="printDirectorySummary('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="printer" class="w-4 h-4"></i>พิมพ์</button>` : '')
+      : (isAdmin && selectedYear ? `<button onclick="showEditBranchSummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขตามสาขา</button>
+      <button onclick="printBranchSummary('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="printer" class="w-4 h-4"></i>พิมพ์</button>` : '')}
     </div>
   </div>
 
   <div class="flex flex-wrap items-center gap-2 mb-4">
     ${viewBtn('list', 'รายชื่ออาจารย์', 'list')}
-    ${viewBtn('summary', 'สรุป (แดชบอร์ด)', 'bar-chart-3')}
+    ${viewBtn('summary', 'สรุปอัตรากำลัง', 'bar-chart-3')}
+    ${viewBtn('branch', 'สรุปตามสาขาวิชา', 'git-branch')}
   </div>
 
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
@@ -3252,7 +3287,8 @@ function teacherDirectoryPage() {
 
   ${!selectedYear ? noYearSelectedMsg('ทำเนียบอาจารย์')
     : (view === 'summary' ? directorySummaryView(selectedYear, isAdmin)
-      : renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin))}`;
+      : view === 'branch' ? directoryBranchView(selectedYear, isAdmin)
+        : renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin))}`;
 }
 
 function showTeacherDirectoryDetail(id) {
@@ -3275,6 +3311,8 @@ function showTeacherDirectoryDetail(id) {
       <div class="grid grid-cols-2 gap-3">
         ${infoRow('ตำแหน่ง', t.academic_position)}
         ${infoRow('หน่วยงาน', t.agency)}
+        ${infoRow('ประเภทการสอน', t.teaching_type)}
+        ${infoRow('ระดับวุฒิ', t.edu_level)}
         ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">รายวิชาที่สอน</p>${detailList(t.subjects_taught)}</div>
@@ -3309,6 +3347,7 @@ function showAddTeacherDirectoryModal() {
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ผศ.ดร., รศ."></div>
+      ${branchEduFields({})}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', '')}
       <div>
         <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
@@ -3342,6 +3381,9 @@ function showAddTeacherDirectoryModal() {
       obj.national_id = form.querySelector('[name="national_id"]').value;
       obj.license_no = form.querySelector('[name="license_no"]').value;
       obj.academic_position = form.querySelector('[name="academic_position"]').value;
+      obj.nursing_branch = form.querySelector('[name="nursing_branch"]').value;
+      obj.edu_level = form.querySelector('[name="edu_level"]').value;
+      obj.edu_field = form.querySelector('[name="edu_field"]').value;
       obj.education = collectMultiInputs(form, 'education');
       obj.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
       obj.nursing_teaching_months = form.querySelector('[name="nursing_teaching_months"]').value;
@@ -3368,6 +3410,7 @@ function showEditTeacherDirectoryModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" value="${t.license_no || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" value="${t.academic_position || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${branchEduFields(t)}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', t.education || '')}
       <div>
         <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
@@ -3401,6 +3444,9 @@ function showEditTeacherDirectoryModal(id) {
       rec.national_id = form.querySelector('[name="national_id"]').value;
       rec.license_no = form.querySelector('[name="license_no"]').value;
       rec.academic_position = form.querySelector('[name="academic_position"]').value;
+      rec.nursing_branch = form.querySelector('[name="nursing_branch"]').value;
+      rec.edu_level = form.querySelector('[name="edu_level"]').value;
+      rec.edu_field = form.querySelector('[name="edu_field"]').value;
       rec.education = collectMultiInputs(form, 'education');
       rec.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
       rec.nursing_teaching_months = form.querySelector('[name="nursing_teaching_months"]').value;
@@ -3428,6 +3474,14 @@ function specialTeacherFormBody(t) {
       <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
     </div>
     ${multiSubjectField('subjects_taught', 'รายวิชาที่สอน (เลือกได้หลายวิชา)', t.subjects_taught || '')}
+    <div class="grid grid-cols-2 gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+      <div><label class="block text-xs text-gray-600 mb-1">ประเภทการสอน <span class="text-gray-400">(สำหรับสรุป)</span></label>
+        <select name="teaching_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['ภาคทฤษฎี', 'ภาคปฏิบัติ'].map(v => `<option ${norm(t.teaching_type) === v ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ระดับวุฒิ <span class="text-gray-400">(สำหรับสรุป)</span></label>
+        <select name="edu_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['ปริญญาเอก', 'ปริญญาโท', 'ปริญญาตรี'].map(v => `<option ${norm(t.edu_level) === v ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      </div>
+    </div>
     <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required value="${(t.academic_year || '2568').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
     <input type="hidden" name="teacher_category" value="อาจารย์พิเศษ">`;
 }
@@ -3437,6 +3491,8 @@ function collectSpecialTeacher(form, obj) {
   obj.academic_position = form.querySelector('[name="academic_position"]').value;
   obj.agency = form.querySelector('[name="agency"]').value;
   obj.subjects_taught = collectMultiInputs(form, 'subjects_taught');
+  obj.teaching_type = form.querySelector('[name="teaching_type"]').value;
+  obj.edu_level = form.querySelector('[name="edu_level"]').value;
   obj.academic_year = form.querySelector('[name="academic_year"]').value;
   obj.teacher_category = 'อาจารย์พิเศษ';
   return obj;
@@ -3502,6 +3558,24 @@ function classifyTeacherEdu(eduStr) {
   return { level: '', nursing: false };
 }
 
+// จัดวุฒิ: ใช้ฟิลด์ที่เลือกไว้ (edu_level + edu_field) ก่อน ถ้าไม่มีค่อย fallback เดาจากข้อความ
+function teacherEduClass(t) {
+  const lvl = norm(t.edu_level);
+  if (lvl) {
+    let level = ''; if (/เอก/.test(lvl)) level = 'phd'; else if (/โท/.test(lvl)) level = 'master'; else if (/ตรี/.test(lvl)) level = 'bachelor';
+    const fld = norm(t.edu_field);
+    const nursing = fld ? (fld === 'สาขาการพยาบาล' || (/พยาบาล/.test(fld) && !/สัมพันธ์/.test(fld))) : /พยาบาล/.test(norm(t.education));
+    return { level, nursing };
+  }
+  return classifyTeacherEdu(t.education);
+}
+// นับระดับวุฒิ (เอก/โท/ตรี) จาก edu_level
+function eduLevelKey(t) {
+  const lvl = norm(t.edu_level);
+  if (/เอก/.test(lvl)) return 'phd'; if (/โท/.test(lvl)) return 'master'; if (/ตรี/.test(lvl)) return 'bachelor';
+  const e = classifyTeacherEdu(t.education); return e.level || '';
+}
+
 // คำนวณตัวเลขอัตโนมัติจากข้อมูล teacher_directory ของปีที่เลือก
 function computeDirectoryAuto(year) {
   let data = getDataByType('teacher_directory');
@@ -3516,10 +3590,15 @@ function computeDirectoryAuto(year) {
 
   const edu = { phd_nursing: 0, phd_related: 0, master_nursing: 0, master_related: 0 };
   cCurr.forEach(t => {
-    const e = classifyTeacherEdu(t.education);
+    const e = teacherEduClass(t);
     if (e.level === 'phd') { e.nursing ? edu.phd_nursing++ : edu.phd_related++; }
     else if (e.level === 'master') { e.nursing ? edu.master_nursing++ : edu.master_related++; }
   });
+
+  // อาจารย์ภายนอก/พิเศษ — แยกทฤษฎี/ปฏิบัติ × ระดับวุฒิ (จากข้อมูล อ.พิเศษ)
+  const specTheory = cSpec.filter(t => /ทฤษฎี/.test(norm(t.teaching_type)));
+  const specPractice = cSpec.filter(t => /ปฏิบัติ/.test(norm(t.teaching_type)));
+  const lvlCount = (arr, key) => arr.filter(t => eduLevelKey(t) === key).length;
 
   const internal = [...cResp, ...cCurr, ...cReg, ...cLeave];
   const exp = { le5: 0, b6_10: 0, b10_15: 0, b15_20: 0, gt20: 0 };
@@ -3545,7 +3624,10 @@ function computeDirectoryAuto(year) {
     edu_master_nursing: edu.master_nursing, edu_master_related: edu.master_related,
     work_min: workMin, work_max: workMax,
     regular_total: cReg.length, studyleave_total: cLeave.length, special_total: cSpec.length,
-    exp_le5: exp.le5, exp_6_10: exp.b6_10, exp_10_15: exp.b10_15, exp_15_20: exp.b15_20, exp_gt20: exp.gt20
+    exp_le5: exp.le5, exp_6_10: exp.b6_10, exp_10_15: exp.b10_15, exp_15_20: exp.b15_20, exp_gt20: exp.gt20,
+    external_total: cSpec.length,
+    theory_total: specTheory.length, theory_phd: lvlCount(specTheory, 'phd'), theory_master: lvlCount(specTheory, 'master'), theory_bachelor: lvlCount(specTheory, 'bachelor'),
+    practice_total: specPractice.length, practice_master: lvlCount(specPractice, 'master'), practice_bachelor: lvlCount(specPractice, 'bachelor')
   };
 }
 
@@ -3592,10 +3674,24 @@ function getDirectorySummary(year) {
   try { return JSON.parse(rec.summary_json || '{}'); } catch (e) { return {}; }
 }
 
-async function saveDirectorySummary(year, obj) {
+// บันทึก JSON เต็มลงแถวของปีนั้น (สร้างใหม่ถ้ายังไม่มี)
+function persistDirectorySummary(year, fullObj) {
   const rec = APP.allData.find(d => d.type === 'directory_summary' && norm(d.academic_year) === norm(year));
-  if (rec) { rec.summary_json = JSON.stringify(obj); return GSheetDB.update(rec); }
-  return GSheetDB.create({ type: 'directory_summary', academic_year: year, summary_json: JSON.stringify(obj), created_at: new Date().toISOString() });
+  if (rec) { rec.summary_json = JSON.stringify(fullObj); return GSheetDB.update(rec); }
+  return GSheetDB.create({ type: 'directory_summary', academic_year: year, summary_json: JSON.stringify(fullObj), created_at: new Date().toISOString() });
+}
+// บันทึกตัวเลขแดชบอร์ด 1 (flat keys) โดยคงค่า branch_summary ของแดชบอร์ด 2 ไว้
+function saveDirectorySummaryFields(year, fieldsObj) {
+  const existing = getDirectorySummary(year);
+  const merged = Object.assign({}, fieldsObj);
+  if (existing.branch_summary) merged.branch_summary = existing.branch_summary;
+  return persistDirectorySummary(year, merged);
+}
+// บันทึกตัวเลขแดชบอร์ด 2 (ตามสาขา) โดยคงตัวเลขแดชบอร์ด 1 ไว้
+function saveDirectoryBranchSummary(year, branchObj) {
+  const existing = getDirectorySummary(year);
+  existing.branch_summary = branchObj;
+  return persistDirectorySummary(year, existing);
 }
 
 // ค่าแสดงผล: ใช้ค่าที่บันทึกเองก่อน ถ้าไม่มีใช้ค่าที่คำนวณอัตโนมัติ
@@ -3797,7 +3893,7 @@ function showEditDirectorySummaryModal(year) {
     await withLoading(e.target, async () => {
       const obj = {};
       DS_FIELDS.forEach(f => { const el = e.target.querySelector('[name="' + f.key + '"]'); if (el && el.value.trim() !== '') obj[f.key] = el.value.trim(); });
-      const r = await saveDirectorySummary(year, obj);
+      const r = await saveDirectorySummaryFields(year, obj);
       if (r.isOk) { showToast('บันทึกข้อมูลสรุปสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
     });
   };
@@ -3820,6 +3916,186 @@ function printDirectorySummary(year) {
   printWin.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สรุปอัตรากำลังอาจารย์ ${year}</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Sarabun',sans-serif;font-size:14px;color:#222;padding:24px;line-height:1.7}@page{size:A4;margin:18mm}.font-bold{font-weight:700}.text-primary{color:#1e6fba}b{font-weight:600}.pl-3{padding-left:14px}.space-y-1>*+*,.space-y-2>*+*,.space-y-3>*+*{margin-top:6px}h3{font-size:17px;color:#1e6fba;margin-bottom:10px}.max-w-md{max-width:520px}[data-lucide]{display:none}</style>
+    </head><body>${el.innerHTML}</body></html>`);
+  printWin.document.close();
+  printWin.onload = () => setTimeout(() => printWin.print(), 400);
+  showToast('เปิดหน้าต่างพิมพ์แล้ว — เลือก "Save as PDF" ได้');
+}
+
+// ======================== แดชบอร์ดที่ 2 — สรุปตามสาขาวิชา ========================
+const DB_EDU_KEYS = [
+  { key: 'phd_nursing', label: 'ปริญญาเอกในสาขาการพยาบาล', short: 'ป.เอก พยาบาล', color: '#7c3aed' },
+  { key: 'phd_related', label: 'ปริญญาเอกในสาขาที่สัมพันธ์ทางการพยาบาล', short: 'ป.เอก สัมพันธ์ฯ', color: '#a78bfa' },
+  { key: 'master_nursing', label: 'ปริญญาโทในสาขาการพยาบาล', short: 'ป.โท พยาบาล', color: '#2563eb' },
+  { key: 'master_related', label: 'ปริญญาโทในสาขาที่สัมพันธ์ทางการพยาบาล', short: 'ป.โท สัมพันธ์ฯ', color: '#60a5fa' }
+];
+
+// คำนวณอัตโนมัติ: อาจารย์ประจำหลักสูตร แยกตามสาขา × วุฒิ
+function computeBranchAuto(year) {
+  let data = getDataByType('teacher_directory').filter(d => (d.teacher_category || '') === 'อาจารย์ประจำหลักสูตร');
+  if (year) data = data.filter(d => norm(d.academic_year) === norm(year));
+  const out = {};
+  const ensure = b => { if (!out[b]) out[b] = { phd_nursing: 0, phd_related: 0, master_nursing: 0, master_related: 0 }; return out[b]; };
+  data.forEach(t => {
+    const b = norm(t.nursing_branch) || 'ไม่ระบุสาขา';
+    const o = ensure(b);
+    const e = teacherEduClass(t);
+    if (e.level === 'phd') e.nursing ? o.phd_nursing++ : o.phd_related++;
+    else if (e.level === 'master') e.nursing ? o.master_nursing++ : o.master_related++;
+  });
+  return out;
+}
+
+// แท่งสัดส่วน (stacked) สำหรับ 1 สาขา
+function dbStack(parts) {
+  const total = parts.reduce((s, p) => s + (p.value || 0), 0) || 1;
+  return `<div style="display:flex;height:18px;border-radius:6px;overflow:hidden;background:#eef2f7">${parts.map(p => p.value ? `<div title="${p.label}: ${p.value}" style="width:${p.value / total * 100}%;background:${p.color}"></div>` : '').join('')}</div>`;
+}
+
+function directoryBranchView(year, isAdmin) {
+  const saved = (getDirectorySummary(year).branch_summary) || {};
+  const auto = computeBranchAuto(year);
+  const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
+  const bget = (branch, key) => {
+    const s = saved[branch]; if (s && s[key] !== undefined && String(s[key]) !== '') return parseFloat(s[key]) || 0;
+    const a = auto[branch]; if (a && a[key] !== undefined) return a[key];
+    return 0;
+  };
+  const bTotal = branch => DB_EDU_KEYS.reduce((s, k) => s + bget(branch, k.key), 0);
+  const shown = names.filter(b => bTotal(b) > 0);
+  const grand = shown.reduce((s, b) => s + bTotal(b), 0);
+
+  if (!shown.length) {
+    return `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-400">
+      <i data-lucide="git-branch" class="w-10 h-10 mx-auto mb-2"></i>
+      <p>ยังไม่มีข้อมูลสาขาวิชาของอาจารย์ประจำหลักสูตร ปีการศึกษา ${year}</p>
+      <p class="text-xs mt-1">กรุณาระบุ "สาขาวิชา" และ "ระดับวุฒิ/กลุ่มสาขาวุฒิ" ในข้อมูลอาจารย์ ${isAdmin ? 'หรือกดปุ่ม "แก้ไขตัวเลขตามสาขา" เพื่อกรอกเอง' : ''}</p>
+    </div>`;
+  }
+
+  // การ์ดรวม + โดนัทภาพรวม
+  const eduTotals = DB_EDU_KEYS.map(k => ({ label: k.short, value: shown.reduce((s, b) => s + bget(b, k.key), 0), color: k.color }));
+  let html = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+    <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-center">
+      <p class="text-3xl font-bold text-primary">${grand}</p>
+      <p class="text-sm text-gray-600 mt-1">อาจารย์ประจำหลักสูตร</p>
+      <p class="text-xs text-gray-400 mt-1">จำแนกได้ ${shown.length} สาขาวิชา</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-blue-100 lg:col-span-2">
+      <h3 class="font-bold text-gray-800 mb-3 text-sm"><i data-lucide="graduation-cap" class="w-4 h-4 inline mr-1"></i>ภาพรวมวุฒิการศึกษา (ทุกสาขา)</h3>
+      ${dsDonut(eduTotals, 'คน')}
+    </div>
+  </div>`;
+
+  // การ์ดต่อสาขา + แท่งสัดส่วน
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">';
+  shown.forEach(b => {
+    const parts = DB_EDU_KEYS.map(k => ({ label: k.short, value: bget(b, k.key), color: k.color }));
+    html += `<div class="bg-white rounded-2xl p-4 border border-blue-100">
+      <div class="flex items-center justify-between mb-2"><h3 class="font-bold text-gray-800 text-sm">${b}</h3><span class="px-2 py-1 rounded-full text-xs bg-primaryLight text-primary font-bold">${bTotal(b)} คน</span></div>
+      ${dbStack(parts)}
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-3 text-xs">
+        ${DB_EDU_KEYS.map(k => bget(b, k.key) ? `<div class="flex items-center gap-1"><span style="width:10px;height:10px;border-radius:2px;background:${k.color};display:inline-block"></span><span class="text-gray-600 flex-1">${k.short}</span><b>${bget(b, k.key)}</b></div>` : '').join('')}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // รายงานข้อความตามรูปต้นฉบับ
+  html += `<div class="bg-white rounded-2xl p-5 border border-blue-100" id="dbTextReport">
+    <h3 class="font-bold text-gray-800 mb-3"><i data-lucide="file-text" class="w-5 h-5 inline mr-1"></i>สรุปจำนวนอาจารย์ประจำหลักสูตรจำแนกตามสาขาวิชา ปีการศึกษา ${year}</h3>
+    <div class="text-sm text-gray-700 leading-relaxed">
+      <p class="mb-2">ปีการศึกษา ${year} วิทยาลัยฯ มีอาจารย์ประจำหลักสูตร จำนวนทั้งหมด <b>${grand}</b> คน แยกตามสาขาวิชาและวุฒิการศึกษา มีดังนี้</p>
+      <div class="space-y-3 pl-2">
+        ${shown.map(b => `<div>
+          <p class="font-semibold">- สาขา${b} จำนวนทั้งหมด ${bTotal(b)} คน</p>
+          <div class="pl-4 max-w-lg">
+            ${DB_EDU_KEYS.map(k => bget(b, k.key) ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:1px 0"><span>${k.label}</span><span><b>${bget(b, k.key)}</b> คน</span></div>` : '').join('')}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  const hasSaved = Object.keys(saved).length;
+  if (!hasSaved) html += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800"><i data-lucide="info" class="w-4 h-4 inline mr-1"></i>ตัวเลขมาจากการคำนวณอัตโนมัติตามข้อมูลในระบบ ${isAdmin ? 'กดปุ่ม "แก้ไขตัวเลขตามสาขา" เพื่อปรับแก้เอง' : ''}</div>`;
+  return html;
+}
+
+function showEditBranchSummaryModal(year) {
+  const saved = (getDirectorySummary(year).branch_summary) || {};
+  const auto = computeBranchAuto(year);
+  window.__dbAuto = auto;
+  const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
+
+  const inpCell = (idx, branch, key) => {
+    const sv = saved[branch] || {}; const av = auto[branch] || {};
+    const val = sv[key] !== undefined ? sv[key] : '';
+    const ph = av[key] !== undefined ? String(av[key]) : '0';
+    return `<input name="b_${idx}_${key}" data-branch="${(branch || '').replace(/"/g, '&quot;')}" data-key="${key}" value="${val}" inputmode="numeric" class="w-14 border rounded-lg px-1 py-1 text-sm text-right" placeholder="${ph}">`;
+  };
+  const rowHTML = (idx, branch, editable) => `<tr class="border-t">
+    <td class="px-1 py-1">${editable ? `<input name="bname_${idx}" value="${(branch || '').replace(/"/g, '&quot;')}" class="w-40 border rounded-lg px-2 py-1 text-sm" placeholder="ชื่อสาขา">` : `<input name="bname_${idx}" type="hidden" value="${(branch || '').replace(/"/g, '&quot;')}"><span class="text-xs">${branch}</span>`}</td>
+    ${DB_EDU_KEYS.map(k => `<td class="px-1 py-1 text-center">${inpCell(idx, branch, k.key)}</td>`).join('')}
+  </tr>`;
+
+  const rows = names.map((b, i) => rowHTML(i, b, false)).join('');
+  showModal('แก้ไขตัวเลขตามสาขา — ปีการศึกษา ' + year, `
+    <form id="dbForm" style="max-height:70vh;overflow-y:auto;padding-right:4px">
+      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">ช่องว่าง = ใช้ค่าที่คำนวณอัตโนมัติ (เลข auto ใน placeholder) · กรอกเพื่อกำหนดเอง</div>
+      <button type="button" onclick="dbBranchAutoFill()" class="mb-3 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"><i data-lucide="wand-2" class="w-4 h-4 inline"></i> เติมค่าอัตโนมัติ</button>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="px-1 py-1 text-left">สาขาวิชา</th>${DB_EDU_KEYS.map(k => `<th class="px-1 py-1">${k.short}</th>`).join('')}</tr></thead>
+      <tbody id="dbRows">${rows}</tbody></table></div>
+      <button type="button" onclick="dbAddBranchRow()" class="mt-2 text-xs text-primary hover:underline">＋ เพิ่มสาขาใหม่</button>
+      <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  lucide.createIcons();
+  window.__dbRowIdx = names.length;
+  document.getElementById('dbForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const form = e.target;
+      const result = {};
+      form.querySelectorAll('[name^="bname_"]').forEach(nameEl => {
+        const idx = nameEl.name.substring('bname_'.length);
+        const branch = (nameEl.value || '').trim(); if (!branch) return;
+        const obj = {};
+        DB_EDU_KEYS.forEach(k => { const el = form.querySelector('[name="b_' + idx + '_' + k.key + '"]'); if (el && el.value.trim() !== '') obj[k.key] = el.value.trim(); });
+        if (Object.keys(obj).length) result[branch] = obj;
+      });
+      const r = await saveDirectoryBranchSummary(year, result);
+      if (r.isOk) { showToast('บันทึกข้อมูลตามสาขาสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
+  };
+}
+
+function dbBranchAutoFill() {
+  const auto = window.__dbAuto || {};
+  document.querySelectorAll('#dbForm input[data-key]').forEach(el => {
+    const b = el.getAttribute('data-branch'); const k = el.getAttribute('data-key');
+    if (auto[b] && auto[b][k] !== undefined) el.value = auto[b][k];
+  });
+  showToast('เติมค่าอัตโนมัติแล้ว — ปรับแก้ได้');
+}
+
+function dbAddBranchRow() {
+  const tbody = document.getElementById('dbRows'); if (!tbody) return;
+  const idx = 'c' + (window.__dbRowIdx = (window.__dbRowIdx || 0) + 1);
+  const tr = document.createElement('tr');
+  tr.className = 'border-t';
+  tr.innerHTML = `<td class="px-1 py-1"><input name="bname_${idx}" value="" class="w-40 border rounded-lg px-2 py-1 text-sm" placeholder="ชื่อสาขา"></td>` +
+    DB_EDU_KEYS.map(k => `<td class="px-1 py-1 text-center"><input name="b_${idx}_${k.key}" value="" inputmode="numeric" class="w-14 border rounded-lg px-1 py-1 text-sm text-right" placeholder="0"></td>`).join('');
+  tbody.appendChild(tr);
+}
+
+function printBranchSummary(year) {
+  const el = document.getElementById('dbTextReport');
+  if (!el) { showToast('ไม่พบรายงาน', 'error'); return; }
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สรุปอาจารย์ตามสาขา ${year}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Sarabun',sans-serif;font-size:14px;color:#222;padding:24px;line-height:1.7}@page{size:A4;margin:18mm}.font-bold{font-weight:700}b{font-weight:600}.pl-2{padding-left:8px}.pl-4{padding-left:18px}.space-y-3>*+*{margin-top:10px}h3{font-size:17px;color:#1e6fba;margin-bottom:10px}.max-w-lg{max-width:560px}[data-lucide]{display:none}</style>
     </head><body>${el.innerHTML}</body></html>`);
   printWin.document.close();
   printWin.onload = () => setTimeout(() => printWin.print(), 400);
