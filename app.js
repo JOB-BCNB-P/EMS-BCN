@@ -2985,6 +2985,65 @@ function collectAcademicWork(form) {
   return out.join(' || ');
 }
 
+// ---- ประสบการณ์: แต่ละแถวมี ปี/เดือน + รายละเอียด (เพิ่มได้หลายแถว) ----
+// เก็บเป็น "ปี::เดือน::รายละเอียด" คั่นด้วย || และคำนวณรวมเก็บใน *_years/_months
+function expParse(values) {
+  const items = values ? values.split('||').map(v => v.trim()).filter(Boolean) : [];
+  return items.map(item => {
+    const m = item.match(/^(\d*)\s*::\s*(\d*)\s*::\s*([\s\S]*)$/);
+    if (m) return { y: m[1], mo: m[2], detail: m[3].trim() };
+    return { y: '', mo: '', detail: item };
+  });
+}
+function expRowHTML(name, ph, r) {
+  r = r || { y: '', mo: '', detail: '' };
+  return `<div class="${name}-row flex gap-1 items-center">
+    <input name="${name}_y" type="number" min="0" value="${r.y || ''}" class="w-14 border rounded-lg px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span>
+    <input name="${name}_mo" type="number" min="0" max="11" value="${r.mo || ''}" class="w-16 border rounded-lg px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span>
+    <input name="${name}_d" value="${(r.detail || '').replace(/"/g, '&quot;')}" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="${ph}">
+    <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button>
+  </div>`;
+}
+function multiExpField(name, label, ph, values, legacyY, legacyMo) {
+  const rows = expParse(values); if (!rows.length) rows.push({ y: '', mo: '', detail: '' });
+  if ((legacyY || legacyMo) && rows.length && !rows[0].y && !rows[0].mo) { rows[0].y = legacyY || ''; rows[0].mo = legacyMo || ''; }
+  return `<div>
+    <label class="block text-xs text-gray-600 mb-1">${label} <span class="text-gray-400">(แต่ละรายการระบุ ปี/เดือน ได้ · กดปุ่ม + เพื่อเพิ่ม)</span></label>
+    <div id="multi_${name}" class="space-y-2">${rows.map(r => expRowHTML(name, ph, r)).join('')}</div>
+    <button type="button" onclick="addExpRow('${name}','${ph}')" class="mt-1 text-xs text-primary hover:underline flex items-center gap-1"><span>＋</span> เพิ่มรายการ</button>
+  </div>`;
+}
+function addExpRow(name, ph) {
+  const c = document.getElementById('multi_' + name); if (!c) return;
+  const div = document.createElement('div');
+  div.className = name + '-row flex gap-1 items-center';
+  div.innerHTML = `<input name="${name}_y" type="number" min="0" value="" class="w-14 border rounded-lg px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span><input name="${name}_mo" type="number" min="0" max="11" value="" class="w-16 border rounded-lg px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span><input name="${name}_d" value="" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="${ph}"><button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 px-1" title="ลบ">✕</button>`;
+  c.appendChild(div);
+}
+function collectExp(form, name) {
+  const rows = form.querySelectorAll('#multi_' + name + ' .' + name + '-row');
+  const out = []; let totalY = 0, totalMo = 0;
+  rows.forEach(row => {
+    const y = ((row.querySelector('[name="' + name + '_y"]') || {}).value || '').trim();
+    const mo = ((row.querySelector('[name="' + name + '_mo"]') || {}).value || '').trim();
+    const d = ((row.querySelector('[name="' + name + '_d"]') || {}).value || '').trim();
+    if (!y && !mo && !d) return;
+    out.push(y + '::' + mo + '::' + d);
+    totalY += parseInt(y, 10) || 0; totalMo += parseInt(mo, 10) || 0;
+  });
+  totalY += Math.floor(totalMo / 12); totalMo = totalMo % 12;
+  return { exp: out.join(' || '), years: out.length ? String(totalY) : '', months: out.length ? String(totalMo) : '' };
+}
+// แสดงรายการประสบการณ์พร้อมระยะเวลาต่อรายการ
+function expDetailList(values) {
+  const rows = expParse(values);
+  if (!rows.length) return '<span class="text-gray-400">-</span>';
+  return '<ul class="list-disc list-inside text-sm space-y-1">' + rows.map(r => {
+    const dur = expYM(r.y, r.mo);
+    return `<li>${r.detail || ''}${dur ? ` <span class="text-primary">(${dur})</span>` : ''}</li>`;
+  }).join('') + '</ul>';
+}
+
 // สาขาวิชามาตรฐาน (สำหรับแดชบอร์ดสรุปตามสาขา)
 const NURSING_BRANCHES = [
   'การพยาบาลผู้ใหญ่และผู้สูงอายุ',
@@ -3377,8 +3436,8 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">วุฒิการศึกษา</p>${detailList(t.education)}</div>
-      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล ${expYM(t.nursing_teaching_years, t.nursing_teaching_months) ? '<span class="text-primary font-bold">(' + expYM(t.nursing_teaching_years, t.nursing_teaching_months) + ')</span>' : ''}</p>${detailList(t.nursing_teaching_exp)}</div>
-      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์ปฏิบัติการพยาบาล ${expYM(t.nursing_practice_years, t.nursing_practice_months) ? '<span class="text-primary font-bold">(' + expYM(t.nursing_practice_years, t.nursing_practice_months) + ')</span>' : ''}</p>${detailList(t.nursing_practice_exp)}</div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล ${expYM(t.nursing_teaching_years, t.nursing_teaching_months) ? '<span class="text-primary font-bold">(รวม ' + expYM(t.nursing_teaching_years, t.nursing_teaching_months) + ')</span>' : ''}</p>${expDetailList(t.nursing_teaching_exp)}</div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์ปฏิบัติการพยาบาล ${expYM(t.nursing_practice_years, t.nursing_practice_months) ? '<span class="text-primary font-bold">(รวม ' + expYM(t.nursing_practice_years, t.nursing_practice_months) + ')</span>' : ''}</p>${expDetailList(t.nursing_practice_exp)}</div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ผลงานวิชาการ (ย้อนหลัง 5 ปี)</p>${detailList(t.academic_work)}</div>
     </div>
   `);
@@ -3395,16 +3454,8 @@ function showAddTeacherDirectoryModal() {
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ผศ.ดร., รศ."></div>
       ${branchEduFields({})}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', '')}
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
-        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">ระยะเวลา</span><input name="nursing_teaching_years" type="number" min="0" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span><input name="nursing_teaching_months" type="number" min="0" max="11" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span></div>
-        ${multiInputField('nursing_teaching_exp', 'รายละเอียด', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', '')}
-      </div>
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
-        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">ระยะเวลา</span><input name="nursing_practice_years" type="number" min="0" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span><input name="nursing_practice_months" type="number" min="0" max="11" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span></div>
-        ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', '')}
-      </div>
+      ${multiExpField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', '')}
+      ${multiExpField('nursing_practice_exp', 'ประสบการณ์ปฏิบัติการพยาบาล', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', '')}
       ${multiAcademicWorkField('')}
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="2568"></div>
@@ -3431,12 +3482,10 @@ function showAddTeacherDirectoryModal() {
       obj.edu_level = form.querySelector('[name="edu_level"]').value;
       obj.edu_field = form.querySelector('[name="edu_field"]').value;
       obj.education = collectMultiInputs(form, 'education');
-      obj.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
-      obj.nursing_teaching_months = form.querySelector('[name="nursing_teaching_months"]').value;
-      obj.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
-      obj.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
-      obj.nursing_practice_months = form.querySelector('[name="nursing_practice_months"]').value;
-      obj.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
+      const _te = collectExp(form, 'nursing_teaching_exp');
+      obj.nursing_teaching_exp = _te.exp; obj.nursing_teaching_years = _te.years; obj.nursing_teaching_months = _te.months;
+      const _pe = collectExp(form, 'nursing_practice_exp');
+      obj.nursing_practice_exp = _pe.exp; obj.nursing_practice_years = _pe.years; obj.nursing_practice_months = _pe.months;
       obj.academic_work = collectAcademicWork(form);
       obj.academic_year = form.querySelector('[name="academic_year"]').value;
       obj.teacher_category = form.querySelector('[name="teacher_category"]').value;
@@ -3458,16 +3507,8 @@ function showEditTeacherDirectoryModal(id) {
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" value="${t.academic_position || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${branchEduFields(t)}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', t.education || '')}
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์สอนทางการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
-        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">ระยะเวลา</span><input name="nursing_teaching_years" type="number" min="0" value="${t.nursing_teaching_years || ''}" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span><input name="nursing_teaching_months" type="number" min="0" max="11" value="${t.nursing_teaching_months || ''}" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span></div>
-        ${multiInputField('nursing_teaching_exp', 'รายละเอียด', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', t.nursing_teaching_exp || '')}
-      </div>
-      <div>
-        <label class="block text-xs text-gray-600 mb-1">ประสบการณ์ปฏิบัติการพยาบาล <span class="text-gray-400">(กดปุ่ม + เพื่อเพิ่มรายการ)</span></label>
-        <div class="flex items-center gap-2 mb-1"><span class="text-xs text-gray-500 w-16 text-right flex-shrink-0">ระยะเวลา</span><input name="nursing_practice_years" type="number" min="0" value="${t.nursing_practice_years || ''}" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="ปี"><span class="text-xs text-gray-500">ปี</span><input name="nursing_practice_months" type="number" min="0" max="11" value="${t.nursing_practice_months || ''}" class="w-16 border rounded-xl px-2 py-2 text-sm" placeholder="เดือน"><span class="text-xs text-gray-500">เดือน</span></div>
-        ${multiInputField('nursing_practice_exp', 'รายละเอียด', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', t.nursing_practice_exp || '')}
-      </div>
+      ${multiExpField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', t.nursing_teaching_exp || '', t.nursing_teaching_years || '', t.nursing_teaching_months || '')}
+      ${multiExpField('nursing_practice_exp', 'ประสบการณ์ปฏิบัติการพยาบาล', 'เช่น พยาบาลวิชาชีพ รพ.รามาธิบดี', t.nursing_practice_exp || '', t.nursing_practice_years || '', t.nursing_practice_months || '')}
       ${multiAcademicWorkField(t.academic_work || '')}
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${t.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
@@ -3494,12 +3535,10 @@ function showEditTeacherDirectoryModal(id) {
       rec.edu_level = form.querySelector('[name="edu_level"]').value;
       rec.edu_field = form.querySelector('[name="edu_field"]').value;
       rec.education = collectMultiInputs(form, 'education');
-      rec.nursing_teaching_years = form.querySelector('[name="nursing_teaching_years"]').value;
-      rec.nursing_teaching_months = form.querySelector('[name="nursing_teaching_months"]').value;
-      rec.nursing_teaching_exp = collectMultiInputs(form, 'nursing_teaching_exp');
-      rec.nursing_practice_years = form.querySelector('[name="nursing_practice_years"]').value;
-      rec.nursing_practice_months = form.querySelector('[name="nursing_practice_months"]').value;
-      rec.nursing_practice_exp = collectMultiInputs(form, 'nursing_practice_exp');
+      const _te = collectExp(form, 'nursing_teaching_exp');
+      rec.nursing_teaching_exp = _te.exp; rec.nursing_teaching_years = _te.years; rec.nursing_teaching_months = _te.months;
+      const _pe = collectExp(form, 'nursing_practice_exp');
+      rec.nursing_practice_exp = _pe.exp; rec.nursing_practice_years = _pe.years; rec.nursing_practice_months = _pe.months;
       rec.academic_work = collectAcademicWork(form);
       rec.academic_year = form.querySelector('[name="academic_year"]').value;
       rec.teacher_category = form.querySelector('[name="teacher_category"]').value;
