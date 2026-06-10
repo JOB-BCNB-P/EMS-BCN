@@ -3363,7 +3363,7 @@ function teacherDirectoryPage() {
     <div class="flex flex-wrap gap-2">
       ${view === 'list' ? `<button onclick="exportTeacherDirectoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i>ส่งออก PDF</button>
       ${isAdmin ? `<button onclick="showAddTeacherDirectoryModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์</button>
-      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,nursing_branch,edu_level,edu_field,teaching_type,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_months,nursing_teaching_exp,nursing_practice_years,nursing_practice_months,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}`
+      <button onclick="showAddSpecialTeacherModal()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('teacher_directory', 'name,national_id,license_no,academic_position,note,nursing_branch,edu_level,edu_field,teaching_type,agency,subjects_taught,education,nursing_teaching_years,nursing_teaching_months,nursing_teaching_exp,nursing_practice_years,nursing_practice_months,nursing_practice_exp,academic_work,academic_year,teacher_category')}` : ''}`
       : view === 'summary' ? (isAdmin && selectedYear ? `<button onclick="showEditDirectorySummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขสรุป</button>
       <button onclick="printDirectorySummary('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm"><i data-lucide="printer" class="w-4 h-4"></i>พิมพ์</button>` : '')
       : (isAdmin && selectedYear ? `<button onclick="showEditBranchSummaryModal('${selectedYear}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="pencil" class="w-4 h-4"></i>แก้ไขตัวเลขตามสาขา</button>
@@ -3435,6 +3435,7 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('ระดับวุฒิ', [t.edu_level, t.edu_field].filter(Boolean).join(' · '))}
         ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
+      ${t.note ? `<div class="bg-amber-50 rounded-xl p-3 border border-amber-100"><p class="text-xs text-gray-500 mb-1 font-semibold">หมายเหตุ</p><p class="text-sm">${t.note}</p></div>` : ''}
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">วุฒิการศึกษา</p>${detailList(t.education)}</div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์สอนทางการพยาบาล ${expYM(t.nursing_teaching_years, t.nursing_teaching_months) ? '<span class="text-primary font-bold">(รวม ' + expYM(t.nursing_teaching_years, t.nursing_teaching_months) + ')</span>' : ''}</p>${expDetailList(t.nursing_teaching_exp)}</div>
       <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">ประสบการณ์ปฏิบัติการพยาบาล ${expYM(t.nursing_practice_years, t.nursing_practice_months) ? '<span class="text-primary font-bold">(รวม ' + expYM(t.nursing_practice_years, t.nursing_practice_months) + ')</span>' : ''}</p>${expDetailList(t.nursing_practice_exp)}</div>
@@ -3452,6 +3453,7 @@ function showAddTeacherDirectoryModal() {
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ผศ.ดร., รศ."></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><textarea name="note" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea></div>
       ${branchEduFields({})}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', '')}
       ${multiExpField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', '')}
@@ -3478,6 +3480,7 @@ function showAddTeacherDirectoryModal() {
       obj.national_id = form.querySelector('[name="national_id"]').value;
       obj.license_no = form.querySelector('[name="license_no"]').value;
       obj.academic_position = form.querySelector('[name="academic_position"]').value;
+      obj.note = form.querySelector('[name="note"]').value;
       obj.nursing_branch = form.querySelector('[name="nursing_branch"]').value;
       obj.edu_level = form.querySelector('[name="edu_level"]').value;
       obj.edu_field = form.querySelector('[name="edu_field"]').value;
@@ -3505,6 +3508,7 @@ function showEditTeacherDirectoryModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">เลขใบประกอบวิชาชีพ</label><input name="license_no" value="${t.license_no || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่งทางวิชาการ</label><input name="academic_position" value="${t.academic_position || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><textarea name="note" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)">${t.note || ''}</textarea></div>
       ${branchEduFields(t)}
       ${multiInputField('education', 'วุฒิการศึกษา', 'เช่น พย.บ., พย.ม., ปร.ด.', t.education || '')}
       ${multiExpField('nursing_teaching_exp', 'ประสบการณ์สอนทางการพยาบาล', 'เช่น สอนวิชาการพยาบาลผู้ใหญ่', t.nursing_teaching_exp || '', t.nursing_teaching_years || '', t.nursing_teaching_months || '')}
@@ -3531,6 +3535,7 @@ function showEditTeacherDirectoryModal(id) {
       rec.national_id = form.querySelector('[name="national_id"]').value;
       rec.license_no = form.querySelector('[name="license_no"]').value;
       rec.academic_position = form.querySelector('[name="academic_position"]').value;
+      rec.note = form.querySelector('[name="note"]').value;
       rec.nursing_branch = form.querySelector('[name="nursing_branch"]').value;
       rec.edu_level = form.querySelector('[name="edu_level"]').value;
       rec.edu_field = form.querySelector('[name="edu_field"]').value;
