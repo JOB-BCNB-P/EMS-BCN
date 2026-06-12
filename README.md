@@ -2,7 +2,7 @@
 
 ระบบบริหารจัดการวิชาการ — ดึงข้อมูลจาก Google Sheet แบบ **อ่านอย่างเดียว**  
 Deploy บน GitHub Pages ได้ทันที ไม่ต้องมี Backend
-
+Education Management System
 ---
 
 ## วิธีใช้งาน
