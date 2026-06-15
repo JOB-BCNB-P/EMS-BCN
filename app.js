@@ -357,18 +357,23 @@ function buildSidebar() {
   if (p.dashboard) items.push({ id: 'dashboard', icon: 'layout-dashboard', label: 'หน้าหลัก' });
 
   // Registration dropdown — permission-driven for all roles
+  // ระบบทะเบียน: 1.ข้อมูลนักศึกษา 2.ข้อมูลอาจารย์ 3.ปฏิทินการศึกษา (+ รายวิชาที่เปิดสอน)
   let regSub = [];
   if (r === 'student') {
     if (p.students) regSub.push({ id: 'studentInfo', label: 'ข้อมูลนักศึกษา' });
   } else {
     if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
   }
-  if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
-  if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
-  if (p.grades) regSub.push({ id: 'grades', label: 'ผลการเรียน' });
-  if (p.engResults) regSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+  if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
+  if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
+
+  // ผลการศึกษา: 1.ผลการเรียน 2.ผลสอบภาษาอังกฤษ
+  let eduSub = [];
+  if (p.grades) eduSub.push({ id: 'grades', label: 'ผลการเรียน' });
+  if (p.engResults) eduSub.push({ id: 'engResults', label: 'ผลสอบภาษาอังกฤษ' });
+  if (eduSub.length) items.push({ id: 'eduResults', icon: 'graduation-cap', label: 'ผลการศึกษา', sub: eduSub });
 
   if (p.teacherDirectory) items.push({ id: 'teacherDirectory', icon: 'award', label: 'ทำเนียบอาจารย์' });
 
@@ -466,6 +471,12 @@ function renderCurrentPage() {
 // ======================== HELPERS ========================
 // Normalize value from Google Sheet (strip .0, trim whitespace)
 function norm(v) { return String(v || '').replace(/\.0$/, '').replace(/\s+/g, ' ').trim() }
+
+// สถานะที่ไม่นับรวมเป็นจำนวนนักศึกษา (สำเร็จการศึกษา / พักการศึกษา / ลาออก)
+const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พักการศึกษา', 'ลาออก'];
+function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)); }
+// คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
+function activeStudents(list) { return (list || []).filter(isActiveStudent); }
 
 // Convert YYYY-MM-DD (Gregorian) to DD/MM/YYYY (Buddhist Era)
 function toBuddhistDate(dateStr) {
@@ -1029,7 +1040,7 @@ function dashboardPage() {
 
     stats = `
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-      ${statCard('users', 'จำนวนนักศึกษาทั้งหมด', students.length, 'คน', 'bg-blue-500')}
+      ${statCard('users', 'จำนวนนักศึกษาทั้งหมด', activeStudents(students).length, 'คน', 'bg-blue-500')}
       ${statCard('briefcase', 'จำนวนอาจารย์ (ปฏิบัติงาน)', activeTeachers.length, 'คน', 'bg-emerald-500')}
       ${statCard('check-circle', 'นักศึกษาสอบผ่านภาษาอังกฤษ', engPassStudentIds.length, 'คน', 'bg-amber-500')}
     </div>
@@ -1039,7 +1050,7 @@ function dashboardPage() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${(() => {
         const _hr = getHomeroomNumbers(); const _canEdit = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic'); return [1, 2, 3, 4].map(yr => {
-          const yrStudents = students.filter(s => norm(s.year_level) === String(yr));
+          const yrStudents = activeStudents(students).filter(s => norm(s.year_level) === String(yr));
           const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
           const homeroom = _hr[String(yr)] || '';
           return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
@@ -1063,7 +1074,7 @@ function dashboardPage() {
       })()}
     </div>`;
   } else if (r === 'teacher') {
-    const myStudents = students.filter(s => s.advisor === APP.currentUser.name);
+    const myStudents = activeStudents(students).filter(s => s.advisor === APP.currentUser.name);
     const myEngPassUnique = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
     const teacherYrBreakdown = ['1', '2', '3', '4'].map(yr => {
       const yrStu = myStudents.filter(s => norm(s.year_level) === yr);
@@ -1082,7 +1093,7 @@ function dashboardPage() {
     </div>`;
   } else if (r === 'classTeacher') {
     const yr = APP.currentUser.responsible_year || '1';
-    const myStudents = students.filter(s => norm(s.year_level) === norm(yr));
+    const myStudents = activeStudents(students).filter(s => norm(s.year_level) === norm(yr));
     const roomA = myStudents.filter(s => norm(s.room).toUpperCase() === 'A');
     const roomB = myStudents.filter(s => norm(s.room).toUpperCase() === 'B');
     const engPassA = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && roomA.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
@@ -1223,7 +1234,7 @@ function studentsPage() {
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ห้อง</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.room || '-'}</td><td class="px-4 py-3">${s.batch || ''}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
@@ -1261,7 +1272,7 @@ function studentsPage() {
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
@@ -1300,7 +1311,7 @@ function studentsPage() {
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
-        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
@@ -1336,7 +1347,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา *</label><input name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>สำเร็จการศึกษา</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>ลาออก</option><option>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -6363,7 +6374,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'ลาออก' ? 'selected' : ''}>ลาออก</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${s.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
