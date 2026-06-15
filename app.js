@@ -1300,7 +1300,8 @@ function studentsPage() {
       </select>
       ${selectedYearLevel ? '<span class="text-xs text-gray-500">' + (selectedYearLevel === '__grad' ? 'แสดงผู้สำเร็จการศึกษา' : 'แสดงข้อมูลชั้นปี ' + selectedYearLevel) + '</span>' : ''}
     </div>
-  </div>`;
+  </div>
+  ${isAdmin ? promotePanelHTML(allStudents) : ''}`;
 
   if (!selectedYearLevel) return headerHtml + noYearSelectedMsg('นักศึกษา (กรุณาเลือกชั้นปี)');
 
@@ -2875,6 +2876,58 @@ function teachersPage() {
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+// ======================== เลื่อนชั้นปี (Promote) ========================
+// แผงปุ่มเลื่อนชั้น แยกต่อชั้นปี (admin เท่านั้น) — เลื่อนเฉพาะผู้ที่กำลังศึกษา
+function promotePanelHTML(allStudents) {
+  const cnt = y => (allStudents || []).filter(s => isActiveStudent(s) && norm(s.year_level) === y).length;
+  const btn = (from, label, color) => `<button onclick="confirmPromoteYear('${from}')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${color}"><i data-lucide="arrow-up" class="w-4 h-4"></i>${label} <span class="opacity-80">(${cnt(from)} คน)</span></button>`;
+  return `<div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-4">
+    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="arrow-up-circle" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">เลื่อนชั้นปี</h3><span class="text-xs text-amber-600">(เลื่อนเฉพาะผู้ที่กำลังศึกษา · ควรสำรองแท็บ student ก่อน)</span></div>
+    <div class="flex gap-2 flex-wrap">
+      ${btn('1', 'ปี 1 → ปี 2', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
+      ${btn('2', 'ปี 2 → ปี 3', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
+      ${btn('3', 'ปี 3 → ปี 4', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
+      ${btn('4', 'ปี 4 → สำเร็จการศึกษา', 'bg-amber-600 text-white hover:bg-amber-700')}
+    </div>
+  </div>`;
+}
+
+function confirmPromoteYear(fromYear) {
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const list = getDataByType('student').filter(s => isActiveStudent(s) && norm(s.year_level) === String(fromYear));
+  if (!list.length) { showToast('ไม่มีนักศึกษาที่กำลังศึกษาในชั้นปีที่ ' + fromYear, 'error'); return; }
+  const isGrad = String(fromYear) === '4';
+  const targetLabel = isGrad ? 'สำเร็จการศึกษา (ชั้นปี "จบ")' : 'ชั้นปีที่ ' + (Number(fromYear) + 1);
+  showModal('ยืนยันการเลื่อนชั้น', `
+    <div class="space-y-3 text-sm">
+      <p>กำลังจะเลื่อนนักศึกษา <strong class="text-primary">${list.length} คน</strong> จาก <strong>ชั้นปีที่ ${fromYear}</strong> → <strong>${targetLabel}</strong></p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
+        <p class="font-semibold">⚠ ข้อควรระวัง</p>
+        <p>• เลื่อนเฉพาะผู้ที่ "กำลังศึกษา" (ข้ามผู้ที่พักการศึกษา/ลาออก/จบแล้ว)</p>
+        <p>• ผลการเรียนและผลสอบเดิมไม่ได้รับผลกระทบ (ผูกด้วยรหัสนักศึกษา)</p>
+        <p>• การเลื่อนชั้นย้อนกลับอัตโนมัติไม่ได้ — แนะนำให้คัดลอกแท็บ student สำรองก่อน</p>
+        ${isGrad ? '<p>• ปี 4 จะเปลี่ยนสถานะเป็น "สำเร็จการศึกษา" และชั้นปีเป็น "จบ"</p>' : ''}
+      </div>
+    </div>`, () => doPromoteYear(fromYear));
+}
+
+async function doPromoteYear(fromYear) {
+  const isGrad = String(fromYear) === '4';
+  const list = getDataByType('student').filter(s => isActiveStudent(s) && norm(s.year_level) === String(fromYear));
+  if (!list.length) { closeModal(); return; }
+  list.forEach(s => {
+    if (isGrad) { s.year_level = 'จบ'; s.status = 'สำเร็จการศึกษา'; }
+    else { s.year_level = String(Number(fromYear) + 1); }
+  });
+  closeModal();
+  showToast('กำลังเลื่อนชั้น ' + list.length + ' คน...', 'loading');
+  const r = await GSheetDB.updateMany(list);
+  hideLoadingToast();
+  if (r.isOk) showToast('เลื่อนชั้นสำเร็จ ' + r.ok + ' คน');
+  else showToast('เลื่อนชั้นเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน', r.ok ? 'success' : 'error');
+  renderCurrentPage();
 }
 
 // ======================== ข้อมูลอาจารย์พิเศษ (ระบบทะเบียน) ========================
