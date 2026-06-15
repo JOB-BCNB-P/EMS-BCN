@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -365,6 +365,7 @@ function buildSidebar() {
     if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
   }
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+  if (p.specialTeachers) regSub.push({ id: 'specialTeachers', label: 'ข้อมูลอาจารย์พิเศษ' });
   if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
   if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
@@ -998,6 +999,7 @@ function getPageContent(page, role) {
     case 'grades': return gradesPage();
     case 'engResults': return engResultsPage();
     case 'teachers': return teachersPage();
+    case 'specialTeachers': return specialTeachersPage();
     case 'teacherDirectory': return teacherDirectoryPage();
     case 'services': return servicesPage();
     case 'tracking': return trackingPage();
@@ -1255,12 +1257,14 @@ function studentsPage() {
         <div class="flex gap-2 flex-wrap">
           <button onclick="APP.filters._studentYearLevel='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${!selectedYearLevel ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">แสดงทั้งหมด</button>
           ${['1', '2', '3', '4'].map(yr => `<button onclick="APP.filters._studentYearLevel='${yr}';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedYearLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
+          <button onclick="APP.filters._studentYearLevel='__grad';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedYearLevel === '__grad' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ผู้สำเร็จการศึกษา</button>
         </div>
       </div>
     </div>`;
 
     let data = myAllStudents;
-    if (selectedYearLevel) data = data.filter(s => norm(s.year_level) === selectedYearLevel);
+    if (selectedYearLevel === '__grad') data = data.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ');
+    else if (selectedYearLevel) data = data.filter(s => norm(s.year_level) === selectedYearLevel);
     data = applyFilters(data);
     const total = data.length;
     const paged = paginate(data);
@@ -1292,14 +1296,17 @@ function studentsPage() {
         <option value="2" ${selectedYearLevel === '2' ? 'selected' : ''}>ชั้นปี 2</option>
         <option value="3" ${selectedYearLevel === '3' ? 'selected' : ''}>ชั้นปี 3</option>
         <option value="4" ${selectedYearLevel === '4' ? 'selected' : ''}>ชั้นปี 4</option>
+        <option value="__grad" ${selectedYearLevel === '__grad' ? 'selected' : ''}>ผู้สำเร็จการศึกษา</option>
       </select>
-      ${selectedYearLevel ? '<span class="text-xs text-gray-500">แสดงข้อมูลชั้นปี ' + selectedYearLevel + '</span>' : ''}
+      ${selectedYearLevel ? '<span class="text-xs text-gray-500">' + (selectedYearLevel === '__grad' ? 'แสดงผู้สำเร็จการศึกษา' : 'แสดงข้อมูลชั้นปี ' + selectedYearLevel) + '</span>' : ''}
     </div>
   </div>`;
 
   if (!selectedYearLevel) return headerHtml + noYearSelectedMsg('นักศึกษา (กรุณาเลือกชั้นปี)');
 
-  let data = allStudents.filter(s => norm(s.year_level) === selectedYearLevel);
+  let data = selectedYearLevel === '__grad'
+    ? allStudents.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ')
+    : allStudents.filter(s => norm(s.year_level) === selectedYearLevel);
   data = applyFilters(data);
   const total = data.length;
   const paged = paginate(data);
@@ -1348,7 +1355,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>ลาออก</option><option>สำเร็จการศึกษา</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option><option value="จบ">จบ (สำเร็จการศึกษา)</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -2870,6 +2877,105 @@ function teachersPage() {
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
 }
 
+// ======================== ข้อมูลอาจารย์พิเศษ (ระบบทะเบียน) ========================
+// เก็บในแท็บ special_teacher: ปีการศึกษา→academic_year, ชื่อ(รวมคำนำหน้า)→name,
+// ตำแหน่ง→academic_position, หน่วยงาน→agency, ระดับวุฒิ→edu_level
+function specialTeachersPage() {
+  const isAdmin = APP.currentRole === 'admin';
+  const all = getDataByType('special_teacher');
+  const years = [...new Set(all.map(t => norm(t.academic_year)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  const selYear = APP.filters._specialTeacherYear || '';
+  let data = selYear ? all.filter(t => norm(t.academic_year) === selYear) : all.slice();
+  data.sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''));
+  const total = data.length;
+  const paged = paginate(data);
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="user-plus" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์พิเศษ</h2>
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSpecialTeacherRegModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('special_teacher', 'academic_year,name,academic_position,agency,edu_level')}</div>` : ''}
+  </div>
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 flex-wrap">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select onchange="APP.filters._specialTeacherYear=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- ทุกปีการศึกษา --</option>
+        ${years.map(y => `<option value="${y}" ${selYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+      ${selYear ? `<span class="text-xs text-gray-500">แสดงปีการศึกษา ${selYear}</span>` : ''}
+    </div>
+  </div>
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">ระดับวุฒิ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3">${t.academic_year || ''}</td>
+        <td class="px-4 py-3 font-medium">${t.name || ''}</td>
+        <td class="px-4 py-3">${t.academic_position || ''}</td>
+        <td class="px-4 py-3">${t.agency || ''}</td>
+        <td class="px-4 py-3">${t.edu_level || ''}</td>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function specialTeacherRegFormBody(t) {
+  t = t || {};
+  return `
+    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required value="${String(t.academic_year || currentAcademicYearBE()).replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+    ${titlePrefixField(t.name || '')}
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
+    </div>
+    <div><label class="block text-xs text-gray-600 mb-1">ระดับวุฒิการศึกษา</label><select name="edu_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['ปริญญาเอก', 'ปริญญาโท', 'ปริญญาตรี'].map(v => `<option ${norm(t.edu_level) === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`;
+}
+
+function collectSpecialTeacherReg(form, obj) {
+  obj.academic_year = form.querySelector('[name="academic_year"]').value;
+  obj.name = combineName(form);
+  obj.academic_position = form.querySelector('[name="academic_position"]').value;
+  obj.agency = form.querySelector('[name="agency"]').value;
+  obj.edu_level = form.querySelector('[name="edu_level"]').value;
+  return obj;
+}
+
+function showAddSpecialTeacherRegModal() {
+  showModal('เพิ่มอาจารย์พิเศษ', `
+    <form id="addSpecialTeacherRegForm" class="space-y-3">
+      ${specialTeacherRegFormBody({})}
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addSpecialTeacherRegForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const obj = collectSpecialTeacherReg(e.target, { type: 'special_teacher', created_at: new Date().toISOString() });
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มอาจารย์พิเศษสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
+}
+
+function showEditSpecialTeacherRegModal(id) {
+  const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
+  showModal('แก้ไขข้อมูลอาจารย์พิเศษ', `
+    <form id="editSpecialTeacherRegForm" class="space-y-3">
+      ${specialTeacherRegFormBody(t)}
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editSpecialTeacherRegForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+      collectSpecialTeacherReg(e.target, rec);
+      const r = await GSheetDB.update(rec);
+      if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
+  };
+}
+
 function showTeacherDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
   const isAdmin = APP.currentRole === 'admin';
@@ -3599,9 +3705,40 @@ function collectSpecialTeacher(form, obj) {
   return obj;
 }
 
+// ดึงรายการอาจารย์พิเศษจากระบบทะเบียน (special_teacher) มาเป็นตัวเลือกเติมข้อมูลอัตโนมัติ
+function specialTeacherRegPickerHTML() {
+  const list = getDataByType('special_teacher');
+  if (!list.length) return '';
+  const opts = list.slice()
+    .sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''))
+    .map(t => `<option value="${t.__backendId}">${(t.name || '').replace(/"/g, '&quot;')}${t.academic_year ? ' · ปี ' + t.academic_year : ''}${t.agency ? ' · ' + (t.agency || '').replace(/"/g, '&quot;') : ''}</option>`).join('');
+  return `<div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+    <label class="block text-xs font-medium text-emerald-800 mb-1"><i data-lucide="download" class="w-3.5 h-3.5 inline mr-1"></i>ดึงข้อมูลจาก "ข้อมูลอาจารย์พิเศษ" (ระบบทะเบียน)</label>
+    <select onchange="fillFromSpecialTeacherReg(this)" class="w-full border rounded-xl px-3 py-2 text-sm">
+      <option value="">-- เลือกเพื่อกรอกข้อมูลอัตโนมัติ --</option>${opts}
+    </select>
+  </div>`;
+}
+
+function fillFromSpecialTeacherReg(sel) {
+  const id = sel.value; if (!id) return;
+  const t = getDataByType('special_teacher').find(x => x.__backendId === id); if (!t) return;
+  const form = sel.closest('form'); if (!form) return;
+  const setv = (n, v) => { const el = form.querySelector('[name="' + n + '"]'); if (el) el.value = v || ''; };
+  const { prefix, rest } = parseTitlePrefix(t.name || '');
+  setv('title_prefix', prefix);
+  setv('name', rest);
+  setv('academic_position', t.academic_position);
+  setv('agency', t.agency);
+  setv('edu_level', t.edu_level);
+  setv('academic_year', t.academic_year);
+  const tp = form.querySelector('[name="title_prefix"]'); if (tp) syncTitlePrefixChips(tp);
+}
+
 function showAddSpecialTeacherModal() {
   showModal('เพิ่มอาจารย์พิเศษ', `
     <form id="addSpecialTeacherForm" class="space-y-3" style="max-height:70vh;overflow-y:auto;padding-right:4px">
+      ${specialTeacherRegPickerHTML()}
       ${specialTeacherFormBody({})}
       <button type="submit" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl hover:bg-emerald-700">บันทึก</button>
     </form>
@@ -6375,7 +6512,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'ลาออก' ? 'selected' : ''}>ลาออก</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option><option value="จบ" ${norm(s.year_level) === 'จบ' ? 'selected' : ''}>จบ (สำเร็จการศึกษา)</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${s.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${s.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
