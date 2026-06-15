@@ -144,6 +144,28 @@ const GSheetDB = (() => {
         return _callScript({ action: 'update', sheet, rowIndex, data });
     }
 
+    // อัปเดตหลายแถวรวดเดียว (เขียนทีละแถว แต่ refresh แค่ครั้งเดียวตอนจบ — เร็วกว่า update() วนลูป)
+    async function updateMany(objs) {
+        if (!_scriptUrl) return { isOk: false, ok: 0, fail: (objs || []).length, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
+        let ok = 0, fail = 0, sheet = null;
+        for (const obj of (objs || [])) {
+            sheet = obj.type; const rowIndex = obj.__rowIndex;
+            if (!sheet || !rowIndex) { fail++; continue; }
+            const data = { ...obj }; delete data.type; delete data.__backendId; delete data.__rowIndex;
+            try {
+                const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'update', sheet, rowIndex: String(rowIndex) }).toString(), {
+                    method: 'POST', redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(data)
+                });
+                const result = await resp.json();
+                if (result && result.isOk) ok++; else fail++;
+            } catch (err) { fail++; }
+        }
+        if (sheet) await refreshTab(sheet);
+        return { isOk: fail === 0, ok, fail };
+    }
+
     async function remove(obj) {
         const sheet = obj.type; const rowIndex = obj.__rowIndex;
         if (!sheet || !rowIndex) return { isOk: false, error: 'Missing type/__rowIndex' };
@@ -180,6 +202,6 @@ const GSheetDB = (() => {
     return {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
         init, refresh, destroy, debugTab, hasWriteAccess,
-        create, update, delete: remove, SHEET_TABS
+        create, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
