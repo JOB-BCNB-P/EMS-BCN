@@ -1399,6 +1399,59 @@ function currentAcademicYearBE() {
 }
 
 // ======================== SUBJECTS ========================
+// ---- รหัสหน่วยกิตรายวิชา: น(ท-ป-อ) = หน่วยกิตรวม(ทฤษฎี-ปฏิบัติ/ทดลอง-ศึกษาด้วยตนเอง) ----
+// หมายเหตุ: ค่าหน่วยกิตรวม (credits) ยังเป็นตัวเลขเหมือนเดิม ใช้คำนวณ GPA ได้ตามปกติ
+function creditCode(s) {
+  if (!s) return '';
+  const c = norm(s.credits);
+  const t = norm(s.hours_theory), l = norm(s.hours_lab), se = norm(s.hours_self);
+  if (!c) return '';
+  if (t === '' && l === '' && se === '') return c;
+  return c + '(' + (t || '0') + '-' + (l || '0') + '-' + (se || '0') + ')';
+}
+
+function updateCreditPreview(el) {
+  const form = el.closest('form'); if (!form) return;
+  const g = n => ((form.querySelector('[name="' + n + '"]') || {}).value || '').trim();
+  const c = g('credits'), t = g('hours_theory'), l = g('hours_lab'), se = g('hours_self');
+  const prev = form.querySelector('.credit-preview');
+  if (prev) prev.textContent = !c ? '-' : ((t === '' && l === '' && se === '') ? c : c + '(' + (t || '0') + '-' + (l || '0') + '-' + (se || '0') + ')');
+}
+
+// กลุ่มช่องกรอกหน่วยกิต (ใช้ทั้งฟอร์มเพิ่มและแก้ไขรายวิชา)
+function creditFields(s) {
+  s = s || {};
+  const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
+  return `<div class="col-span-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
+    <label class="block text-xs font-medium text-blue-800 mb-2">หน่วยกิต <span class="font-normal text-blue-600">รูปแบบ น(ท-ป-อ) เช่น 2(1-2-3)</span></label>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div><label class="block text-[11px] text-gray-600 mb-1">หน่วยกิตรวม</label><input name="credits" type="number" min="0" step="0.5" value="${v('credits')}" oninput="updateCreditPreview(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
+      <div><label class="block text-[11px] text-gray-600 mb-1">ทฤษฎี (ชม./สัปดาห์)</label><input name="hours_theory" type="number" min="0" value="${v('hours_theory')}" oninput="updateCreditPreview(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
+      <div><label class="block text-[11px] text-gray-600 mb-1">ปฏิบัติ/ทดลอง (ชม./สัปดาห์)</label><input name="hours_lab" type="number" min="0" value="${v('hours_lab')}" oninput="updateCreditPreview(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
+      <div><label class="block text-[11px] text-gray-600 mb-1">ศึกษาด้วยตนเอง (ชม./สัปดาห์)</label><input name="hours_self" type="number" min="0" value="${v('hours_self')}" oninput="updateCreditPreview(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
+    </div>
+    <p class="text-xs text-blue-700 mt-2">รหัสหน่วยกิต: <span class="credit-preview font-bold font-mono">${creditCode(s) || '-'}</span></p>
+  </div>`;
+}
+
+// กล่องอธิบายความหมายของรหัสหน่วยกิต (แสดงในหน้ารายวิชา)
+function creditInfoBox() {
+  return `<details class="bg-blue-50 border border-blue-100 rounded-2xl mb-4">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-blue-800 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i>ความหมายของรหัสหน่วยกิตรายวิชา <span class="text-xs font-normal text-blue-500">(คลิกเพื่อดู)</span></summary>
+    <div class="px-4 pb-4 text-sm text-gray-700 space-y-1.5">
+      <p>รหัสหน่วยกิตกำหนดเป็นตัวเลขในรูปแบบ <strong class="font-mono">น(ท-ป-อ)</strong> โดย:</p>
+      <p>• <strong>ตัวเลขหน้าวงเล็บ</strong> = จำนวนหน่วยกิตรวมของรายวิชา</p>
+      <p>• <strong>ตัวเลขแรกในวงเล็บ</strong> = จำนวนชั่วโมงภาคทฤษฎีต่อสัปดาห์</p>
+      <p>• <strong>ตัวเลขที่สองในวงเล็บ</strong> = จำนวนชั่วโมงภาคทดลองในห้องปฏิบัติการ หรือภาคปฏิบัติการพยาบาลในคลินิก/ชุมชนต่อสัปดาห์</p>
+      <p>• <strong>ตัวเลขที่สามในวงเล็บ</strong> = จำนวนชั่วโมงการศึกษาด้วยตนเองต่อสัปดาห์</p>
+      <div class="mt-2 p-3 bg-white rounded-lg border border-blue-100 text-xs space-y-1.5">
+        <p><span class="font-mono font-bold">2(1-2-3)</span> = รายวิชามี 2 หน่วยกิต · ภาคทฤษฎี 1 ชม./สัปดาห์ · ภาคทดลองในห้องปฏิบัติการ 2 ชม./สัปดาห์ · ศึกษาด้วยตนเอง 3 ชม./สัปดาห์</p>
+        <p><span class="font-mono font-bold">3(0-9-0)</span> = รายวิชาปฏิบัติมี 3 หน่วยกิต · ภาคปฏิบัติ 9 ชม./สัปดาห์</p>
+      </div>
+    </div>
+  </details>`;
+}
+
 function subjectsPage() {
   const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
@@ -1415,9 +1468,10 @@ function subjectsPage() {
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="book-open" class="w-6 h-6 inline mr-2"></i>รายวิชาที่เปิดสอน</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_code,subject_name,coordinator,year_level,batch,room,credits,semester,academic_year')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_code,subject_name,coordinator,year_level,batch,room,credits,hours_theory,hours_lab,hours_self,semester,academic_year')}</div>` : ''}
   </div>`;
   headerHtml += yearPickerBar(allSubjects, 'ปีการศึกษา');
+  headerHtml += creditInfoBox();
 
   // แสดงป้ายบอกบริบทสำหรับนักศึกษา (รุ่น/ชั้นปี/ปีการศึกษา)
   if (isStudent && APP.currentUser.data) {
@@ -1543,7 +1597,7 @@ function subjectsPage() {
       : `<span class="text-xs text-gray-300" title="ยังไม่มีไฟล์ PDF">-</span>`;
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${s.subject_code || ''}</td><td class="px-4 py-3 font-medium">${s.subject_name || ''}</td><td class="px-4 py-3">${s.coordinator || ''}</td>
-        <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || '-'}</td><td class="px-4 py-3">${s.credits || ''}</td>
+        <td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || '-'}</td><td class="px-4 py-3 font-mono">${creditCode(s)}</td>
         <td class="px-4 py-3">${semLabel(s.semester)}/${s.academic_year || ''}</td>
         <td class="px-4 py-3 text-center">${eyeCell}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showImportGradesFromSubjectModal('${s.__backendId}')" class="text-green-500 hover:text-green-700" title="นำเข้ารายชื่อสร้างผลการเรียน"><i data-lucide="user-plus" class="w-4 h-4"></i></button><button onclick="showEditSubjectModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
@@ -1563,7 +1617,7 @@ function showAddSubjectModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        ${creditFields({})}
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" class="w-full border rounded-xl px-3 py-2 text-sm" value="2568"></div>
       </div>
@@ -1625,7 +1679,7 @@ function showImportGradesFromSubjectModal(subjectId) {
     <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-sm">
       <div class="grid grid-cols-2 gap-2">
         <div><span class="text-gray-600">รหัสวิชา:</span> <strong class="font-mono text-primary">${subj.subject_code || '-'}</strong></div>
-        <div><span class="text-gray-600">หน่วยกิต:</span> <strong>${subj.credits || '-'}</strong></div>
+        <div><span class="text-gray-600">หน่วยกิต:</span> <strong class="font-mono">${creditCode(subj) || '-'}</strong></div>
         <div class="col-span-2"><span class="text-gray-600">ชื่อรายวิชา:</span> <strong>${subj.subject_name || '-'}</strong></div>
         <div><span class="text-gray-600">ภาค/ปี:</span> <strong>${semLabel(subj.semester)}/${subj.academic_year || ''}</strong></div>
         <div><span class="text-gray-600">รุ่น/ชั้นปี:</span> <strong>${subj.batch || '-'} / ${subj.year_level || '-'}</strong></div>
@@ -6590,7 +6644,7 @@ function showEditSubjectModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${s.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        ${creditFields(s)}
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${normSem(s.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${normSem(s.semester) === '2' ? 'selected' : ''}>2</option><option value="3" ${normSem(s.semester) === '3' ? 'selected' : ''}>ฤดูร้อน</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${s.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
