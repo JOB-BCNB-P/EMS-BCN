@@ -2991,7 +2991,7 @@ async function doPromoteYear(fromYear) {
     const today = new Date().toISOString().slice(0, 10);
     const newAlumni = gradSnapshot
       .filter(s => { const sid = norm(s.student_id); return !sid || !existing.has(sid); })
-      .map(s => ({ type: 'alumni', name: s.name, batch: s.batch, alumni_status: '', workplace: '', recorded_date: today, student_id: s.student_id, created_at: new Date().toISOString() }));
+      .map(s => ({ type: 'alumni', name: s.name, batch: s.batch, admission_date: '', graduation_date: today, alumni_status: '', workplace: '', recorded_date: today, student_id: s.student_id, created_at: new Date().toISOString() }));
     if (newAlumni.length) {
       showToast('กำลังบันทึกข้อมูลศิษย์เก่า ' + newAlumni.length + ' คน...', 'loading');
       const ar = await GSheetDB.createMany(newAlumni);
@@ -3120,7 +3120,7 @@ function alumniPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="graduation-cap" class="w-6 h-6 inline mr-2"></i>ข้อมูลศิษย์เก่า</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddAlumniModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มศิษย์เก่า</button>${csvUploadBtn('alumni', 'name,batch,alumni_status,workplace,recorded_date,student_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddAlumniModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มศิษย์เก่า</button>${csvUploadBtn('alumni', 'name,batch,admission_date,graduation_date,alumni_status,workplace,recorded_date,student_id')}</div>` : ''}
   </div>
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="flex items-center gap-3 flex-wrap">
@@ -3135,18 +3135,20 @@ function alumniPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คำนำหน้า</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">สถานที่ปฏิบัติงาน</th><th class="px-4 py-3 font-semibold">วันที่บันทึกข้อมูล</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คำนำหน้า</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">เข้าศึกษาวันที่</th><th class="px-4 py-3 font-semibold">จบการศึกษาวันที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">สถานที่ปฏิบัติงาน</th><th class="px-4 py-3 font-semibold">วันที่บันทึกข้อมูล</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(a => {
     const pp = parseTitlePrefix(a.name || '');
     return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${pp.prefix || ''}</td>
         <td class="px-4 py-3 font-medium">${pp.rest || a.name || ''}</td>
         <td class="px-4 py-3">${a.batch || ''}</td>
+        <td class="px-4 py-3">${a.admission_date ? toBuddhistDate(a.admission_date) : ''}</td>
+        <td class="px-4 py-3">${a.graduation_date ? toBuddhistDate(a.graduation_date) : ''}</td>
         <td class="px-4 py-3">${a.alumni_status || ''}</td>
         <td class="px-4 py-3">${a.workplace || ''}</td>
         <td class="px-4 py-3">${a.recorded_date ? toBuddhistDate(a.recorded_date) : ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditAlumniModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
-  }).join('') : `<tr><td colspan="${isAdmin ? 7 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+  }).join('') : `<tr><td colspan="${isAdmin ? 9 : 8}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -3161,6 +3163,8 @@ function alumniFormBody(a) {
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${v('batch')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
       <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="alumni_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${statusOpts}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เข้าศึกษาวันที่</label><input name="admission_date" type="date" value="${v('admission_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">จบการศึกษาวันที่</label><input name="graduation_date" type="date" value="${v('graduation_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
     </div>
     <div><label class="block text-xs text-gray-600 mb-1">สถานที่ปฏิบัติงาน</label><input name="workplace" value="${v('workplace')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
     <div><label class="block text-xs text-gray-600 mb-1">วันที่บันทึกข้อมูล</label><input name="recorded_date" type="date" value="${v('recorded_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -3171,6 +3175,8 @@ function collectAlumni(form, obj) {
   obj.name = combineName(form);
   obj.batch = form.querySelector('[name="batch"]').value;
   obj.alumni_status = form.querySelector('[name="alumni_status"]').value;
+  obj.admission_date = form.querySelector('[name="admission_date"]').value;
+  obj.graduation_date = form.querySelector('[name="graduation_date"]').value;
   obj.workplace = form.querySelector('[name="workplace"]').value;
   obj.recorded_date = form.querySelector('[name="recorded_date"]').value;
   const sid = form.querySelector('[name="student_id"]'); if (sid) obj.student_id = sid.value;
