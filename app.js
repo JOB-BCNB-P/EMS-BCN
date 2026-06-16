@@ -390,6 +390,7 @@ function buildSidebar() {
 
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   if (p.services) items.push({ id: 'services', icon: 'grid', label: 'บริการอื่นๆ' });
+  items.push({ id: 'userGuide', icon: 'help-circle', label: 'คู่มือการใช้งาน' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
   if (r === 'admin' && p.loginLog) items.push({ id: 'loginLog', icon: 'log-in', label: 'บันทึกการเข้าใช้ระบบ' });
 
@@ -445,6 +446,7 @@ function navigateTo(page) {
   APP.filters._studentYearLevel = '';
   APP.filters._engAdvisor = '';
   APP.filters._gradeAdvisor = '';
+  APP.filters._gradeBatch = '';
   APP.filters._engYear = '';
   APP.filters._engYearLevel = '';
   APP.filters._gradeYearLevel = '';
@@ -1012,6 +1014,7 @@ function getPageContent(page, role) {
     case 'leave': return leavePage();
     case 'settings': return settingsPage();
     case 'loginLog': return loginLogPage();
+    case 'userGuide': return userGuidePage();
     default: return '<p>ไม่พบหน้าที่ต้องการ</p>';
   }
 }
@@ -1936,12 +1939,25 @@ function gradesPage() {
         ${selectedGradeYear ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาชั้นปีที่ ${selectedGradeYear} (${studentList.length} คน)</p>` : ''}
       </div>`;
 
+      // กรองตามรุ่น (รองรับการดูผลการเรียนของผู้สำเร็จการศึกษาแยกตามรุ่น)
+      const allBatches = [...new Set(studentList.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      const selectedBatch = APP.filters._gradeBatch || '';
+      if (selectedBatch) studentList = studentList.filter(s => norm(s.batch) === selectedBatch);
+      const batchSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>กรองตามรุ่น <span class="font-normal text-gray-400 text-xs">(รวมผู้สำเร็จการศึกษา)</span></label>
+        <select onchange="APP.filters._gradeBatch=this.value;APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+          <option value="">-- ทุกรุ่น --</option>
+          ${allBatches.map(b => `<option value="${b}" ${selectedBatch === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
+        </select>
+        ${selectedBatch ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะรุ่นที่ ${selectedBatch} (${studentList.length} คน)</p>` : ''}
+      </div>`;
+
       const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
       const selectedAdvisor = APP.filters._gradeAdvisor || '';
       if (selectedAdvisor) {
         studentList = studentList.filter(s => (s.advisor || '') === selectedAdvisor);
       }
-      advisorSelector = `${yearLevelSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      advisorSelector = `${yearLevelSelector}${batchSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>กรองตามอาจารย์ที่ปรึกษา</label>
         <select onchange="APP.filters._gradeAdvisor=this.value;APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
           <option value="">-- แสดงนักศึกษาทั้งหมด --</option>
@@ -6341,6 +6357,101 @@ function exportLoginLogCSV() {
 }
 
 // ======================== SETTINGS ========================
+// ======================== คู่มือการใช้งาน ========================
+function userGuidePage() {
+  const sec = (icon, title, body) => `<details class="bg-white rounded-2xl border border-blue-100 mb-3 group" open>
+    <summary class="cursor-pointer px-5 py-4 font-bold text-gray-800 flex items-center gap-2"><i data-lucide="${icon}" class="w-5 h-5 text-primary"></i>${title}</summary>
+    <div class="px-5 pb-5 text-sm text-gray-700 leading-relaxed space-y-2">${body}</div>
+  </details>`;
+  const li = items => `<ul class="list-disc pl-5 space-y-1">${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+
+  return `<div class="max-w-4xl">
+  <div class="flex items-center gap-3 mb-2"><i data-lucide="help-circle" class="w-7 h-7 text-primary"></i><h2 class="text-2xl font-bold text-gray-800">คู่มือการใช้งานระบบ EMS-BCNB</h2></div>
+  <p class="text-sm text-gray-500 mb-5">ระบบบริหารจัดการงานวิชาการ · วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ</p>
+
+  ${sec('info', '1. ภาพรวมระบบ', `
+    <p>EMS-BCNB เป็นระบบบริหารจัดการงานวิชาการที่ทำงานผ่านเว็บเบราว์เซอร์ โดยใช้ <b>Google Sheet</b> เป็นฐานข้อมูล (อ่านข้อมูลแบบสาธารณะ และเขียน/แก้ไขผ่าน Apps Script) ข้อมูลทั้งหมดจึงอัปเดตแบบเรียลไทม์ร่วมกัน</p>
+    <p>เมนูหลักแบ่งเป็นกลุ่ม: <b>หน้าหลัก</b>, <b>ระบบทะเบียน</b>, <b>ผลการศึกษา</b>, <b>ทำเนียบอาจารย์</b>, <b>ติดตามการส่ง</b>, <b>ระบบการลาของนักศึกษา</b>, <b>บริการอื่นๆ</b>, <b>ตั้งค่าระบบ</b> และ <b>บันทึกการเข้าใช้ระบบ</b> (เมนูที่เห็นขึ้นอยู่กับบทบาทผู้ใช้)</p>
+    <p>มุมขวาบนมีปุ่ม <b>รีเฟรชข้อมูล</b> (โหลดข้อมูลล่าสุดจาก Sheet), <b>แจ้งเตือน</b> (กระดิ่ง) และ <b>ออกจากระบบ</b></p>`)}
+
+  ${sec('log-in', '2. การเข้าสู่ระบบ (6 บทบาท)', `
+    <p>หน้าเข้าสู่ระบบให้เลือกบทบาทก่อน แล้วกรอกข้อมูลตามแต่ละบทบาท:</p>
+    ${li([
+    '<b>ผู้ดูแลระบบ (Admin):</b> รหัสผ่าน 6 หลัก (ตัวเลข)',
+    '<b>เจ้าหน้าที่งานวิชาการ:</b> Email + รหัสผ่าน',
+    '<b>ผู้บริหาร:</b> Username + รหัสผ่าน',
+    '<b>อาจารย์:</b> Email + รหัสผ่าน',
+    '<b>อาจารย์ประจำชั้น:</b> Username + รหัสผ่าน',
+    '<b>นักศึกษา:</b> เลขบัตรประชาชน 13 หลัก',
+  ])}
+    <p class="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2"><b>หมายเหตุ:</b> นักศึกษาที่ <b>สำเร็จการศึกษา</b> แล้วจะไม่สามารถเข้าสู่ระบบได้อีก</p>`)}
+
+  ${sec('shield', '3. บทบาทและสิทธิ์การเข้าถึง', `
+    <p>แต่ละบทบาทเห็นเมนูและทำสิ่งต่างๆ ได้ไม่เท่ากัน (ผู้ดูแลปรับสิทธิ์ได้ที่ "ตั้งค่าระบบ"):</p>
+    ${li([
+    '<b>ผู้ดูแลระบบ / งานวิชาการ:</b> เข้าถึงและแก้ไขได้เกือบทุกส่วน รวมถึงเพิ่ม/แก้/ลบข้อมูลและจัดการผู้ใช้',
+    '<b>ผู้บริหาร:</b> ดูข้อมูลภาพรวมเป็นหลัก (อ่านอย่างเดียวในหลายส่วน) และอนุมัติใบลา',
+    '<b>อาจารย์:</b> ดูนักศึกษาในที่ปรึกษา ผลการเรียน/ENG ติดตามการส่งงานรายวิชาที่รับผิดชอบ และอนุมัติใบลา',
+    '<b>อาจารย์ประจำชั้น:</b> ดูแลนักศึกษาในชั้นปีที่รับผิดชอบ (แยกห้อง A/B) และอนุมัติใบลา',
+    '<b>นักศึกษา:</b> ดูข้อมูลตนเอง ผลการเรียน ผลสอบภาษาอังกฤษ และส่งใบลา',
+  ])}`)}
+
+  ${sec('book-open', '4. ระบบทะเบียน', `
+    <p><b>ข้อมูลนักศึกษา</b> — เลือกชั้นปี (1-4) หรือ "ผู้สำเร็จการศึกษา" เพื่อดูรายชื่อ; ผู้ดูแลเพิ่ม/แก้ไข/ลบ และนำเข้าด้วย CSV ได้ มีปุ่ม <b>เลื่อนชั้นปี</b> (ดูข้อ 5) สถานภาพมี กำลังศึกษา / พักการศึกษา / ลาออก / สำเร็จการศึกษา (ระบบจะนับเฉพาะผู้ที่กำลังศึกษาในหน้าหลัก)</p>
+    <p><b>ข้อมูลอาจารย์</b> — เลือกสาขาวิชาเพื่อดูรายชื่อ ผู้ดูแลเพิ่ม/แก้ไข/ลบได้</p>
+    <p><b>ข้อมูลอาจารย์พิเศษ</b> — บันทึกอาจารย์พิเศษ (ปีการศึกษา, คำนำหน้า, ชื่อ, ตำแหน่ง, หน่วยงาน, ระดับวุฒิ) กรองตามปีการศึกษาได้ และทำเนียบอาจารย์สามารถดึงข้อมูลจากที่นี่ไปใช้ได้</p>
+    <p><b>ข้อมูลศิษย์เก่า</b> — รายชื่อผู้สำเร็จการศึกษา (คำนำหน้า, ชื่อ, รุ่น, สถานภาพ, สถานที่ปฏิบัติงาน, วันเข้า/จบการศึกษา, วันที่บันทึก) กรองตามรุ่นได้ ระบบจะเพิ่มให้อัตโนมัติเมื่อเลื่อนชั้นปี 4 เป็นสำเร็จการศึกษา</p>
+    <p><b>ปฏิทินการศึกษา</b> — รายการกิจกรรม/กำหนดการของวิทยาลัย</p>
+    <p><b>รายวิชาที่เปิดสอน</b> — เลือกปีการศึกษาเพื่อดูรายวิชา แสดงรหัสหน่วยกิตแบบ น(ท-ป-อ) (ดูข้อ 6) ผู้ดูแลเพิ่ม/แก้ไข/นำเข้า CSV และ "นำเข้ารายชื่อสร้างผลการเรียน" ได้</p>`)}
+
+  ${sec('graduation-cap', '5. การเลื่อนชั้นปี และผู้สำเร็จการศึกษา', `
+    <p>ในหน้า <b>ข้อมูลนักศึกษา</b> (ผู้ดูแล) มีแผง "เลื่อนชั้นปี" แยกปุ่มต่อชั้นปี: ปี 1→2, 2→3, 3→4 และ <b>ปี 4 → สำเร็จการศึกษา</b></p>
+    ${li([
+    'เลื่อนเฉพาะผู้ที่ "กำลังศึกษา" (ข้ามผู้ที่พัก/ลาออก/จบแล้ว)',
+    'ปี 4 จะเปลี่ยนสถานะเป็น "สำเร็จการศึกษา" และชั้นปีเป็น "จบ" พร้อมบันทึกเข้า "ข้อมูลศิษย์เก่า" อัตโนมัติ',
+    'ผลการเรียน/ผลสอบเดิมไม่ได้รับผลกระทบ (ผูกด้วยรหัสนักศึกษา)',
+    'มีหน้ายืนยันก่อนทุกครั้ง — แนะนำให้สำรอง (คัดลอก) แท็บ student ก่อน เพราะย้อนกลับอัตโนมัติไม่ได้',
+  ])}`)}
+
+  ${sec('file-text', '6. ผลการศึกษา และใบ Transcript', `
+    <p><b>ผลการเรียน</b> — ดูเกรดรายวิชา GPAX และพิมพ์ใบแสดงผลการเรียน; ผู้ดูแลเพิ่มเกรด/นำเข้า CSV ได้</p>
+    <p><b>ผลสอบภาษาอังกฤษ</b> — บันทึก/ดูผลสอบและสถานะผ่าน-ไม่ผ่าน กรองตามปีการศึกษา/ชั้นปี/อาจารย์ที่ปรึกษาได้</p>
+    <p><b>ใบระเบียนแสดงผลการเรียน (Transcript):</b> สำหรับ <b>ผู้สำเร็จการศึกษา</b> เมื่อกด "ใบแสดงผลการเรียน" จะได้รูปแบบทางการ (โลโก้, ข้อมูลส่วนตัว, รายวิชาแยกชั้นปี, สรุปหน่วยกิต/GPAX, ชั่วโมงฝึกปฏิบัติ, ผลสอบภาษาอังกฤษ/สอบรวบยอด, ลายเซ็นนายทะเบียน) และดาวน์โหลด PDF ได้ ข้อมูลส่วนตัวสำหรับ Transcript กรอกได้ในฟอร์มนักศึกษา (กล่อง "ข้อมูลสำหรับใบ Transcript")</p>`)}
+
+  ${sec('hash', '7. ความหมายรหัสหน่วยกิต น(ท-ป-อ)', `
+    ${li([
+    '<b>ตัวเลขหน้าวงเล็บ</b> = จำนวนหน่วยกิตรวม',
+    '<b>ตัวแรกในวงเล็บ</b> = ชั่วโมงทฤษฎี/สัปดาห์',
+    '<b>ตัวที่สองในวงเล็บ</b> = ชั่วโมงปฏิบัติ/ทดลอง/ฝึกในคลินิกหรือชุมชน/สัปดาห์',
+    '<b>ตัวที่สามในวงเล็บ</b> = ชั่วโมงศึกษาด้วยตนเอง/สัปดาห์',
+  ])}
+    <p>ตัวอย่าง <span class="font-mono font-bold">2(1-2-3)</span> = 2 หน่วยกิต · ทฤษฎี 1 · ทดลอง 2 · ศึกษาด้วยตนเอง 3 ชม./สัปดาห์</p>`)}
+
+  ${sec('clipboard-list', '8. ติดตามการส่ง และระบบการลา', `
+    <p><b>ติดตามการส่ง</b> มี 4 ประเภท: ส่งรายละเอียดรายวิชา, ส่งผลการดำเนินงานรายวิชา, ส่งเกรดรายวิชา และส่งแฟ้มรายวิชา — แสดงสถานะส่ง/ยังไม่ส่งของแต่ละรายวิชา (กรองตามปีการศึกษาได้)</p>
+    <p><b>ระบบการลาของนักศึกษา</b> — นักศึกษาส่งใบลา (เลือกรายวิชา/ชั่วโมง/ประเภท) อาจารย์ผู้ประสานงานรายวิชา/อาจารย์ประจำชั้น/ผู้บริหารพิจารณาอนุมัติ มีสถานะ รออนุมัติ / อนุมัติแล้ว / ปฏิเสธ และนับชั่วโมงการลาให้อัตโนมัติ</p>`)}
+
+  ${sec('grid', '9. บริการอื่นๆ และตั้งค่าระบบ', `
+    <p><b>บริการอื่นๆ</b> — ข่าวสาร/ประกาศ และคำร้องขอเอกสาร (อัปเดตสถานะ รอ/กำลังดำเนินการ/เสร็จสิ้น)</p>
+    <p><b>ทำเนียบอาจารย์</b> — ฐานข้อมูลอาจารย์แบบละเอียดแยกประเภท (ประจำหลักสูตร/ประจำ/รับผิดชอบหลักสูตร/ลาศึกษาต่อ/พิเศษ) พร้อมสรุปจำนวน</p>
+    <p><b>ตั้งค่าระบบ</b> (ผู้ดูแล) — จัดการผู้ใช้งาน (เพิ่ม/แก้/ลบ) และตารางกำหนด <b>สิทธิ์การเข้าถึง</b> ของแต่ละบทบาทต่อแต่ละโมดูล รวมถึงตั้งค่าการเชื่อมต่อ Google Sheet</p>
+    <p><b>บันทึกการเข้าใช้ระบบ</b> (ผู้ดูแล) — ประวัติการเข้าใช้งาน</p>`)}
+
+  ${sec('alert-triangle', '10. การแก้ปัญหาเบื้องต้น', `
+    ${li([
+    '<b>ข้อมูล/เมนูใหม่ไม่ขึ้น:</b> กด Ctrl+F5 เพื่อล้างแคชและโหลดใหม่',
+    '<b>กดเพิ่ม/แก้ไขแล้วบันทึกไม่ได้:</b> ตรวจว่าตั้งค่า Apps Script URL (โหมดเขียน) แล้ว — ถ้าเป็นโหมดอ่านอย่างเดียวจะแก้ข้อมูลไม่ได้',
+    '<b>ดาวน์โหลด PDF ไม่ขึ้น:</b> อนุญาต Popup ของเบราว์เซอร์',
+    '<b>ข้อมูลไม่อัปเดต:</b> กดปุ่มรีเฟรช (มุมขวาบน) หรือโหลดหน้าใหม่',
+  ])}`)}
+
+  ${sec('phone', '11. ติดต่อสอบถาม', `
+    <p>โทร. 02 354 2320 · งานวิชาการ (admin) ต่อ 310 · งานบริหารหลักสูตร ต่อ 311 · งานข้อสอบและวัดประเมินผล ต่อ 320 · งานดิจิทัล ต่อ 322 · งานเลขา ต่อ 330 · งานทะเบียน ต่อ 340</p>`)}
+
+  <p class="text-xs text-gray-400 mt-4">จัดทำโดยงานดิจิทัล · ระบบ EMS-BCNB</p>
+  </div>`;
+}
+
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
