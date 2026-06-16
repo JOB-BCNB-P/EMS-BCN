@@ -6460,8 +6460,8 @@ function userGuidePage() {
 
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'subjects', 'schedule', 'grades', 'engResults', 'teachers', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', subjects: 'รายวิชา', schedule: 'ปฏิทินการศึกษา', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teachers: 'ข้อมูลอาจารย์', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
+  const modules = ['dashboard', 'students', 'teachers', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินการศึกษา', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
