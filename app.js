@@ -283,6 +283,7 @@ function handleLogin() {
       return stored === nid || stored === String(Number(nid)) || nid === String(Number(stored)).padStart(13, '0');
     });
     if (!stu) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
+    if (norm(stu.status) === 'สำเร็จการศึกษา' || norm(stu.year_level) === 'จบ') { err.textContent = 'บัญชีนี้เป็นผู้สำเร็จการศึกษาแล้ว ไม่สามารถเข้าสู่ระบบได้'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
   } else if (role === 'teacher') {
     const em = document.getElementById('teacherEmail').value;
@@ -1287,7 +1288,7 @@ function studentsPage() {
 
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,student_id,batch,status,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
   </div>
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="flex items-center gap-3">
@@ -1349,6 +1350,28 @@ function infoRow(l, v) { return `<div><p class="text-xs text-gray-500">${l}</p><
 // Helper: show "รหัส ชื่อวิชา" or just "ชื่อวิชา" if no code
 function subjectLabel(code, name) { return code ? `${code} ${name || ''}` : name || '' }
 
+// ช่องข้อมูลสำหรับใบระเบียนแสดงผลการเรียน (ใช้ทั้งฟอร์มเพิ่มและแก้ไขนักศึกษา)
+function transcriptFieldsHTML(s) {
+  s = s || {};
+  const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
+  return `<details class="border border-blue-100 rounded-xl bg-blue-50 mt-1">
+    <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-blue-800">ข้อมูลสำหรับใบระเบียนแสดงผลการเรียน (Transcript) <span class="font-normal text-blue-500">— ใช้เมื่อสำเร็จการศึกษา</span></summary>
+    <div class="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล (อังกฤษ)</label><input name="name_en" value="${v('name_en')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น Miss KANITA ..."></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วันเกิด</label><input name="birth_date" type="date" value="${v('birth_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">จังหวัดที่เกิด</label><input name="birth_province" value="${v('birth_province')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">สัญชาติ</label><input name="nationality" value="${v('nationality')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ไทย"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ศาสนา</label><input name="religion" value="${v('religion')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วุฒิการศึกษาเดิม</label><input name="prev_education" value="${v('prev_education')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="มัธยมศึกษาปีที่ 6"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วุฒิการศึกษา</label><input name="degree" value="${v('degree')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พยาบาลศาสตรบัณฑิต"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เกียรตินิยม</label><input name="honors" value="${v('honors')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="-"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วันที่เข้ารับการศึกษา</label><input name="admission_date" type="date" value="${v('admission_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">วันที่สำเร็จการศึกษา</label><input name="graduation_date" type="date" value="${v('graduation_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">การสอบรวบยอด</label><select name="comprehensive_exam" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-</option><option ${norm(s.comprehensive_exam) === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option ${norm(s.comprehensive_exam) === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
+    </div>
+  </details>`;
+}
+
 function showAddStudentModal() {
   showModal('เพิ่มนักศึกษา', `
     <form id="addStudentForm" class="space-y-3">
@@ -1366,6 +1389,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      ${transcriptFieldsHTML({})}
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -2035,6 +2059,162 @@ function showAddGradeModal() {
   };
 }
 
+// ======================== ใบระเบียนแสดงผลการเรียน (ผู้สำเร็จการศึกษา) ========================
+function isGraduate(stu) { return norm(stu && stu.status) === 'สำเร็จการศึกษา' || norm(stu && stu.year_level) === 'จบ'; }
+
+const THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function toThaiLongDate(dateStr) {
+  if (!dateStr) return '';
+  const s = String(dateStr).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) { return parseInt(m[3], 10) + ' ' + THAI_MONTHS[parseInt(m[2], 10)] + ' ' + (parseInt(m[1], 10) + 543); }
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) { const y = parseInt(m[3], 10); return parseInt(m[1], 10) + ' ' + THAI_MONTHS[parseInt(m[2], 10)] + ' ' + (y > 2400 ? y : y + 543); }
+  return s;
+}
+
+// ชั่วโมงฝึกปฏิบัติการพยาบาลตามหลักสูตร (มาตรฐาน — แก้ได้ที่นี่)
+const PRACTICUM_HOURS = [
+  ['ปฏิบัติการพยาบาลขั้นพื้นฐาน', '180'],
+  ['ปฏิบัติการพยาบาลผู้ใหญ่และผู้สูงอายุ', '270'],
+  ['ปฏิบัติการพยาบาลเด็กและวัยรุ่น', '180'],
+  ['ปฏิบัติการพยาบาลสุขภาพชุมชน', '135'],
+  ['ปฏิบัติการพยาบาลผู้สูงอายุ', '90'],
+  ['ปฏิบัติการพยาบาลมารดา ทารกและการผดุงครรภ์', '270'],
+  ['ปฏิบัติการพยาบาลสุขภาพจิตและจิตเวช', '135'],
+  ['ปฏิบัติการพยาบาลและการบริหารจัดการสุขภาวะชุมชน', '135'],
+  ['ปฏิบัติการรักษาโรคเบื้องต้นสำหรับพยาบาล', '135'],
+  ['ปฏิบัติการบริหารและการจัดการคุณภาพทางการพยาบาล', '90'],
+];
+
+function buildOfficialTranscript(stu, logoSrc) {
+  const stuId = norm(stu.student_id);
+  const grades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
+  const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
+  const acadOf = g => { const y = parseInt(norm(g.academic_year), 10); return isNaN(y) ? null : y; };
+  // ปีการศึกษาเริ่มต้น (ใช้ admission_date ก่อน ถ้าไม่มีใช้ปีต่ำสุดของเกรด)
+  let baseYear = null;
+  if (stu.admission_date) { const m = String(stu.admission_date).match(/^(\d{4})-(\d{1,2})/); if (m) { let y = parseInt(m[1], 10) + 543; if (parseInt(m[2], 10) < 6) y -= 1; baseYear = y; } }
+  if (baseYear == null) { const ys = grades.map(acadOf).filter(v => v != null); if (ys.length) baseYear = Math.min(...ys); }
+
+  const yearGroups = {};
+  let totalCredits = 0, totalPoints = 0;
+  grades.forEach(g => {
+    const ay = acadOf(g);
+    let sy = (baseYear != null && ay != null) ? (ay - baseYear + 1) : 1;
+    if (sy < 1) sy = 1;
+    if (!yearGroups[sy]) yearGroups[sy] = { courses: [], credits: 0 };
+    yearGroups[sy].courses.push(g);
+    const cr = Number(g.credits) || 0; const gv = gradeMap[g.grade];
+    yearGroups[sy].credits += cr;
+    if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr; }
+  });
+  const gpax = totalCredits ? (totalPoints / totalCredits).toFixed(2) : '-';
+  const sortedYears = Object.keys(yearGroups).map(Number).sort((a, b) => a - b);
+
+  const courseHead = `<tr style="background:#dceaf7"><th style="border:1px solid #999;padding:2px 4px;font-size:10px;width:22%">รหัสรายวิชา</th><th style="border:1px solid #999;padding:2px 4px;font-size:10px">ชื่อรายวิชา</th><th style="border:1px solid #999;padding:2px 4px;font-size:10px;width:15%">หน่วยกิต</th><th style="border:1px solid #999;padding:2px 4px;font-size:10px;width:10%">เกรด</th></tr>`;
+  const yearBlock = sy => {
+    const grp = yearGroups[sy]; if (!grp) return '';
+    let rows = `<tr><td colspan="4" style="text-align:center;font-weight:700;padding:2px;border:1px solid #999;background:#eef5fb;font-size:10px">ชั้นปีที่ ${sy}</td></tr>`;
+    grp.courses.forEach(g => {
+      rows += `<tr><td style="border:1px solid #999;padding:2px 4px;font-family:monospace;font-size:9.5px">${g.subject_code || ''}</td><td style="border:1px solid #999;padding:2px 4px;font-size:9.5px">${g.subject_name || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px">${g.credits || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px;font-weight:600">${g.grade || ''}</td></tr>`;
+    });
+    rows += `<tr><td colspan="2" style="border:1px solid #999;padding:2px 4px;text-align:right;font-weight:600;font-size:9.5px">รวม</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-weight:700;font-size:9.5px">${grp.credits}</td><td style="border:1px solid #999"></td></tr>`;
+    return rows;
+  };
+  const half = Math.ceil(sortedYears.length / 2) || 1;
+  const leftRows = sortedYears.slice(0, half).map(yearBlock).join('');
+  const rightRows = sortedYears.slice(half).map(yearBlock).join('');
+
+  const practicumRows = PRACTICUM_HOURS.map(p => `<div style="display:flex;justify-content:space-between"><span>${p[0]}</span><span>${p[1]} ชั่วโมง</span></div>`).join('');
+  const engPass = getDataByType('eng_result').some(e => norm(e.student_id) === stuId && e.eng_status === 'ผ่าน');
+  const college = (APP.config && APP.config.college_name) || 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ';
+  const director = (APP.config && APP.config.director_name) || 'ผู้ช่วยศาสตราจารย์พนารัตน์ วิศวเทพนิมิตร';
+  const logoTag = logoSrc ? `<img src="${logoSrc}" style="width:70px;height:auto;margin:0 auto 4px auto;display:block">` : '';
+
+  return `
+  <div style="font-family:'Sarabun',sans-serif;color:#000;font-size:11px;width:100%">
+    <div style="text-align:center;margin-bottom:6px">
+      ${logoTag}
+      <div style="font-weight:700;font-size:15px">ระเบียนแสดงผลการเรียน</div>
+      <div style="font-size:11px">สถาบันพระบรมราชชนก กระทรวงสาธารณสุข</div>
+      <div style="font-size:11px">คณะพยาบาลศาสตร์</div>
+      <div style="font-size:11px">${college}</div>
+    </div>
+    <table style="width:100%;font-size:10.5px;margin-bottom:6px;border-collapse:collapse"><tr>
+      <td style="vertical-align:top;width:56%;padding-right:6px">
+        <div>รหัสนักศึกษา: <b>${stu.student_id || ''}</b></div>
+        <div>ชื่อ-นามสกุล (ไทย): <b>${stu.name || ''}</b></div>
+        <div>(อังกฤษ): <b>${stu.name_en || ''}</b></div>
+        <div>วันที่เกิด: <b>${toThaiLongDate(stu.birth_date) || '-'}</b></div>
+        <div>จังหวัดที่เกิด: <b>${stu.birth_province || '-'}</b></div>
+        <div>สัญชาติ: <b>${stu.nationality || 'ไทย'}</b> &nbsp;&nbsp; ศาสนา: <b>${stu.religion || '-'}</b></div>
+      </td>
+      <td style="vertical-align:top;width:44%">
+        <div>วันที่เข้ารับการศึกษา: <b>${toThaiLongDate(stu.admission_date) || '-'}</b></div>
+        <div>วันที่สำเร็จการศึกษา: <b>${toThaiLongDate(stu.graduation_date) || '-'}</b></div>
+        <div>วุฒิการศึกษา: <b>${stu.degree || 'พยาบาลศาสตรบัณฑิต'}</b></div>
+        <div>เกียรตินิยม: <b>${stu.honors || '-'}</b></div>
+        <div>วุฒิการศึกษาเดิม: <b>${stu.prev_education || 'มัธยมศึกษาปีที่ 6'}</b></div>
+      </td>
+    </tr></table>
+    <table style="width:100%;border-collapse:collapse"><tr>
+      <td style="vertical-align:top;width:50%;padding-right:4px">
+        <table style="width:100%;border-collapse:collapse">${courseHead}${leftRows}</table>
+      </td>
+      <td style="vertical-align:top;width:50%;padding-left:4px">
+        <table style="width:100%;border-collapse:collapse">${courseHead}${rightRows}</table>
+        <div style="margin-top:6px;font-size:10px;border:1px solid #999;padding:4px">
+          <div style="display:flex;justify-content:space-between"><span>จำนวนหน่วยกิตตามหลักสูตร</span><span><b>${stu.curriculum_credits || totalCredits}</b> หน่วย</span></div>
+          <div style="display:flex;justify-content:space-between"><span>จำนวนหน่วยกิตที่ลงทะเบียน</span><span><b>${totalCredits}</b> หน่วย</span></div>
+          <div style="display:flex;justify-content:space-between"><span>คะแนนเฉลี่ยสะสมตลอดหลักสูตร</span><span><b>${gpax}</b></span></div>
+        </div>
+        <div style="margin-top:6px;font-size:10px">
+          <div style="font-weight:600">จำนวนชั่วโมงฝึกปฏิบัติการพยาบาล:</div>
+          ${practicumRows}
+        </div>
+        <div style="margin-top:4px;font-size:10px">
+          <div style="display:flex;justify-content:space-between"><span>การทดสอบภาษาอังกฤษมาตรฐานของสถาบันพระบรมราชชนก</span><span><b>${engPass ? 'ผ่าน' : (stu.eng_test || '-')}</b></span></div>
+          <div style="display:flex;justify-content:space-between"><span>การสอบรวบยอดของสถาบันพระบรมราชชนก</span><span><b>${stu.comprehensive_exam || '-'}</b></span></div>
+        </div>
+      </td>
+    </tr></table>
+    <div style="margin-top:6px;font-size:9px;color:#333">
+      <div style="font-weight:600">ความหมายเกรด</div>
+      <div>A : 4.00 (ดีเยี่ยม) &nbsp; B+ : 3.50 (ดีมาก) &nbsp; B : 3.00 (ดี) &nbsp; C+ : 2.50 (ค่อนข้างดี) &nbsp; C : 2.00 (พอใช้) &nbsp; D+ : 1.50 (อ่อน) &nbsp; D : 1.00 (อ่อนมาก)</div>
+      <div>F : ตก &nbsp; S : พึงพอใจ &nbsp; U : ไม่พึงพอใจ &nbsp; CP : เทียบโอน &nbsp; AU : ไม่นับหน่วยกิต &nbsp; W : ถอนรายวิชา &nbsp; P : ผ่าน</div>
+    </div>
+    <div style="margin-top:26px;text-align:center;font-size:10.5px">
+      <div>….......................................................................................</div>
+      <div>(${director})</div>
+      <div>ผู้อำนวยการ${college}</div>
+      <div>นายทะเบียน</div>
+    </div>
+  </div>`;
+}
+
+function _renderOfficialTranscript(stu) {
+  const stuNameSafe = (stu.name || '').replace(/'/g, "\\'");
+  const inner = buildOfficialTranscript(stu, 'https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png');
+  showModal('ระเบียนแสดงผลการเรียน', `
+    <div id="transcriptContent" style="background:#fff;padding:8px;max-width:780px;margin:auto;overflow-x:auto">${inner}</div>
+    <div class="flex justify-center mt-4"><button onclick="downloadTranscriptPDF('${stuNameSafe}')" class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button></div>
+  `, null, 'max-w-4xl');
+  setTimeout(() => lucide.createIcons(), 100);
+}
+
+async function _printOfficialTranscript(stu) {
+  let logoBase64 = '';
+  const srcs = (window.LOGO_SOURCES || ['https://cdn.jsdelivr.net/gh/JOB-BCNB-P/LOGO/Logo%20Thai.png']);
+  for (const src of srcs) { try { const resp = await fetch(src); if (resp.ok) { const blob = await resp.blob(); logoBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); break; } } catch (e) { } }
+  const inner = buildOfficialTranscript(stu, logoBase64);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ระเบียนแสดงผลการเรียน - ${stu.name || ''}</title>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');*{font-family:'Sarabun',sans-serif;box-sizing:border-box}body{margin:0;padding:8mm}@media print{@page{size:A4;margin:7mm}}</style>
+    </head><body>${inner}<script>window.onload=function(){window.print()}<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); } else { showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error'); }
+}
+
 function showTranscript() {
   const stu = APP.currentUser.data; if (!stu) return;
   _renderTranscript(stu);
@@ -2048,6 +2228,7 @@ function showTranscriptForStudent(studentKey) {
 }
 
 function _renderTranscript(stu) {
+  if (isGraduate(stu)) { _renderOfficialTranscript(stu); return; }
   const stuId = norm(stu.student_id);
   let grades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
   // Respect current filters (academic year / semester) selected on grades page
@@ -2143,6 +2324,7 @@ async function downloadTranscriptPDF(studentKey) {
   const key = norm(studentKey);
   const stu = getDataByType('student').find(s => norm(s.student_id) === key || norm(s.name) === key) || (APP.currentUser.data && (norm(APP.currentUser.data.name) === key || norm(APP.currentUser.data.student_id) === key) ? APP.currentUser.data : null);
   if (!stu) return;
+  if (isGraduate(stu)) { await _printOfficialTranscript(stu); return; }
   const stuId = norm(stu.student_id);
   let grades = getDataByType('grade').filter(g => norm(g.student_id) === stuId);
   // Respect current filters (academic year / semester) selected on grades page
@@ -6763,6 +6945,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" value="${s.parent_phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
+      ${transcriptFieldsHTML(s)}
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
