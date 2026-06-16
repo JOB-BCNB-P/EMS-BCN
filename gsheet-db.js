@@ -14,7 +14,7 @@ const GSheetDB = (() => {
     const SHEET_TABS = [
         'student', 'teacher', 'subject', 'schedule',
         'grade', 'eng_result', 'leave',
-        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher'
+        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher', 'alumni'
     ];
 
 
@@ -166,6 +166,28 @@ const GSheetDB = (() => {
         return { isOk: fail === 0, ok, fail };
     }
 
+    // สร้างหลายแถวรวดเดียว (refresh แค่ครั้งเดียวตอนจบ)
+    async function createMany(objs) {
+        if (!_scriptUrl) return { isOk: false, ok: 0, fail: (objs || []).length, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
+        let ok = 0, fail = 0, sheet = null;
+        for (const obj of (objs || [])) {
+            sheet = obj.type; if (!sheet) { fail++; continue; }
+            const data = { ...obj }; delete data.type; delete data.__backendId; delete data.__rowIndex;
+            if (!data.created_at) data.created_at = new Date().toISOString();
+            try {
+                const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'create', sheet }).toString(), {
+                    method: 'POST', redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(data)
+                });
+                const result = await resp.json();
+                if (result && result.isOk) ok++; else fail++;
+            } catch (err) { fail++; }
+        }
+        if (sheet) await refreshTab(sheet);
+        return { isOk: fail === 0, ok, fail };
+    }
+
     async function remove(obj) {
         const sheet = obj.type; const rowIndex = obj.__rowIndex;
         if (!sheet || !rowIndex) return { isOk: false, error: 'Missing type/__rowIndex' };
@@ -202,6 +224,6 @@ const GSheetDB = (() => {
     return {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
         init, refresh, destroy, debugTab, hasWriteAccess,
-        create, update, updateMany, delete: remove, SHEET_TABS
+        create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
