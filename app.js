@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -366,6 +366,7 @@ function buildSidebar() {
   }
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
   if (p.specialTeachers) regSub.push({ id: 'specialTeachers', label: 'ข้อมูลอาจารย์พิเศษ' });
+  if (p.alumni) regSub.push({ id: 'alumni', label: 'ข้อมูลศิษย์เก่า' });
   if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
   if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
@@ -1000,6 +1001,7 @@ function getPageContent(page, role) {
     case 'engResults': return engResultsPage();
     case 'teachers': return teachersPage();
     case 'specialTeachers': return specialTeachersPage();
+    case 'alumni': return alumniPage();
     case 'teacherDirectory': return teacherDirectoryPage();
     case 'services': return servicesPage();
     case 'tracking': return trackingPage();
@@ -2962,7 +2964,7 @@ function confirmPromoteYear(fromYear) {
         <p>• เลื่อนเฉพาะผู้ที่ "กำลังศึกษา" (ข้ามผู้ที่พักการศึกษา/ลาออก/จบแล้ว)</p>
         <p>• ผลการเรียนและผลสอบเดิมไม่ได้รับผลกระทบ (ผูกด้วยรหัสนักศึกษา)</p>
         <p>• การเลื่อนชั้นย้อนกลับอัตโนมัติไม่ได้ — แนะนำให้คัดลอกแท็บ student สำรองก่อน</p>
-        ${isGrad ? '<p>• ปี 4 จะเปลี่ยนสถานะเป็น "สำเร็จการศึกษา" และชั้นปีเป็น "จบ"</p>' : ''}
+        ${isGrad ? '<p>• ปี 4 จะเปลี่ยนสถานะเป็น "สำเร็จการศึกษา" และชั้นปีเป็น "จบ"</p><p>• ระบบจะบันทึกรายชื่อเข้า "ข้อมูลศิษย์เก่า" ให้อัตโนมัติ</p>' : ''}
       </div>
     </div>`, () => doPromoteYear(fromYear));
 }
@@ -2971,6 +2973,8 @@ async function doPromoteYear(fromYear) {
   const isGrad = String(fromYear) === '4';
   const list = getDataByType('student').filter(s => isActiveStudent(s) && norm(s.year_level) === String(fromYear));
   if (!list.length) { closeModal(); return; }
+  // เก็บข้อมูลสำหรับสร้างศิษย์เก่า (ก่อนอัปเดต/รีเฟรช)
+  const gradSnapshot = isGrad ? list.map(s => ({ name: s.name || '', batch: s.batch || '', student_id: s.student_id || '' })) : [];
   list.forEach(s => {
     if (isGrad) { s.year_level = 'จบ'; s.status = 'สำเร็จการศึกษา'; }
     else { s.year_level = String(Number(fromYear) + 1); }
@@ -2979,8 +2983,25 @@ async function doPromoteYear(fromYear) {
   showToast('กำลังเลื่อนชั้น ' + list.length + ' คน...', 'loading');
   const r = await GSheetDB.updateMany(list);
   hideLoadingToast();
-  if (r.isOk) showToast('เลื่อนชั้นสำเร็จ ' + r.ok + ' คน');
-  else showToast('เลื่อนชั้นเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน', r.ok ? 'success' : 'error');
+
+  // ปี 4 → จบ: บันทึกเข้า "ข้อมูลศิษย์เก่า" อัตโนมัติ (ข้ามคนที่มีในศิษย์เก่าอยู่แล้ว)
+  let alumniMsg = '';
+  if (isGrad && r.ok) {
+    const existing = new Set(getDataByType('alumni').map(a => norm(a.student_id)).filter(Boolean));
+    const today = new Date().toISOString().slice(0, 10);
+    const newAlumni = gradSnapshot
+      .filter(s => { const sid = norm(s.student_id); return !sid || !existing.has(sid); })
+      .map(s => ({ type: 'alumni', name: s.name, batch: s.batch, alumni_status: '', workplace: '', recorded_date: today, student_id: s.student_id, created_at: new Date().toISOString() }));
+    if (newAlumni.length) {
+      showToast('กำลังบันทึกข้อมูลศิษย์เก่า ' + newAlumni.length + ' คน...', 'loading');
+      const ar = await GSheetDB.createMany(newAlumni);
+      hideLoadingToast();
+      alumniMsg = ' · เพิ่มศิษย์เก่า ' + ar.ok + ' คน';
+    }
+  }
+
+  if (r.isOk) showToast('เลื่อนชั้นสำเร็จ ' + r.ok + ' คน' + alumniMsg);
+  else showToast('เลื่อนชั้นเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน' + alumniMsg, r.ok ? 'success' : 'error');
   renderCurrentPage();
 }
 
@@ -3077,6 +3098,115 @@ function showEditSpecialTeacherRegModal(id) {
     await withLoading(e.target, async () => {
       const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
       collectSpecialTeacherReg(e.target, rec);
+      const r = await GSheetDB.update(rec);
+      if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+    });
+  };
+}
+
+// ======================== ข้อมูลศิษย์เก่า (ระบบทะเบียน) ========================
+// แท็บ alumni: name(รวมคำนำหน้า), batch(รุ่น), alumni_status(สถานภาพ), workplace(สถานที่ปฏิบัติงาน), recorded_date(วันที่บันทึก), student_id
+const ALUMNI_STATUS_OPTIONS = ['ปฏิบัติงาน', 'กำลังศึกษาต่อ', 'ยังไม่ได้ปฏิบัติงาน', 'อื่นๆ'];
+
+function alumniPage() {
+  const isAdmin = APP.currentRole === 'admin' || APP.currentRole === 'academic';
+  const all = getDataByType('alumni');
+  const batches = [...new Set(all.map(a => norm(a.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const selBatch = APP.filters._alumniBatch || '';
+  let data = selBatch ? all.filter(a => norm(a.batch) === selBatch) : all.slice();
+  data.sort((a, b) => norm(b.batch).localeCompare(norm(a.batch), undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
+  const total = data.length;
+  const paged = paginate(data);
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="graduation-cap" class="w-6 h-6 inline mr-2"></i>ข้อมูลศิษย์เก่า</h2>
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddAlumniModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มศิษย์เก่า</button>${csvUploadBtn('alumni', 'name,batch,alumni_status,workplace,recorded_date,student_id')}</div>` : ''}
+  </div>
+  <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 flex-wrap">
+      <label class="text-sm font-medium text-gray-700">รุ่นที่:</label>
+      <select onchange="APP.filters._alumniBatch=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- ทุกรุ่น --</option>
+        ${batches.map(b => `<option value="${b}" ${selBatch === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
+      </select>
+      ${selBatch ? `<span class="text-xs text-gray-500">แสดงรุ่นที่ ${selBatch}</span>` : ''}
+      <span class="text-xs text-gray-400 ml-auto"><i data-lucide="users" class="w-3 h-3 inline mr-1"></i>${total} คน</span>
+    </div>
+  </div>
+  <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คำนำหน้า</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">สถานที่ปฏิบัติงาน</th><th class="px-4 py-3 font-semibold">วันที่บันทึกข้อมูล</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <tbody>${paged.length ? paged.map(a => {
+    const pp = parseTitlePrefix(a.name || '');
+    return `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3">${pp.prefix || ''}</td>
+        <td class="px-4 py-3 font-medium">${pp.rest || a.name || ''}</td>
+        <td class="px-4 py-3">${a.batch || ''}</td>
+        <td class="px-4 py-3">${a.alumni_status || ''}</td>
+        <td class="px-4 py-3">${a.workplace || ''}</td>
+        <td class="px-4 py-3">${a.recorded_date ? toBuddhistDate(a.recorded_date) : ''}</td>
+        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditAlumniModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
+  }).join('') : `<tr><td colspan="${isAdmin ? 7 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+function alumniFormBody(a) {
+  a = a || {};
+  const v = k => String(a[k] == null ? '' : a[k]).replace(/"/g, '&quot;');
+  const statusOpts = ALUMNI_STATUS_OPTIONS.map(o => `<option ${norm(a.alumni_status) === o ? 'selected' : ''}>${o}</option>`).join('');
+  return `
+    ${titlePrefixField(a.name || '')}
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${v('batch')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="alumni_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${statusOpts}</select></div>
+    </div>
+    <div><label class="block text-xs text-gray-600 mb-1">สถานที่ปฏิบัติงาน</label><input name="workplace" value="${v('workplace')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
+    <div><label class="block text-xs text-gray-600 mb-1">วันที่บันทึกข้อมูล</label><input name="recorded_date" type="date" value="${v('recorded_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+    <input type="hidden" name="student_id" value="${v('student_id')}">`;
+}
+
+function collectAlumni(form, obj) {
+  obj.name = combineName(form);
+  obj.batch = form.querySelector('[name="batch"]').value;
+  obj.alumni_status = form.querySelector('[name="alumni_status"]').value;
+  obj.workplace = form.querySelector('[name="workplace"]').value;
+  obj.recorded_date = form.querySelector('[name="recorded_date"]').value;
+  const sid = form.querySelector('[name="student_id"]'); if (sid) obj.student_id = sid.value;
+  return obj;
+}
+
+function showAddAlumniModal() {
+  showModal('เพิ่มศิษย์เก่า', `
+    <form id="addAlumniForm" class="space-y-3">
+      ${alumniFormBody({ recorded_date: new Date().toISOString().slice(0, 10) })}
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+    </form>
+  `);
+  document.getElementById('addAlumniForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const obj = collectAlumni(e.target, { type: 'alumni', created_at: new Date().toISOString() });
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มศิษย์เก่าสำเร็จ'); closeModal(); } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
+  };
+}
+
+function showEditAlumniModal(id) {
+  const a = APP.allData.find(d => d.__backendId === id); if (!a) return;
+  showModal('แก้ไขข้อมูลศิษย์เก่า', `
+    <form id="editAlumniForm" class="space-y-3">
+      ${alumniFormBody(a)}
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
+    </form>
+  `);
+  document.getElementById('editAlumniForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await withLoading(e.target, async () => {
+      const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+      collectAlumni(e.target, rec);
       const r = await GSheetDB.update(rec);
       if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage(); } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
     });
