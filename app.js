@@ -390,7 +390,6 @@ function buildSidebar() {
 
   if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   if (p.services) items.push({ id: 'services', icon: 'grid', label: 'บริการอื่นๆ' });
-  items.push({ id: 'userGuide', icon: 'help-circle', label: 'คู่มือการใช้งาน' });
   if ((r === 'admin' || r === 'academic') && p.settings) items.push({ id: 'settings', icon: 'settings', label: 'ตั้งค่าระบบ' });
   if (r === 'admin' && p.loginLog) items.push({ id: 'loginLog', icon: 'log-in', label: 'บันทึกการเข้าใช้ระบบ' });
 
