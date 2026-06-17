@@ -1378,8 +1378,8 @@ function transcriptFieldsHTML(s) {
 function showAddStudentModal() {
   showModal('เพิ่มนักศึกษา', `
     <form id="addStudentForm" class="space-y-3">
+      ${titlePrefixField('')}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล *</label><input name="name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา *</label><input name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -1402,6 +1402,7 @@ function showAddStudentModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'student', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      obj.name = combineName(e.target); delete obj.title_prefix;
       if (APP.allData.filter(d => d.type === 'student').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มนักศึกษาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
@@ -7038,6 +7039,8 @@ async function editRecord(id, formId) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i>กำลังบันทึก...</span>'; lucide.createIcons() }
   const fd = new FormData(form);
   fd.forEach((v, k) => { if (k !== '__backendId') rec[k] = v });
+  // ฟอร์มที่ใช้ตัวเลือกคำนำหน้า → รวมคำนำหน้า + ชื่อ เป็นชื่อเต็ม
+  if (form.querySelector('[name="title_prefix"]')) { rec.name = combineName(form); delete rec.title_prefix; }
   const r = await GSheetDB.update(rec);
   if (btn) { btn.disabled = false; btn.innerHTML = origText; lucide.createIcons() }
   if (r.isOk) { showToast('แก้ไขข้อมูลสำเร็จ'); closeModal(); renderCurrentPage() } else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
@@ -7048,8 +7051,8 @@ function showEditStudentModal(id) {
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
   showModal('แก้ไขข้อมูลนักศึกษา', `
     <form id="editStudentForm" class="space-y-3">
+      ${titlePrefixField(s.name || '')}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">ชื่อ-สกุล</label><input name="name" value="${s.name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
