@@ -1486,11 +1486,15 @@ function subjectsPage() {
   const canEdit = isAdmin || APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher';
   const isStudent = APP.currentRole === 'student';
   const allSubjects = getDataByType('subject');
+  // นักศึกษา: จำกัดปีการศึกษา/ข้อมูลให้เห็นเฉพาะรุ่นของตนเองเท่านั้น
+  const pickerSubjects = (isStudent && APP.currentUser.data && norm(APP.currentUser.data.batch))
+    ? allSubjects.filter(s => norm(s.batch) === norm(APP.currentUser.data.batch))
+    : allSubjects;
   // นักศึกษา: ถ้ายังไม่เลือกปี ให้ default เป็นปีการศึกษาปัจจุบันโดยอัตโนมัติ
   if (isStudent && !APP.filters._pageYear) {
     const cur = currentAcademicYearBE();
     // ตรวจว่ามีข้อมูลปีนั้นไหม ถ้าไม่มี ใช้ปีล่าสุดที่มีข้อมูลแทน
-    const years = [...new Set(allSubjects.map(s => norm(s.academic_year)).filter(Boolean))].sort();
+    const years = [...new Set(pickerSubjects.map(s => norm(s.academic_year)).filter(Boolean))].sort();
     APP.filters._pageYear = years.includes(cur) ? cur : (years[years.length - 1] || cur);
   }
   const selectedYear = APP.filters._pageYear || '';
@@ -1499,8 +1503,8 @@ function subjectsPage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="book-open" class="w-6 h-6 inline mr-2"></i>รายวิชาที่เปิดสอน</h2>
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSubjectModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายวิชา</button>${csvUploadBtn('subject', 'subject_code,subject_name,coordinator,year_level,batch,room,credits,hours_theory,hours_lab,hours_self,semester,academic_year')}</div>` : ''}
   </div>`;
-  headerHtml += yearPickerBar(allSubjects, 'ปีการศึกษา');
-  headerHtml += creditInfoBox();
+  headerHtml += yearPickerBar(pickerSubjects, 'ปีการศึกษา');
+  if (isAdmin) headerHtml += creditInfoBox();
 
   // แสดงป้ายบอกบริบทสำหรับนักศึกษา (รุ่น/ชั้นปี/ปีการศึกษา)
   if (isStudent && APP.currentUser.data) {
