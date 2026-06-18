@@ -478,7 +478,8 @@ function norm(v) { return String(v || '').replace(/\.0$/, '').replace(/\s+/g, ' 
 
 // สถานะที่ไม่นับรวมเป็นจำนวนนักศึกษา (สำเร็จการศึกษา / พักการศึกษา / ลาออก)
 const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พักการศึกษา', 'ลาออก'];
-function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)); }
+// นับเฉพาะนักศึกษาที่ "กำลังศึกษาอยู่" — ตัดผู้ที่สถานะไม่ active และผู้ที่สำเร็จการศึกษา (year_level = 'จบ') ออก
+function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)) && norm(s && s.year_level) !== 'จบ'; }
 // คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
 function activeStudents(list) { return (list || []).filter(isActiveStudent); }
 
@@ -1206,14 +1207,16 @@ function studentsPage() {
     const yr = APP.currentUser.responsible_year || '1';
     const myYrStudents = allStudents.filter(s => norm(s.year_level) === norm(yr));
     const selectedRoom = APP.filters._studentRoom || '';
-    const roomACount = myYrStudents.filter(s => norm(s.room).toUpperCase() === 'A').length;
-    const roomBCount = myYrStudents.filter(s => norm(s.room).toUpperCase() === 'B').length;
+    // จำนวนนักศึกษานับเฉพาะคนที่กำลังศึกษาอยู่
+    const myYrActive = activeStudents(myYrStudents);
+    const roomACount = myYrActive.filter(s => norm(s.room).toUpperCase() === 'A').length;
+    const roomBCount = myYrActive.filter(s => norm(s.room).toUpperCase() === 'B').length;
 
     let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา ชั้นปีที่ ${yr}</h2>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-      <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ทั้งหมด</p><p class="text-2xl font-bold text-primary">${myYrStudents.length} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
+      <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ทั้งหมด</p><p class="text-2xl font-bold text-primary">${myYrActive.length} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
       <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ห้อง A</p><p class="text-2xl font-bold text-blue-600">${roomACount} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
       <div class="bg-white rounded-2xl p-4 border border-blue-100 text-center"><p class="text-sm text-gray-500">ห้อง B</p><p class="text-2xl font-bold text-purple-600">${roomBCount} <span class="text-sm font-normal text-gray-500">คน</span></p></div>
     </div>
