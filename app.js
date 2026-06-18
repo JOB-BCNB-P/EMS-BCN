@@ -2890,7 +2890,7 @@ function showAddEngModal() {
       <!-- Other type fields -->
       <div id="addEngOther" style="display:none">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="addEngOtherScore" type="number" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="addEngOtherScore" type="number" step="any" min="0" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกทศนิยมได้ เช่น 85.5"></div>
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="addEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน">ผ่าน</option><option value="ไม่ผ่าน">ไม่ผ่าน</option></select></div>
         </div>
       </div>
@@ -7303,7 +7303,7 @@ function showEditEngModal(id) {
       <!-- Other type fields -->
       <div id="editEngOther" style="display:${isSbch ? 'none' : 'block'}">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="editEngOtherScore" type="number" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="editEngOtherScore" type="number" step="any" min="0" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกทศนิยมได้ เช่น 85.5"></div>
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="editEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน" ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option value="ไม่ผ่าน" ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
         </div>
       </div>
