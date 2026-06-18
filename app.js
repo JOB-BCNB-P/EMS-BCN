@@ -1928,6 +1928,10 @@ function gradesPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+    // ผลการเรียน (อาจารย์/อาจารย์ประจำชั้น): นับ/แสดงเฉพาะนักศึกษาที่กำลังศึกษา
+    if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
+      studentList = activeStudents(studentList);
+    }
 
     // Year level + Advisor filter for admin/academic/executive
     let advisorSelector = '';
@@ -1940,6 +1944,8 @@ function gradesPage() {
       } else if (selectedGradeYear) {
         studentList = studentList.filter(s => norm(s.year_level) === selectedGradeYear);
       }
+      // โหมดที่ไม่ใช่ผู้สำเร็จการศึกษา → นับ/แสดงเฉพาะนักศึกษาที่กำลังศึกษา (ตัดพัก/ลาออก/จบออก)
+      if (!isGradFilter) studentList = activeStudents(studentList);
       const yearLevelSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="layers" class="w-4 h-4 inline mr-1"></i>กรองตามชั้นปี</label>
         <div class="flex flex-wrap gap-2">
@@ -1950,19 +1956,19 @@ function gradesPage() {
         ${selectedGradeYear ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>${isGradFilter ? 'แสดงเฉพาะผู้สำเร็จการศึกษา' : 'แสดงเฉพาะนักศึกษาชั้นปีที่ ' + selectedGradeYear} (${studentList.length} คน)</p>` : ''}
       </div>`;
 
-      // กรองตามรุ่น — แสดงเฉพาะผู้สำเร็จการศึกษา (รายชื่อรุ่นดึงจากผู้สำเร็จการศึกษาเท่านั้น)
+      // กรองตามรุ่น — แสดงเฉพาะตอนเลือก "ผู้สำเร็จการศึกษา" เท่านั้น (ชั้นปี 1-4 ไม่แสดง)
       const gradStudentsAll = getDataByType('student').filter(s => isGraduate(s));
       const allBatches = [...new Set(gradStudentsAll.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
       const selectedBatch = APP.filters._gradeBatch || '';
-      if (selectedBatch) studentList = gradStudentsAll.filter(s => norm(s.batch) === selectedBatch);
-      const batchSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      if (isGradFilter && selectedBatch) studentList = gradStudentsAll.filter(s => norm(s.batch) === selectedBatch);
+      const batchSelector = isGradFilter ? `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>กรองตามรุ่น <span class="font-normal text-gray-400 text-xs">(เฉพาะผู้สำเร็จการศึกษา)</span></label>
         <select onchange="APP.filters._gradeBatch=this.value;APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
           <option value="">-- ทุกรุ่น --</option>
           ${allBatches.map(b => `<option value="${b}" ${selectedBatch === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
         </select>
         ${selectedBatch ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะผู้สำเร็จการศึกษา รุ่นที่ ${selectedBatch} (${studentList.length} คน)</p>` : ''}
-      </div>`;
+      </div>` : '';
 
       const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
       const selectedAdvisor = APP.filters._gradeAdvisor || '';
@@ -2523,30 +2529,55 @@ function engResultsPage() {
     if (APP.currentRole === 'teacher') {
       studentList = studentList.filter(s => s.advisor === APP.currentUser.name);
     }
+    // ผลสอบภาษาอังกฤษ (อาจารย์/อาจารย์ประจำชั้น): แสดงเฉพาะนักศึกษาที่กำลังศึกษา
+    if (APP.currentRole === 'teacher' || APP.currentRole === 'classTeacher') {
+      studentList = activeStudents(studentList);
+    }
 
     // Year level + Advisor filter for admin/academic/executive
     let advisorSelector = '';
     if (canFilterByAdvisor) {
       // Year level filter
       const selectedEngYrLevel = APP.filters._engYearLevel || '';
-      if (selectedEngYrLevel) {
+      const isGradFilter = selectedEngYrLevel === '__grad';
+      if (isGradFilter) {
+        studentList = studentList.filter(s => isGraduate(s));
+      } else if (selectedEngYrLevel) {
         studentList = studentList.filter(s => norm(s.year_level) === selectedEngYrLevel);
       }
+      // โหมดที่ไม่ใช่ผู้สำเร็จการศึกษา → แสดงเฉพาะนักศึกษาที่กำลังศึกษา
+      if (!isGradFilter) studentList = activeStudents(studentList);
       const yearLevelSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="layers" class="w-4 h-4 inline mr-1"></i>กรองตามชั้นปี</label>
         <div class="flex flex-wrap gap-2">
           <button onclick="APP.filters._engYearLevel='';APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedEngYrLevel === '' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ทุกชั้นปี</button>
           ${['1', '2', '3', '4'].map(yr => `<button onclick="APP.filters._engYearLevel='${yr}';APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${selectedEngYrLevel === yr ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ชั้นปี ${yr}</button>`).join('')}
+          <button onclick="APP.filters._engYearLevel='__grad';APP.filters._engStudent='';APP.filters._engSearch='';APP.filters._engAdvisor='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${isGradFilter ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">ผู้สำเร็จการศึกษา</button>
         </div>
-        ${selectedEngYrLevel ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาชั้นปีที่ ${selectedEngYrLevel} (${studentList.length} คน)</p>` : ''}
+        ${selectedEngYrLevel ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>${isGradFilter ? 'แสดงเฉพาะผู้สำเร็จการศึกษา' : 'แสดงเฉพาะนักศึกษาชั้นปีที่ ' + selectedEngYrLevel} (${studentList.length} คน)</p>` : ''}
       </div>`;
+
+      // กรองตามรุ่น — แสดงเฉพาะตอนเลือก "ผู้สำเร็จการศึกษา"
+      const gradStudentsAll = getDataByType('student').filter(s => isGraduate(s));
+      const allBatches = [...new Set(gradStudentsAll.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      const selectedBatch = APP.filters._engBatch || '';
+      if (isGradFilter && selectedBatch) studentList = gradStudentsAll.filter(s => norm(s.batch) === selectedBatch);
+      const batchSelector = isGradFilter ? `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>กรองตามรุ่น <span class="font-normal text-gray-400 text-xs">(เฉพาะผู้สำเร็จการศึกษา)</span></label>
+        <select onchange="APP.filters._engBatch=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+          <option value="">-- ทุกรุ่น --</option>
+          ${allBatches.map(b => `<option value="${b}" ${selectedBatch === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
+        </select>
+        ${selectedBatch ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะผู้สำเร็จการศึกษา รุ่นที่ ${selectedBatch} (${studentList.length} คน)</p>` : ''}
+      </div>` : '';
 
       const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
       const selectedAdvisor = APP.filters._engAdvisor || '';
-      if (selectedAdvisor) {
+      if (!isGradFilter && selectedAdvisor) {
         studentList = studentList.filter(s => (s.advisor || '') === selectedAdvisor);
       }
-      advisorSelector = `${yearLevelSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      // ผู้สำเร็จการศึกษา: ไม่แสดงตัวกรองอาจารย์ที่ปรึกษา
+      const advisorDiv = isGradFilter ? '' : `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-check" class="w-4 h-4 inline mr-1"></i>กรองตามอาจารย์ที่ปรึกษา</label>
         <select onchange="APP.filters._engAdvisor=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
           <option value="">-- แสดงนักศึกษาทั้งหมด --</option>
@@ -2554,6 +2585,7 @@ function engResultsPage() {
         </select>
         ${selectedAdvisor ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาในความดูแลของ ${selectedAdvisor} (${studentList.length} คน)</p>` : ''}
       </div>`;
+      advisorSelector = `${yearLevelSelector}${batchSelector}${advisorDiv}`;
     }
 
     const searchVal = APP.filters._engSearch || '';
@@ -2597,8 +2629,8 @@ function engResultsPage() {
   // Build summary stats (pass/fail counts only)
   let summaryTableHtml = '';
   if (!isStudent) {
-    // Get students list for summary
-    let summaryStudents = getDataByType('student');
+    // Get students list for summary — นับเฉพาะนักศึกษาที่กำลังศึกษาอยู่เท่านั้น
+    let summaryStudents = activeStudents(getDataByType('student'));
     if (APP.currentRole === 'classTeacher') {
       const yr = APP.currentUser.responsible_year || '1';
       summaryStudents = summaryStudents.filter(s => norm(s.year_level) === norm(yr));
