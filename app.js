@@ -2059,21 +2059,78 @@ function gradesPage() {
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
 }
 
+// ======================== Auto-fill รายวิชา จากรหัสวิชา (ฟอร์มผลการเรียน) ========================
+// คืนรายวิชาที่ไม่ซ้ำรหัส กรองตาม "ปีการศึกษาที่เลือก" และ/หรือ "ชั้นปีของนักศึกษาที่เลือก"
+// ถ้ากรองแล้วไม่เหลือรายการ → fallback ใช้ทั้งหมด (กันกรณีข้อมูล subject กรอกปี/ชั้นปีไม่ครบ)
+function _gradeSubjectsFor(studentId, academicYear) {
+  let subs = getDataByType('subject').filter(s => norm(s.subject_code));
+  if (norm(academicYear)) {
+    const byYear = subs.filter(s => norm(s.academic_year) === norm(academicYear));
+    if (byYear.length) subs = byYear;
+  }
+  if (norm(studentId)) {
+    const stu = getDataByType('student').find(s => norm(s.student_id) === norm(studentId));
+    if (stu && norm(stu.year_level)) {
+      const byStu = subs.filter(s => !norm(s.year_level) || norm(s.year_level) === norm(stu.year_level));
+      if (byStu.length) subs = byStu;
+    }
+  }
+  const seen = new Set(); const out = [];
+  subs.forEach(s => { const c = norm(s.subject_code); if (!seen.has(c)) { seen.add(c); out.push(s); } });
+  return out.sort((a, b) => norm(a.subject_code).localeCompare(norm(b.subject_code), 'th'));
+}
+
+// สร้าง <option> ของ select รหัสวิชา (แสดงเฉพาะรหัสวิชา)
+function _gradeCodeOptions(subs, selected) {
+  return `<option value="">— เลือกรหัสวิชา —</option>` +
+    subs.map(s => `<option value="${norm(s.subject_code)}" ${norm(s.subject_code) === norm(selected || '') ? 'selected' : ''}>${norm(s.subject_code)}</option>`).join('');
+}
+
+// โหลดรายการรหัสวิชาใหม่ เมื่อเปลี่ยนนักศึกษา/ปีการศึกษา (prefix: 'ag' = เพิ่ม, 'eg' = แก้ไข)
+function _rebuildGradeSubjectSelect(prefix) {
+  const p = prefix || 'ag';
+  const codeSel = document.getElementById(p + 'Code'); if (!codeSel) return;
+  const studentId = (document.getElementById(p + 'Student') || {}).value || '';
+  const academicYear = (document.getElementById(p + 'Year') || {}).value || '';
+  const subs = _gradeSubjectsFor(studentId, academicYear);
+  window['_' + p + 'Subjects'] = subs;
+  const cur = codeSel.value;
+  codeSel.innerHTML = _gradeCodeOptions(subs, cur);
+  _onGradeCodeChange(p);
+}
+
+// เมื่อเลือกรหัสวิชา → เติมชื่อรายวิชา + หน่วยกิต + ภาคการศึกษา อัตโนมัติ
+function _onGradeCodeChange(prefix) {
+  const p = prefix || 'ag';
+  const codeSel = document.getElementById(p + 'Code'); if (!codeSel) return;
+  const subs = window['_' + p + 'Subjects'] || [];
+  const subj = subs.find(s => norm(s.subject_code) === norm(codeSel.value));
+  const nameEl = document.getElementById(p + 'Name');
+  const crEl = document.getElementById(p + 'Credits');
+  const semEl = document.getElementById(p + 'Sem');
+  if (nameEl) nameEl.value = subj ? norm(subj.subject_name) : '';
+  if (subj) {
+    if (crEl && norm(subj.credits)) crEl.value = norm(subj.credits);
+    if (semEl && norm(subj.semester)) semEl.value = norm(subj.semester);
+  }
+}
+
 function showAddGradeModal() {
   showModal('เพิ่มผลการเรียน', `
     <form id="addGradeForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addGradeStudentList" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา...">${studentDatalistHTML('addGradeStudentList')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addGradeStudentList" id="agStudent" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา..." onchange="_rebuildGradeSubjectSelect('ag')" oninput="_rebuildGradeSubjectSelect('ag')">${studentDatalistHTML('addGradeStudentList')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="agYear" name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_rebuildGradeSubjectSelect('ag')" oninput="_rebuildGradeSubjectSelect('ag')"></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><select id="agCode" name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_onGradeCodeChange('ag')"></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา <span class="text-gray-400">(อัตโนมัติ)</span></label><input id="agName" name="subject_name" required readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="เลือกรหัสวิชาก่อน"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="3" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="agCredits" name="credits" type="number" value="3" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="agSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  _rebuildGradeSubjectSelect('ag');
   document.getElementById('addGradeForm').onsubmit = async (e) => {
     e.preventDefault();
     await withLoading(e.target, async () => {
@@ -7118,18 +7175,31 @@ function showEditGradeModal(id) {
   const g = APP.allData.find(d => d.__backendId === id); if (!g) return;
   showModal('แก้ไขผลการเรียน', `
     <form id="editGradeForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(g.student_id)}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select id="egStudent" name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_rebuildGradeSubjectSelect('eg')">${studentOptionsHTML(g.student_id)}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="egYear" name="academic_year" value="${g.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_rebuildGradeSubjectSelect('eg')" oninput="_rebuildGradeSubjectSelect('eg')"></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${g.subject_code || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา</label><input name="subject_name" value="${g.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><select id="egCode" name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_onGradeCodeChange('eg')"></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา <span class="text-gray-400">(อัตโนมัติ)</span></label><input id="egName" name="subject_name" required readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="เลือกรหัสวิชาก่อน"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${g.grade === 'A' ? 'selected' : ''}>A</option><option ${g.grade === 'B+' ? 'selected' : ''}>B+</option><option ${g.grade === 'B' ? 'selected' : ''}>B</option><option ${g.grade === 'C+' ? 'selected' : ''}>C+</option><option ${g.grade === 'C' ? 'selected' : ''}>C</option><option ${g.grade === 'D+' ? 'selected' : ''}>D+</option><option ${g.grade === 'D' ? 'selected' : ''}>D</option><option ${g.grade === 'F' ? 'selected' : ''}>F</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input name="credits" type="number" value="${g.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(g.semester) === '2' ? 'selected' : ''}>2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="egCredits" name="credits" type="number" value="${g.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="egSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(g.semester) === '2' ? 'selected' : ''}>2</option></select></div>
       </div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${g.academic_year || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
+  // เตรียมรายการรหัสวิชา + คงค่ารหัส/ชื่อเดิมไว้ (เผื่อรหัสเดิมไม่มีในชีต subject)
+  (function () {
+    const subs = _gradeSubjectsFor(g.student_id, g.academic_year);
+    const code = norm(g.subject_code);
+    if (code && !subs.some(s => norm(s.subject_code) === code)) {
+      subs.unshift({ subject_code: code, subject_name: g.subject_name, credits: g.credits, semester: g.semester });
+    }
+    window._egSubjects = subs;
+    const codeSel = document.getElementById('egCode');
+    if (codeSel) codeSel.innerHTML = _gradeCodeOptions(subs, code);
+    const nameEl = document.getElementById('egName');
+    if (nameEl) nameEl.value = norm(g.subject_name);
+  })();
   document.getElementById('editGradeForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editGradeForm') };
 }
 
