@@ -1947,17 +1947,18 @@ function gradesPage() {
         ${selectedGradeYear ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>${isGradFilter ? 'แสดงเฉพาะผู้สำเร็จการศึกษา' : 'แสดงเฉพาะนักศึกษาชั้นปีที่ ' + selectedGradeYear} (${studentList.length} คน)</p>` : ''}
       </div>`;
 
-      // กรองตามรุ่น (รองรับการดูผลการเรียนของผู้สำเร็จการศึกษาแยกตามรุ่น)
-      const allBatches = [...new Set(studentList.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      // กรองตามรุ่น — แสดงเฉพาะผู้สำเร็จการศึกษา (รายชื่อรุ่นดึงจากผู้สำเร็จการศึกษาเท่านั้น)
+      const gradStudentsAll = getDataByType('student').filter(s => isGraduate(s));
+      const allBatches = [...new Set(gradStudentsAll.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
       const selectedBatch = APP.filters._gradeBatch || '';
-      if (selectedBatch) studentList = studentList.filter(s => norm(s.batch) === selectedBatch);
+      if (selectedBatch) studentList = gradStudentsAll.filter(s => norm(s.batch) === selectedBatch);
       const batchSelector = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>กรองตามรุ่น <span class="font-normal text-gray-400 text-xs">(รวมผู้สำเร็จการศึกษา)</span></label>
+        <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>กรองตามรุ่น <span class="font-normal text-gray-400 text-xs">(เฉพาะผู้สำเร็จการศึกษา)</span></label>
         <select onchange="APP.filters._gradeBatch=this.value;APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
           <option value="">-- ทุกรุ่น --</option>
           ${allBatches.map(b => `<option value="${b}" ${selectedBatch === b ? 'selected' : ''}>รุ่นที่ ${b}</option>`).join('')}
         </select>
-        ${selectedBatch ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะรุ่นที่ ${selectedBatch} (${studentList.length} คน)</p>` : ''}
+        ${selectedBatch ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะผู้สำเร็จการศึกษา รุ่นที่ ${selectedBatch} (${studentList.length} คน)</p>` : ''}
       </div>`;
 
       const allAdvisors = [...new Set(studentList.map(s => s.advisor).filter(Boolean))].sort();
