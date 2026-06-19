@@ -2238,29 +2238,94 @@ function _onGradeCodeChange(prefix) {
   }
 }
 
+// ===== เพิ่มผลการเรียนแบบหลายรายวิชาพร้อมกัน (multi-row) =====
+// โหลดรายการรหัสวิชาตามนักศึกษา/ปีการศึกษา แล้วรีเฟรช dropdown ของทุกแถว
+function _agRefreshSubjects() {
+  const studentId = (document.getElementById('agStudent') || {}).value || '';
+  const academicYear = (document.getElementById('agYear') || {}).value || '';
+  window._agSubjects = _gradeSubjectsFor(studentId, academicYear);
+  document.querySelectorAll('#agRows [data-agcode]').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = _gradeCodeOptions(window._agSubjects, cur);
+    _agOnCodeChange(sel);
+  });
+}
+// เลือกรหัสวิชาในแถว → เติมชื่อรายวิชา/หน่วยกิต/ภาคเรียน อัตโนมัติ
+function _agOnCodeChange(sel) {
+  const row = sel.closest('[data-agrow]'); if (!row) return;
+  const subj = (window._agSubjects || []).find(s => norm(s.subject_code) === norm(sel.value));
+  const nameEl = row.querySelector('[data-agname]');
+  const crEl = row.querySelector('[data-agcredits]');
+  const semEl = row.querySelector('[data-agsem]');
+  if (nameEl) nameEl.value = subj ? norm(subj.subject_name) : '';
+  if (subj) {
+    if (crEl && norm(subj.credits)) crEl.value = norm(subj.credits);
+    if (semEl && norm(subj.semester)) semEl.value = norm(subj.semester);
+  }
+}
+// เพิ่มแถวรายวิชาใหม่
+function _agAddRow() {
+  const wrap = document.getElementById('agRows'); if (!wrap) return;
+  const subs = window._agSubjects || [];
+  const div = document.createElement('div');
+  div.setAttribute('data-agrow', '');
+  div.className = 'grid grid-cols-12 gap-2 items-center';
+  div.innerHTML = `
+    <div class="col-span-3"><select data-agcode onchange="_agOnCodeChange(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm">${_gradeCodeOptions(subs, '')}</select></div>
+    <div class="col-span-4"><input data-agname readonly class="w-full border rounded-lg px-2 py-1.5 text-sm bg-gray-50" placeholder="เลือกรหัสวิชา"></div>
+    <div class="col-span-2"><select data-aggrade class="w-full border rounded-lg px-2 py-1.5 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
+    <div class="col-span-1"><input data-agcredits type="number" value="3" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
+    <div class="col-span-1"><select data-agsem class="w-full border rounded-lg px-2 py-1.5 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+    <div class="col-span-1 text-center"><button type="button" onclick="this.closest('[data-agrow]').remove()" class="text-red-400 hover:text-red-600" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`;
+  wrap.appendChild(div);
+  lucide.createIcons();
+}
+
 function showAddGradeModal() {
   showModal('เพิ่มผลการเรียน', `
     <form id="addGradeForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addGradeStudentList" id="agStudent" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา..." onchange="_rebuildGradeSubjectSelect('ag')" oninput="_rebuildGradeSubjectSelect('ag')">${studentDatalistHTML('addGradeStudentList')}</div>
-      <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="agYear" name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_rebuildGradeSubjectSelect('ag')" oninput="_rebuildGradeSubjectSelect('ag')"></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><select id="agCode" name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_onGradeCodeChange('ag')"></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">รายวิชา <span class="text-gray-400">(อัตโนมัติ)</span></label><input id="agName" name="subject_name" required readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="เลือกรหัสวิชาก่อน"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="agCredits" name="credits" type="number" value="3" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="agSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addGradeStudentList" id="agStudent" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา..." onchange="_agRefreshSubjects()" oninput="_agRefreshSubjects()">${studentDatalistHTML('addGradeStudentList')}</div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="agYear" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_agRefreshSubjects()" oninput="_agRefreshSubjects()"></div>
       </div>
-      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
+      <div class="flex items-center justify-between pt-1">
+        <label class="text-xs font-medium text-gray-600">รายวิชา <span class="text-gray-400">(เพิ่มได้หลายวิชาพร้อมกัน)</span></label>
+        <button type="button" onclick="_agAddRow()" class="flex items-center gap-1 text-xs px-2 py-1 bg-primaryLight text-primary rounded-lg hover:bg-blue-100"><i data-lucide="plus" class="w-3.5 h-3.5"></i>เพิ่มรายวิชา</button>
+      </div>
+      <div class="grid grid-cols-12 gap-2 text-xs text-gray-400 px-1">
+        <div class="col-span-3">รหัสวิชา</div><div class="col-span-4">รายวิชา</div><div class="col-span-2">เกรด</div><div class="col-span-1">นก.</div><div class="col-span-1">ภาค</div><div class="col-span-1"></div>
+      </div>
+      <div id="agRows" class="space-y-2 max-h-[40vh] overflow-auto"></div>
+      <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกทั้งหมด</button>
     </form>
-  `);
-  _rebuildGradeSubjectSelect('ag');
+  `, null, 'max-w-2xl');
+  _agRefreshSubjects();
+  _agAddRow();
   document.getElementById('addGradeForm').onsubmit = async (e) => {
     e.preventDefault();
     await withLoading(e.target, async () => {
-      const fd = new FormData(e.target);
-      const obj = { type: 'grade', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
-      const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('เพิ่มผลการเรียนสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+      const studentId = (document.getElementById('agStudent').value || '').trim();
+      const academicYear = (document.getElementById('agYear').value || '').trim();
+      if (!studentId) { showToast('กรุณาเลือกนักศึกษา', 'error'); return; }
+      const objs = [];
+      document.querySelectorAll('#agRows [data-agrow]').forEach(row => {
+        const name = (row.querySelector('[data-agname]').value || '').trim();
+        if (!name) return; // ข้ามแถวที่ยังไม่ได้เลือกวิชา
+        objs.push({
+          type: 'grade', student_id: studentId,
+          subject_code: row.querySelector('[data-agcode]').value || '',
+          subject_name: name,
+          grade: row.querySelector('[data-aggrade]').value || '',
+          credits: Number(row.querySelector('[data-agcredits]').value) || 0,
+          semester: row.querySelector('[data-agsem]').value || '',
+          academic_year: academicYear,
+          created_at: new Date().toISOString()
+        });
+      });
+      if (!objs.length) { showToast('กรุณาเลือกอย่างน้อย 1 รายวิชา', 'error'); return; }
+      const r = await GSheetDB.createMany(objs);
+      if (r.isOk) { showToast(`เพิ่มผลการเรียน ${objs.length} รายวิชาสำเร็จ`); closeModal(); }
+      else showToast(`บันทึกสำเร็จ ${r.ok || 0} / ผิดพลาด ${r.fail || 0}`, (r.ok ? 'success' : 'error'));
     });
   };
 }
@@ -3338,7 +3403,7 @@ function teachersPage() {
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th></tr></thead>
         <tbody>${paged.length ? paged.map(t => {
-      const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+      const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
           <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td></tr>`
     }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -3366,7 +3431,7 @@ function teachersPage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-    const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+    const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
         <td class="px-4 py-3">${t.department || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td>
@@ -3665,7 +3730,8 @@ function showEditAlumniModal(id) {
 function showTeacherDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
   const isAdmin = isAdminOnlyRole();
-  const stBadge = (t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">ปฏิบัติงานอยู่</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">ลาศึกษาต่อ</span>';
+  const _tst = t.teacher_status || 'ปฏิบัติงานอยู่';
+  const stBadge = _tst === 'ปฏิบัติงานอยู่' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">ปฏิบัติงานอยู่</span>' : _tst === 'ลาออก' ? '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ลาออก</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">ลาศึกษาต่อ</span>';
   showModal('ข้อมูลอาจารย์', `<div class="grid grid-cols-2 gap-3">
     ${infoRow('ชื่อ-สกุล', t.name)}${infoRow('ตำแหน่ง', t.position)}${infoRow('สาขาวิชา', t.department)}
     <div><p class="text-xs text-gray-500">สถานะ</p><p class="font-medium mt-1">${stBadge}</p></div>
@@ -3685,7 +3751,7 @@ function showAddTeacherModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ (ถ้ามี)</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ปฏิบัติงานอยู่</option><option>ลาศึกษาต่อ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ปฏิบัติงานอยู่</option><option>ลาศึกษาต่อ</option><option>ลาออก</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
@@ -7496,7 +7562,7 @@ function showEditTeacherModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${t.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${t.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(t.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(t.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(t.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(t.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${(t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่' ? 'selected' : ''}>ปฏิบัติงานอยู่</option><option ${t.teacher_status === 'ลาศึกษาต่อ' ? 'selected' : ''}>ลาศึกษาต่อ</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${(t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่' ? 'selected' : ''}>ปฏิบัติงานอยู่</option><option ${t.teacher_status === 'ลาศึกษาต่อ' ? 'selected' : ''}>ลาศึกษาต่อ</option><option ${t.teacher_status === 'ลาออก' ? 'selected' : ''}>ลาออก</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" value="${t.bank_account || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.address || ''}</textarea></div>
