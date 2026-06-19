@@ -530,19 +530,23 @@ function isAdminOnlyRole() { const r = APP.currentRole; return r === 'admin' || 
 
 // ======================== DEPARTMENT (สาขาวิชา) HELPERS ========================
 function deptEq(a, b) { return norm(a) !== '' && norm(a) === norm(b); }
-function subjectDeptOf(s) { return norm(s && s.department); }
-// หาสาขาวิชาของ tracking record โดยจับคู่กับรายวิชา (subject) ด้วยรหัสวิชาก่อน แล้วชื่อวิชา
-function trackingDeptOf(t) {
+// รายวิชา 1 วิชารองรับได้หลายสาขา — คั่นด้วย , ; หรือ /
+function splitDepts(v) { return norm(v).split(/[,;/]+/).map(x => x.trim()).filter(Boolean); }
+function subjectDeptsOf(s) { return splitDepts(s && s.department); }
+function subjectHasDept(s, dept) { const d = norm(dept); return d !== '' && subjectDeptsOf(s).some(x => norm(x) === d); }
+// หาสาขาวิชา (อาจมีหลายสาขา) ของ tracking record โดยจับคู่กับรายวิชา ด้วยรหัสวิชาก่อน แล้วชื่อวิชา
+function trackingDeptsOf(t) {
   const subs = getDataByType('subject');
   const code = norm(t.subject_code), name = norm(t.subject_name);
   let m = code ? subs.find(s => norm(s.subject_code) === code) : null;
   if (!m && name) m = subs.find(s => norm(s.subject_name) === name);
-  return m ? norm(m.department) : '';
+  return m ? subjectDeptsOf(m) : [];
 }
+function trackingHasDept(t, dept) { const d = norm(dept); return d !== '' && trackingDeptsOf(t).some(x => norm(x) === d); }
 // สาขาวิชาของผู้ใช้ปัจจุบัน (ประธานสาขาวิชา) — ผูกจากชื่ออาจารย์ตอน login
 function currentDept() { return norm(APP.currentUser && APP.currentUser.department); }
-// รายการสาขาวิชาทั้งหมดจากรายวิชา
-function allSubjectDepts() { return [...new Set(getDataByType('subject').map(s => norm(s.department)).filter(Boolean))].sort(); }
+// รายการสาขาวิชาทั้งหมดจากรายวิชา (กระจายกรณีมีหลายสาขาต่อวิชา)
+function allSubjectDepts() { const set = new Set(); getDataByType('subject').forEach(s => subjectDeptsOf(s).forEach(d => set.add(d))); return [...set].sort(); }
 // ตัวกรองสาขาวิชาในหน้าติดตามการส่ง (admin = dropdown, ประธานสาขา = ป้ายสาขาตัวเอง)
 function trackingDeptFilterHTML(filterKey, selectedDept) {
   if (APP.currentRole === 'deptHead') {
@@ -562,8 +566,8 @@ function applyDeptFilter(dataArr, subjArr, filterKey) {
   const dept = isHead ? currentDept() : (APP.filters[filterKey] || '');
   if (!isHead && !dept) return { data: dataArr, subjects: subjArr };
   return {
-    data: dataArr.filter(t => deptEq(trackingDeptOf(t), dept)),
-    subjects: subjArr.filter(s => deptEq(subjectDeptOf(s), dept))
+    data: dataArr.filter(t => trackingHasDept(t, dept)),
+    subjects: subjArr.filter(s => subjectHasDept(s, dept))
   };
 }
 
@@ -1734,7 +1738,7 @@ function showAddSubjectModal() {
       <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น GE 104"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้ประสานงาน (คั่นด้วย ,)</label><input name="coordinator" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="อ.ก, อ.ข"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ</label><input name="department" list="subjectDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือกหรือพิมพ์สาขาวิชา">${deptDatalistHTML('subjectDeptList')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(มี 2 สาขา คั่นด้วย ,)</span></label><input name="department" list="subjectDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือก/พิมพ์ เช่น การพยาบาลผู้ใหญ่, การพยาบาลชุมชน">${deptDatalistHTML('subjectDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
@@ -7310,7 +7314,7 @@ function showEditSubjectModal(id) {
       <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><input name="subject_code" value="${s.subject_code || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา</label><input name="subject_name" value="${s.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ผู้ประสานงาน</label><input name="coordinator" value="${s.coordinator || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ</label><input name="department" list="editSubjectDeptList" value="${(s.department || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือกหรือพิมพ์สาขาวิชา">${deptDatalistHTML('editSubjectDeptList')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(มี 2 สาขา คั่นด้วย ,)</span></label><input name="department" list="editSubjectDeptList" value="${(s.department || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือก/พิมพ์ คั่นด้วย , ถ้ามี 2 สาขา">${deptDatalistHTML('editSubjectDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 28"></div>
