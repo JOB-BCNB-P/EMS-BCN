@@ -153,9 +153,30 @@ function loadPermissions() {
   });
 }
 
+// กู้รหัสวิชาที่เลข 0 นำหน้าหาย (เช่น 101300101) ให้กลับเป็นรหัสเต็ม (0101300101)
+// โดยเทียบกับรหัสจริงในแท็บ subject — แก้เฉพาะหน่วยความจำ (การแสดงผล) ไม่แตะ Google Sheet
+function normalizeSubjectCodes(data) {
+  const map = {};
+  data.forEach(d => {
+    if (d.type !== 'subject') return;
+    const c = String(d.subject_code || '').trim();
+    if (/^\d+$/.test(c)) { const k = c.replace(/^0+/, ''); if (k && !(k in map)) map[k] = c; }
+  });
+  if (!Object.keys(map).length) return;
+  data.forEach(d => {
+    if (d.type === 'subject' || !d.subject_code) return;
+    const c = String(d.subject_code).trim();
+    if (/^\d+$/.test(c)) {
+      const k = c.replace(/^0+/, '');
+      if (map[k] && map[k] !== c) d.subject_code = map[k];
+    }
+  });
+}
+
 function initGSheet(sheetId, scriptUrl) {
   showScreen('loadingScreen');
   GSheetDB.init({ spreadsheetId: sheetId, scriptUrl: scriptUrl || '' }, (data) => {
+    normalizeSubjectCodes(data);
     APP.allData = data;
     loadPermissions();
     if (APP.currentUser) {
