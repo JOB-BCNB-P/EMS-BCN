@@ -1054,8 +1054,21 @@ function paginate(data) {
 }
 
 function csvUploadBtn(type, fields) {
-  return `<button onclick="triggerCSVUpload('${type}','${fields}')" class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-xl hover:bg-primaryLight text-sm"><i data-lucide="upload" class="w-4 h-4"></i>Upload CSV</button>
+  return `<button onclick="downloadCSVTemplate('${type}','${fields}')" class="flex items-center gap-2 px-4 py-2 border border-emerald-500 text-emerald-600 rounded-xl hover:bg-emerald-50 text-sm" title="ดาวน์โหลดไฟล์ตัวอย่าง (เฉพาะหัวตาราง) สำหรับกรอกแล้ว Upload"><i data-lucide="download" class="w-4 h-4"></i>ตัวอย่าง CSV</button>
+  <button onclick="triggerCSVUpload('${type}','${fields}')" class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-xl hover:bg-primaryLight text-sm"><i data-lucide="upload" class="w-4 h-4"></i>Upload CSV</button>
   <input type="file" id="csvInput_${type}" accept=".csv" class="hidden" onchange="handleCSVUpload(event,'${type}','${fields}')">`;
+}
+
+// ดาวน์โหลดไฟล์ CSV ตัวอย่าง (หัวตารางตรงกับที่ระบบรองรับ) สำหรับใช้กรอกข้อมูลแล้ว Upload
+function downloadCSVTemplate(type, fields) {
+  const bom = String.fromCharCode(0xFEFF); // BOM ให้ Excel เปิดภาษาไทยได้ถูกต้อง
+  const blob = new Blob([bom + fields + '\r\n'], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `template_${type}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (typeof showToast === 'function') showToast('ดาวน์โหลดไฟล์ตัวอย่าง CSV แล้ว');
 }
 
 function triggerCSVUpload(type) { document.getElementById('csvInput_' + type).click() }
