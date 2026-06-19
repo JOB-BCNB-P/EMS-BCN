@@ -35,7 +35,7 @@ function promptEditHomeroom(yr) {
     return;
   }
   const current = getHomeroomNumbers()[String(yr)] || '';
-  const v = prompt(`กรอกหมายเลขห้องเรียนประจำของชั้นปี ${yr}\n(เช่น 101, 202, ห้อง A เป็นต้น)`, current);
+  const v = prompt(`กรอกหมายเลขห้องเรียนประจำของชั้นปี ${yr}\nถ้ามีหลายห้องย่อย คั่นด้วยจุลภาค (,) จะแสดงเป็นลำดับลงมา\nเช่น: ห้อง A 101, ห้อง B 202`, current);
   if (v === null) return;
   setHomeroomNumber(yr, v);
   if (typeof renderCurrentPage === 'function') renderCurrentPage();
@@ -1108,6 +1108,39 @@ function getPageContent(page, role) {
 }
 
 // ======================== DASHBOARD ========================
+// แสดงห้องเรียนประจำ — ถ้ามีหลายห้องย่อย (คั่นด้วย , ; หรือขึ้นบรรทัดใหม่) ให้แสดงลงมาเป็นลำดับ
+function renderHomeroomHTML(homeroom) {
+  if (!norm(homeroom)) return '<span class="text-gray-400 font-normal">ยังไม่กำหนด</span>';
+  const parts = String(homeroom).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || '';
+  return parts.map(p => `<span class="block leading-tight">• ${p}</span>`).join('');
+}
+// การ์ดนักศึกษารายชั้นปี (ใช้ทั้งแดชบอร์ด admin และประธานสาขา)
+function yearLevelCardsHTML(students, engPassRecords, canEdit) {
+  const _hr = getHomeroomNumbers();
+  return [1, 2, 3, 4].map(yr => {
+    const yrStudents = activeStudents(students).filter(s => norm(s.year_level) === String(yr));
+    const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const homeroom = _hr[String(yr)] || '';
+    return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
+      <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
+      <div class="flex gap-3 mt-2">
+        <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
+        <div><p class="text-2xl font-bold text-green-500">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500">ผ่าน ENG</p></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-gray-100 flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2 min-w-0">
+          <i data-lucide="door-open" class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"></i>
+          <div class="min-w-0">
+            <p class="text-xs text-gray-500 leading-tight">ห้องเรียนประจำ</p>
+            <div class="text-sm font-bold text-gray-800">${renderHomeroomHTML(homeroom)}</div>
+          </div>
+        </div>
+        ${canEdit ? `<button onclick="promptEditHomeroom('${yr}')" title="แก้ไขหมายเลขห้องเรียนประจำ" class="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg p-1.5 flex-shrink-0"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
 function dashboardPage() {
   const students = getDataByType('student');
   const teachers = getDataByType('teacher');
@@ -1120,9 +1153,10 @@ function dashboardPage() {
   const r = APP.currentRole;
 
   let stats = '';
-  if (r === 'admin' || r === 'academic' || r === 'registrar') {
+  if (r === 'admin' || r === 'academic' || r === 'registrar' || r === 'executive') {
     // Teacher breakdown by department (count only active)
     const activeTeachers = teachers.filter(t => (t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่');
+    const specialTeacherCount = getDataByType('special_teacher').length;
     const deptMap = {};
     activeTeachers.forEach(t => {
       const dept = t.department || 'ไม่ระบุสาขา';
@@ -1135,40 +1169,29 @@ function dashboardPage() {
       </div>`
     ).join('');
 
+    const _canEditHr = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic');
     stats = `
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${statCard('users', 'จำนวนนักศึกษาทั้งหมด', activeStudents(students).length, 'คน', 'bg-blue-500')}
       ${statCard('briefcase', 'จำนวนอาจารย์ (ปฏิบัติงาน)', activeTeachers.length, 'คน', 'bg-emerald-500')}
+      ${statCard('user-plus', 'จำนวนอาจารย์พิเศษ', specialTeacherCount, 'คน', 'bg-indigo-500')}
       ${statCard('check-circle', 'นักศึกษาสอบผ่านภาษาอังกฤษ', engPassStudentIds.length, 'คน', 'bg-amber-500')}
     </div>
     <h3 class="font-bold mb-3 text-gray-800">จำนวนอาจารย์แยกสาขาวิชา</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">${deptCards || '<p class="text-gray-400 text-sm col-span-3">ไม่มีข้อมูลสาขาวิชา</p>'}</div>
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      ${(() => {
-        const _hr = getHomeroomNumbers(); const _canEdit = APP.currentUser && (APP.currentUser.role === 'admin' || APP.currentUser.role === 'academic'); return [1, 2, 3, 4].map(yr => {
-          const yrStudents = activeStudents(students).filter(s => norm(s.year_level) === String(yr));
-          const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
-          const homeroom = _hr[String(yr)] || '';
-          return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
-          <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
-          <div class="flex gap-3 mt-2">
-            <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
-            <div><p class="text-2xl font-bold text-green-500">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500">ผ่าน ENG</p></div>
-          </div>
-          <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 min-w-0">
-              <i data-lucide="door-open" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
-              <div class="min-w-0">
-                <p class="text-xs text-gray-500 leading-tight">ห้องเรียนประจำ</p>
-                <p class="text-sm font-bold text-gray-800 truncate">${homeroom ? homeroom : '<span class="text-gray-400 font-normal">ยังไม่กำหนด</span>'}</p>
-              </div>
-            </div>
-            ${_canEdit ? `<button onclick="promptEditHomeroom('${yr}')" title="แก้ไขหมายเลขห้องเรียนประจำ" class="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg p-1.5 flex-shrink-0"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>` : ''}
-          </div>
-        </div>`;
-        }).join('');
-      })()}
+      ${yearLevelCardsHTML(students, engPassRecords, _canEditHr)}
+    </div>`;
+  } else if (r === 'deptHead') {
+    stats = `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      ${statCard('users', 'จำนวนนักศึกษาทั้งหมด', activeStudents(students).length, 'คน', 'bg-blue-500')}
+      ${statCard('check-circle', 'นักศึกษาสอบผ่านภาษาอังกฤษ', engPassStudentIds.length, 'คน', 'bg-amber-500')}
+    </div>
+    <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      ${yearLevelCardsHTML(students, engPassRecords, false)}
     </div>`;
   } else if (r === 'teacher') {
     const myStudents = activeStudents(students).filter(s => s.advisor === APP.currentUser.name);
