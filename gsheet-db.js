@@ -77,6 +77,9 @@ const GSheetDB = (() => {
                             if (val.match(/^\d+\.0$/)) val = val.replace('.0', '');
                             // Handle scientific notation from Google Sheets (e.g. 1.40932E5)
                             if (val.match(/^[\d.]+[Ee][+\-]?\d+$/)) { try { val = String(BigInt(Math.round(Number(val)))); } catch (_) { val = String(Math.round(Number(val))); } }
+                            // ลบอักขระเพี้ยนหน้ารหัสที่เป็นตัวเลขล้วน (เช่น 0'0101300101 หรือ '0101300101)
+                            // เกิดจากการบังคับให้ Google Sheets เก็บเลข 0 นำหน้าเป็นข้อความ — เหลือเฉพาะรหัสจริง
+                            if (/^0?'\d+$/.test(val)) val = val.replace(/^0?'/, '');
                             obj[cols[i]] = val;
                         }
                     });
