@@ -37,11 +37,11 @@ const GSheetDB = (() => {
 
     // ---------- READ ----------
     async function fetchTab(tabName) {
-        // ใช้ range=A1:AZ50000 บังคับให้ gviz อ่านข้อมูลในช่วงนี้ทั้งหมด
+        // ใช้ range=A1:AZ200000 บังคับให้ gviz อ่านข้อมูลในช่วงนี้ทั้งหมด
         // (ป้องกัน gviz auto-detect range ผิดเมื่อมี blank row คั่นกลาง)
-        // ขยายจาก 5000 เป็น 50000 เพื่อรองรับข้อมูล grade ที่อาจมีหลายหมื่น row
+        // ขยายจาก 50000 เป็น 200000 เพื่อรองรับข้อมูลที่อาจมีหลายแสน row
         // + cache buster (timestamp) กันเบราว์เซอร์ cache
-        const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1&range=A1:AZ50000&_=${Date.now()}`;
+        const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1&range=A1:AZ200000&_=${Date.now()}`;
         try {
             const resp = await fetch(url, { cache: 'no-store' });
             if (!resp.ok) return [];
