@@ -119,9 +119,14 @@ const GSheetDB = (() => {
     }
 
     async function fetchAllData() {
-        const data = await _readFromScript();
+        // ดึงทีละแท็บแบบ "ขนาน" ผ่าน Apps Script (เร็วกว่าเรียกครั้งเดียวอ่านทุกแท็บเรียงกัน)
+        const results = await Promise.allSettled(SHEET_TABS.map(tab => _readFromScript(tab)));
         _allData = [];
-        SHEET_TABS.forEach(tab => _mergeTabData(_allData, tab, data[tab]));
+        results.forEach((res, i) => {
+            const tab = SHEET_TABS[i];
+            if (res.status === 'fulfilled') _mergeTabData(_allData, tab, res.value[tab]);
+            else console.warn(`[GSheet] อ่านแท็บ "${tab}" ไม่สำเร็จ:`, res.reason && res.reason.message);
+        });
         if (_onDataChanged) _onDataChanged(_allData);
         return _allData;
     }
