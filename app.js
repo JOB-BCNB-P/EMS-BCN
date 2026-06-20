@@ -277,15 +277,16 @@ async function handleLogin() {
   const err = document.getElementById('loginError');
   err.classList.add('hidden');
 
-  // ===== นักศึกษา: ตรวจฝั่ง client กับแท็บ student (ขั้นถัดไปจะย้ายไปฝั่งเซิร์ฟเวอร์) =====
+  // ===== นักศึกษา: ตรวจฝั่งเซิร์ฟเวอร์ (เลขบัตรไม่ถูกส่งมาเทียบในเบราว์เซอร์) =====
   if (role === 'student') {
     const nid = document.getElementById('studentNID').value.trim();
     if (!/^\d{13}$/.test(nid)) { err.textContent = 'กรุณากรอกเลขบัตรประชาชน 13 หลัก'; err.classList.remove('hidden'); return }
-    const stu = getDataByType('student').find(s => {
-      const stored = norm(s.national_id);
-      return stored === nid || stored === String(Number(nid)) || nid === String(Number(stored)).padStart(13, '0');
-    });
-    if (!stu) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
+    const loginBtn0 = document.querySelector('#loginScreen button[onclick="handleLogin()"]');
+    if (loginBtn0) { loginBtn0.disabled = true; loginBtn0.textContent = 'กำลังตรวจสอบ...'; }
+    const sres = await GSheetDB.studentLogin(nid);
+    if (loginBtn0) { loginBtn0.disabled = false; loginBtn0.textContent = 'เข้าสู่ระบบ'; }
+    if (!sres || !sres.isOk || !sres.student) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
+    const stu = sres.student;
     if (norm(stu.status) === 'สำเร็จการศึกษา' || norm(stu.year_level) === 'จบ') { err.textContent = 'บัญชีนี้เป็นผู้สำเร็จการศึกษาแล้ว ไม่สามารถเข้าสู่ระบบได้'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
   } else {
@@ -7386,7 +7387,7 @@ function showEditStudentModal(id) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" value="${s.national_id || ''}" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน <span class="text-gray-400">(เว้นว่าง = ไม่เปลี่ยน)</span></label><input name="national_id" value="" maxlength="13" placeholder="กรอกเฉพาะเมื่อต้องการแก้ไข" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'ลาออก' ? 'selected' : ''}>ลาออก</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option><option value="จบ" ${norm(s.year_level) === 'จบ' ? 'selected' : ''}>จบ (สำเร็จการศึกษา)</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
