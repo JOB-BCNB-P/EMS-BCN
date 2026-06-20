@@ -5167,6 +5167,7 @@ function showAddAnnouncementModal() {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทั่วไป</option><option>สอบ</option><option>วันหยุด</option><option>กิจกรรม</option></select></div>
       </div>
+      <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4"><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -7616,10 +7617,11 @@ function showEditAnnouncementModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" value="${a.announcement_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${a.event_type === 'ทั่วไป' ? 'selected' : ''}>ทั่วไป</option><option ${a.event_type === 'สอบ' ? 'selected' : ''}>สอบ</option><option ${a.event_type === 'วันหยุด' ? 'selected' : ''}>วันหยุด</option><option ${a.event_type === 'กิจกรรม' ? 'selected' : ''}>กิจกรรม</option></select></div>
       </div>
+      <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4" ${['✓', '✔', 'true', 'yes', 'y', '1', 'ส่ง', 'แจ้ง'].includes(String(a.line_notify || '').trim().toLowerCase()) ? 'checked' : ''}><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
-  document.getElementById('editAnnForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editAnnForm') };
+  document.getElementById('editAnnForm').onsubmit = (e) => { e.preventDefault(); a.line_notify = e.target.querySelector('[name="line_notify"]').checked ? '✓' : ''; editRecord(id, 'editAnnForm') };
 }
 
 function showEditTrackingModal(id) {
