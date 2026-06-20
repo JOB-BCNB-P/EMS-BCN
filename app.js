@@ -112,18 +112,14 @@ function saveGSheetConfig() {
   initGSheet(sheetId, scriptUrl);
 }
 
-function resetGSheetConfig() {
-  const allUsers = getDataByType('user');
-  const hasAdmin = allUsers.some(u => normalizeRole(u.role) === 'admin');
-
-  if (hasAdmin) {
-    const p = prompt("กรุณากรอกรหัสผ่านผู้ดูแลระบบ (Admin) 6 หลัก เพื่อเปลี่ยน Google Sheet:");
-    if (!p) return;
-    const adminUser = allUsers.find(u => normalizeRole(u.role) === 'admin' && cleanPassword(u.password) === p.trim());
-    if (!adminUser) {
-      alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง");
-      return;
-    }
+async function resetGSheetConfig() {
+  // ตรวจรหัสผ่านผู้ดูแลฝั่งเซิร์ฟเวอร์ (Apps Script) แทนการเทียบในเบราว์เซอร์
+  const p = prompt("กรุณากรอกรหัสผ่านผู้ดูแลระบบ (Admin) 6 หลัก เพื่อเปลี่ยน Google Sheet:");
+  if (!p) return;
+  const res = await GSheetDB.login({ role: 'admin', identifier: '', password: p.trim() });
+  if (!res || !res.isOk || !res.user) {
+    alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง");
+    return;
   }
 
   GSheetDB.clearConfig();
@@ -276,36 +272,15 @@ function updateLoginFields() {
 }
 updateLoginFields();
 
-function handleLogin() {
+async function handleLogin() {
   const role = document.getElementById('loginRole').value;
   const err = document.getElementById('loginError');
   err.classList.add('hidden');
-  if (role === 'admin') {
-    const p = document.getElementById('adminPass').value;
-    if (!/^\d{6}$/.test(p)) { err.textContent = 'กรุณากรอกรหัสผ่าน 6 หลัก (ตัวเลขเท่านั้น)'; err.classList.remove('hidden'); return }
-    const adminUser = getDataByType('user').find(u => {
-      if (normalizeRole(u.role) !== 'admin') return false;
-      return cleanPassword(u.password) === p;
-    });
-    if (!adminUser) {
-      const allUsers = getDataByType('user');
-      if (allUsers.length === 0) {
-        err.innerHTML = 'ไม่พบข้อมูลผู้ใช้ — ตรวจสอบว่า Google Sheet มี tab ชื่อ "user" และ Share เป็น Public แล้ว<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button>';
-      } else {
-        const adminUsers = allUsers.filter(u => normalizeRole(u.role) === 'admin');
-        if (adminUsers.length === 0) {
-          err.textContent = 'ไม่พบผู้ใช้ที่มี role=admin ในระบบ (พบ user ' + allUsers.length + ' คน)';
-        } else {
-          err.innerHTML = 'รหัสผ่านไม่ถูกต้อง<br><button onclick="debugConnection()" class="mt-2 text-xs underline text-primary">ตรวจสอบการเชื่อมต่อ</button> <button onclick="GSheetDB.clearConfig();location.reload()" class="mt-2 text-xs underline text-red-500 ml-3">รีเซ็ต Google Sheet</button>';
-        }
-      }
-      err.classList.remove('hidden'); return
-    }
-    APP.currentUser = { name: adminUser.name || 'ผู้ดูแลระบบ', role: 'admin' };
-  } else if (role === 'student') {
+
+  // ===== นักศึกษา: ตรวจฝั่ง client กับแท็บ student (ขั้นถัดไปจะย้ายไปฝั่งเซิร์ฟเวอร์) =====
+  if (role === 'student') {
     const nid = document.getElementById('studentNID').value.trim();
     if (!/^\d{13}$/.test(nid)) { err.textContent = 'กรุณากรอกเลขบัตรประชาชน 13 หลัก'; err.classList.remove('hidden'); return }
-    // Match with norm(), also handle sheet stripping leading zeros (compare as numbers)
     const stu = getDataByType('student').find(s => {
       const stored = norm(s.national_id);
       return stored === nid || stored === String(Number(nid)) || nid === String(Number(stored)).padStart(13, '0');
@@ -313,62 +288,59 @@ function handleLogin() {
     if (!stu) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
     if (norm(stu.status) === 'สำเร็จการศึกษา' || norm(stu.year_level) === 'จบ') { err.textContent = 'บัญชีนี้เป็นผู้สำเร็จการศึกษาแล้ว ไม่สามารถเข้าสู่ระบบได้'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
-  } else if (role === 'teacher') {
-    const em = document.getElementById('teacherEmail').value;
-    const pw = document.getElementById('teacherPass').value;
-    if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'teacher' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    const t = getDataByType('teacher').find(x => x.email === em);
-    APP.currentUser = t ? { name: t.name, role: 'teacher', data: t } : { name: user.name || em, role: 'teacher', email: em };
-  } else if (role === 'academic') {
-    const em = document.getElementById('teacherEmail').value;
-    const pw = document.getElementById('teacherPass').value;
-    if (!em) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'academic' && String(u.email || '').trim().toLowerCase() === em.trim().toLowerCase() && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'E-mail หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    APP.currentUser = { name: user.name || em, role: 'academic', email: em };
-  } else if (role === 'classTeacher') {
-    const uname = document.getElementById('loginUsername').value.trim();
-    const pw = document.getElementById('loginUserPass').value;
-    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'classTeacher' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === (user.name || '').trim().toLowerCase() || (x.email || '') === (user.email || ''));
-    APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || user.responsible_year || '1' } : { name: user.name || uname, role: 'classTeacher', responsible_year: user.responsible_year || '1' };
-  } else if (role === 'executive') {
-    const uname = document.getElementById('loginUsername').value.trim();
-    const pw = document.getElementById('loginUserPass').value;
-    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'executive' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    APP.currentUser = { name: user.name || uname, role: 'executive' };
-  } else if (role === 'registrar') {
-    const uname = document.getElementById('loginUsername').value.trim();
-    const pw = document.getElementById('loginUserPass').value;
-    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'registrar' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    APP.currentUser = { name: user.name || uname, role: 'registrar' };
-  } else if (role === 'deptHead') {
-    const uname = document.getElementById('loginUsername').value.trim();
-    const pw = document.getElementById('loginUserPass').value;
-    if (!uname) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
-    if (!pw) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
-    const user = getDataByType('user').find(u => normalizeRole(u.role) === 'deptHead' && (String(u.username || '').trim().toLowerCase() === uname.toLowerCase() || String(u.name || '').trim().toLowerCase() === uname.toLowerCase()) && cleanPassword(u.password) === pw);
-    if (!user) { err.textContent = 'Username หรือรหัสผ่านไม่ถูกต้อง'; err.classList.remove('hidden'); return }
-    // ผูกสาขาวิชาจากชื่ออาจารย์ (teacher tab → department) แล้ว fallback ไป teacher_directory (nursing_branch)
-    const nameKey = (user.name || uname).trim().toLowerCase();
-    const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === nameKey || (x.email || '') === (user.email || ''));
-    let dept = t ? norm(t.department) : '';
-    if (!dept) { const td = getDataByType('teacher_directory').find(x => (x.name || '').trim().toLowerCase() === nameKey); if (td) dept = norm(td.nursing_branch); }
-    if (!dept) dept = norm(user.department);
-    APP.currentUser = { name: user.name || uname, role: 'deptHead', department: dept };
+  } else {
+    // ===== บุคลากร: ตรวจรหัสผ่านฝั่งเซิร์ฟเวอร์ (Apps Script) — รหัสผ่านไม่ถูกเทียบในเบราว์เซอร์ =====
+    let identifier = '', password = '';
+    if (role === 'admin') {
+      password = document.getElementById('adminPass').value;
+      if (!/^\d{6}$/.test(password)) { err.textContent = 'กรุณากรอกรหัสผ่าน 6 หลัก (ตัวเลขเท่านั้น)'; err.classList.remove('hidden'); return }
+    } else if (role === 'teacher' || role === 'academic') {
+      identifier = document.getElementById('teacherEmail').value.trim();
+      password = document.getElementById('teacherPass').value;
+      if (!identifier) { err.textContent = 'กรุณากรอก E-mail'; err.classList.remove('hidden'); return }
+      if (!password) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
+    } else {
+      identifier = document.getElementById('loginUsername').value.trim();
+      password = document.getElementById('loginUserPass').value;
+      if (!identifier) { err.textContent = 'กรุณากรอก Username'; err.classList.remove('hidden'); return }
+      if (!password) { err.textContent = 'กรุณากรอกรหัสผ่าน'; err.classList.remove('hidden'); return }
+    }
+
+    const loginBtn = document.querySelector('#loginScreen button[onclick="handleLogin()"]');
+    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'กำลังตรวจสอบ...'; }
+    const res = await GSheetDB.login({ role, identifier, password });
+    if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ'; }
+
+    if (!res || !res.isOk || !res.user) {
+      err.textContent = (role === 'admin')
+        ? 'รหัสผ่านไม่ถูกต้อง'
+        : (role === 'teacher' || role === 'academic') ? 'E-mail หรือรหัสผ่านไม่ถูกต้อง' : 'Username หรือรหัสผ่านไม่ถูกต้อง';
+      err.classList.remove('hidden'); return;
+    }
+    const u = res.user;
+
+    if (role === 'admin') {
+      APP.currentUser = { name: u.name || 'ผู้ดูแลระบบ', role: 'admin' };
+    } else if (role === 'teacher') {
+      const t = getDataByType('teacher').find(x => (x.email || '') === (u.email || identifier));
+      APP.currentUser = t ? { name: t.name, role: 'teacher', data: t } : { name: u.name || identifier, role: 'teacher', email: u.email || identifier };
+    } else if (role === 'academic') {
+      APP.currentUser = { name: u.name || identifier, role: 'academic', email: u.email || identifier };
+    } else if (role === 'classTeacher') {
+      const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === (u.name || '').trim().toLowerCase() || (x.email || '') === (u.email || ''));
+      APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || u.responsible_year || '1' } : { name: u.name || identifier, role: 'classTeacher', responsible_year: u.responsible_year || '1' };
+    } else if (role === 'executive') {
+      APP.currentUser = { name: u.name || identifier, role: 'executive' };
+    } else if (role === 'registrar') {
+      APP.currentUser = { name: u.name || identifier, role: 'registrar' };
+    } else if (role === 'deptHead') {
+      const nameKey = (u.name || identifier).trim().toLowerCase();
+      const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === nameKey || (x.email || '') === (u.email || ''));
+      let dept = t ? norm(t.department) : '';
+      if (!dept) { const td = getDataByType('teacher_directory').find(x => (x.name || '').trim().toLowerCase() === nameKey); if (td) dept = norm(td.nursing_branch); }
+      if (!dept) dept = norm(u.department);
+      APP.currentUser = { name: u.name || identifier, role: 'deptHead', department: dept };
+    }
   }
   APP.currentRole = APP.currentUser.role;
   // Log login event to Google Sheet
