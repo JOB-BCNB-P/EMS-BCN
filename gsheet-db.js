@@ -130,6 +130,23 @@ const GSheetDB = (() => {
         }
     }
 
+    // ---------- LOGIN (ตรวจรหัสผ่านฝั่งเซิร์ฟเวอร์) ----------
+    // payload = { role, identifier, password }
+    // รหัสผ่านถูกส่งไปตรวจที่ Apps Script — ไม่ถูกเทียบในเบราว์เซอร์ และไม่ส่งแฮชกลับมา
+    async function login(payload) {
+        if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL — ไม่สามารถเข้าสู่ระบบได้' };
+        try {
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'login' }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload || {})
+            });
+            return await resp.json();
+        } catch (err) {
+            return { isOk: false, error: err.message };
+        }
+    }
+
     async function create(obj) {
         const sheet = obj.type;
         if (!sheet) return { isOk: false, error: 'No type' };
@@ -226,7 +243,7 @@ const GSheetDB = (() => {
 
     return {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
-        init, refresh, destroy, debugTab, hasWriteAccess,
+        init, refresh, destroy, debugTab, hasWriteAccess, login,
         create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
