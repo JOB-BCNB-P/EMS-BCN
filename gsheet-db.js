@@ -35,7 +35,34 @@ const GSheetDB = (() => {
         return null;
     }
 
-    // ---------- READ ----------
+    // ---------- READ via Apps Script (เฟส 2 — ชีตเป็นส่วนตัวได้) ----------
+    // เรียกข้อมูลผ่าน Apps Script แทนการอ่านชีตสาธารณะ (gviz)
+    // ทำให้ปิดแชร์ชีตได้ และเซิร์ฟเวอร์ตัดคอลัมน์อ่อนไหว (รหัสผ่าน/เลขบัตร) ออกก่อนส่ง
+    async function _readFromScript(tabName) {
+        if (!_scriptUrl) throw new Error('ยังไม่ได้ตั้งค่า Apps Script URL — อ่านข้อมูลไม่ได้');
+        const qs = new URLSearchParams({ action: 'read' });
+        if (tabName) qs.set('sheet', tabName);
+        qs.set('_', String(Date.now()));
+        const resp = await fetch(_scriptUrl + '?' + qs.toString(), {
+            method: 'POST', redirect: 'follow',
+            headers: { 'Content-Type': 'text/plain' },
+            body: '{}'
+        });
+        const json = await resp.json();
+        if (!json || !json.isOk) throw new Error((json && json.error) || 'อ่านข้อมูลไม่สำเร็จ');
+        return json.data || {};
+    }
+
+    // แปลง {tab:[rows]} เป็น array แบน พร้อมใส่ type + __backendId
+    function _mergeTabData(out, tabName, rows) {
+        (rows || []).forEach((row, idx) => {
+            row.type = tabName;
+            row.__backendId = `${tabName}_${idx}`;
+            out.push(row);
+        });
+    }
+
+    // ---------- READ (เดิม via gviz — เลิกใช้แล้ว เก็บไว้อ้างอิง) ----------
     async function fetchTab(tabName) {
         // ใช้ range=A1:AZ200000 บังคับให้ gviz อ่านข้อมูลในช่วงนี้ทั้งหมด
         // (ป้องกัน gviz auto-detect range ผิดเมื่อมี blank row คั่นกลาง)
@@ -92,9 +119,9 @@ const GSheetDB = (() => {
     }
 
     async function fetchAllData() {
-        const results = await Promise.allSettled(SHEET_TABS.map(tab => fetchTab(tab)));
+        const data = await _readFromScript();
         _allData = [];
-        results.forEach(r => { if (r.status === 'fulfilled') _allData.push(...r.value); });
+        SHEET_TABS.forEach(tab => _mergeTabData(_allData, tab, data[tab]));
         if (_onDataChanged) _onDataChanged(_allData);
         return _allData;
     }
@@ -102,8 +129,9 @@ const GSheetDB = (() => {
     // ---------- WRITE via Apps Script ----------
     // Refresh only one tab and merge into _allData
     async function refreshTab(tabName) {
-        const newRows = await fetchTab(tabName);
-        _allData = _allData.filter(d => d.type !== tabName).concat(newRows);
+        const data = await _readFromScript(tabName);
+        _allData = _allData.filter(d => d.type !== tabName);
+        _mergeTabData(_allData, tabName, data[tabName]);
         if (_onDataChanged) _onDataChanged(_allData);
     }
 
@@ -230,20 +258,30 @@ const GSheetDB = (() => {
     function destroy() { }
     function hasWriteAccess() { return !!_scriptUrl; }
 
-    async function debugTab(tabName) {
-        const url = `https://docs.google.com/spreadsheets/d/${_spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&headers=1`;
+    // ล็อกอินนักศึกษาผ่านเซิร์ฟเวอร์ (เลขบัตรไม่ถูกส่งมาที่เบราว์เซอร์)
+    async function studentLogin(nationalId) {
+        if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
         try {
-            const resp = await fetch(url); const text = await resp.text();
-            const m = text.match(/google\.visualization\.Query\.setResponse\((.+)\);?$/s);
-            if (!m) return { error: 'Cannot parse', raw: text.substring(0, 500) };
-            const json = JSON.parse(m[1]);
-            return { status: json.status, cols: json.table?.cols, rowCount: (json.table?.rows || []).length, firstRow: json.table?.rows?.[0]?.c };
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'studentLogin' }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ national_id: nationalId })
+            });
+            return await resp.json();
+        } catch (err) { return { isOk: false, error: err.message }; }
+    }
+
+    async function debugTab(tabName) {
+        try {
+            const data = await _readFromScript(tabName);
+            const rows = data[tabName] || [];
+            return { status: 'ok', rowCount: rows.length, firstRow: rows[0] || null };
         } catch (err) { return { error: err.message }; }
     }
 
     return {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
-        init, refresh, destroy, debugTab, hasWriteAccess, login,
+        init, refresh, destroy, debugTab, hasWriteAccess, login, studentLogin,
         create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
