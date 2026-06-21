@@ -6815,7 +6815,7 @@ function showPasswordOtpModal(mode) {
         <label class="block text-xs text-gray-600 mb-1">อีเมลที่ลงทะเบียนไว้</label>
         <input id="pwOtpEmail" type="email" value="${prefEmail}" ${lockEmail} class="w-full border rounded-xl px-3 py-2" placeholder="name@bcn.ac.th">
       </div>
-      <button type="button" id="pwOtpSendBtn" onclick="pwOtpSend('${mode}')" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ขอรหัส OTP</button>
+      <button type="button" id="pwOtpSendBtn" data-no-loading onclick="pwOtpSend('${mode}')" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ขอรหัส OTP</button>
       <div id="pwOtpStep2" class="hidden space-y-3 pt-3 border-t">
         <div>
           <label class="block text-xs text-gray-600 mb-1">รหัส OTP (6 หลักจากอีเมล)</label>
@@ -7787,3 +7787,40 @@ function showEditUserModal(id) {
 
 // Init icons
 lucide.createIcons();
+
+// ======================== GLOBAL BUTTON LOADING STATE ========================
+// กดปุ่มใดก็แสดงสปินเนอร์ + กันกดซ้ำ จนกว่าจะเรนเดอร์ใหม่/หมดเวลา
+// ข้ามปุ่มที่ทำงานทันที (เมนู, dropdown, กระดิ่ง, popup, ออกจากระบบ, เปิด modal) และปุ่มที่ใส่ data-no-loading
+(function () {
+  var SKIP = /toggleSidebar|toggleDropdown|Notifications|contactPopup|handleLogout|closeModal|classList\.|Modal\(/i;
+  var active = new Set();
+  function clearBtn(btn) {
+    btn.classList.remove('btn-spin');
+    btn.style.removeProperty('min-width');
+    btn.style.removeProperty('min-height');
+    if (btn._loadTimer) { clearTimeout(btn._loadTimer); btn._loadTimer = null; }
+    active.delete(btn);
+  }
+  function clearAll() { Array.prototype.slice.call(active).forEach(clearBtn); }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('button') : null;
+    if (!btn) return;
+    if (btn.disabled || btn.classList.contains('btn-spin')) return;
+    if (btn.hasAttribute('data-no-loading')) return;
+    if (SKIP.test(btn.getAttribute('onclick') || '')) return;
+    var r = btn.getBoundingClientRect();
+    btn.style.minWidth = r.width + 'px';
+    btn.style.minHeight = r.height + 'px';
+    btn.style.setProperty('--spin-color', getComputedStyle(btn).color);
+    btn.classList.add('btn-spin');
+    active.add(btn);
+    btn._loadTimer = setTimeout(function () { clearBtn(btn); }, 1500);
+  }, true);
+  function observe(id) {
+    var el = document.getElementById(id);
+    if (el) new MutationObserver(clearAll).observe(el, { childList: true, subtree: true });
+  }
+  function setup() { observe('mainContent'); observe('modalContainer'); }
+  if (document.readyState !== 'loading') setup();
+  else document.addEventListener('DOMContentLoaded', setup);
+})();
