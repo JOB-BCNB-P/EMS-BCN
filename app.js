@@ -44,6 +44,8 @@ function promptEditHomeroom(yr) {
 // ======================== LOGIN ACTIVITY LOG ========================
 // Save login/logout events to Google Sheet "login_log" tab
 const LOGIN_LOG_ROLE_LABEL = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร', registrar: 'เจ้าหน้าที่งานทะเบียน', deptHead: 'ประธานสาขาวิชา' };
+// บทบาทที่ใช้ฟีเจอร์ลืม/เปลี่ยนรหัสผ่านผ่านอีเมลได้
+const PWD_SELF_ROLES = ['academic', 'executive', 'teacher', 'deptHead', 'classTeacher'];
 async function logLoginEvent(eventType, userInfo) {
   // eventType: 'login' | 'logout' | 'login_failed'
   try {
@@ -272,6 +274,9 @@ function updateLoginFields() {
   } else {
     f.innerHTML = `<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">E-mail</label><input type="email" id="teacherEmail" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="E-mail"></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label><input type="password" id="teacherPass" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="รหัสผ่าน" onkeypress="if(event.key==='Enter')handleLogin()"></div>`;
   }
+  if (PWD_SELF_ROLES.includes(role)) {
+    f.innerHTML += `<div class="text-right -mt-1 mb-1"><button type="button" onclick="showPasswordOtpModal('forgot')" class="text-sm text-primary hover:underline">ลืมรหัสผ่าน?</button></div>`;
+  }
 }
 updateLoginFields();
 
@@ -337,9 +342,9 @@ async function handleLogin() {
       APP.currentUser = { name: u.name || identifier, role: 'academic', email: u.email || identifier };
     } else if (role === 'classTeacher') {
       const t = getDataByType('teacher').find(x => (x.name || '').trim().toLowerCase() === (u.name || '').trim().toLowerCase() || (x.email || '') === (u.email || ''));
-      APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || u.responsible_year || '1' } : { name: u.name || identifier, role: 'classTeacher', responsible_year: u.responsible_year || '1' };
+      APP.currentUser = t ? { name: t.name, role: 'classTeacher', data: t, responsible_year: t.responsible_year || u.responsible_year || '1' } : { name: u.name || identifier, role: 'classTeacher', responsible_year: u.responsible_year || '1', email: u.email || '' };
     } else if (role === 'executive') {
-      APP.currentUser = { name: u.name || identifier, role: 'executive' };
+      APP.currentUser = { name: u.name || identifier, role: 'executive', email: u.email || '' };
     } else if (role === 'registrar') {
       APP.currentUser = { name: u.name || identifier, role: 'registrar' };
     } else if (role === 'deptHead') {
@@ -348,7 +353,7 @@ async function handleLogin() {
       let dept = t ? norm(t.department) : '';
       if (!dept) { const td = getDataByType('teacher_directory').find(x => (x.name || '').trim().toLowerCase() === nameKey); if (td) dept = norm(td.nursing_branch); }
       if (!dept) dept = norm(u.department);
-      APP.currentUser = { name: u.name || identifier, role: 'deptHead', department: dept };
+      APP.currentUser = { name: u.name || identifier, role: 'deptHead', department: dept, email: u.email || '' };
     }
   }
   APP.currentRole = APP.currentUser.role;
@@ -362,6 +367,8 @@ async function handleLogin() {
   showScreen('mainApp');
   document.getElementById('currentUserName').textContent = APP.currentUser.name;
   document.getElementById('currentUserRole').textContent = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร', registrar: 'เจ้าหน้าที่งานทะเบียน', deptHead: 'ประธานสาขาวิชา' }[APP.currentRole];
+  const _cpb = document.getElementById('changePwBtn');
+  if (_cpb) _cpb.classList.toggle('hidden', !PWD_SELF_ROLES.includes(APP.currentRole));
   buildSidebar();
   navigateTo('dashboard');
   updateNotifBadge();   // อัปเดตป้ายแจ้งเตือนตามบทบาท/ข้อมูลที่เพิ่งโหลด
@@ -381,6 +388,8 @@ function handleLogout() {
   APP.currentUser = null; APP.currentRole = null; APP.currentPage = 'dashboard';
   APP.allData = [];
   if (GSheetDB.clearSession) GSheetDB.clearSession();   // ล้างเลขบัตร/ข้อมูลใน session
+  const _cpb2 = document.getElementById('changePwBtn');
+  if (_cpb2) _cpb2.classList.add('hidden');
   showScreen('loginScreen');
 }
 
@@ -6792,6 +6801,108 @@ function userGuidePage() {
   </div>`;
 }
 
+// ======================== PASSWORD OTP (ลืม/เปลี่ยนรหัสผ่านผ่านอีเมล) ========================
+// mode: 'forgot' (หน้า login) | 'change' (ผู้ใช้ที่ล็อกอินอยู่)
+function showPasswordOtpModal(mode) {
+  const cu = APP.currentUser || {};
+  const prefEmail = (mode === 'change') ? (cu.email || (cu.data && cu.data.email) || '') : '';
+  const lockEmail = (mode === 'change' && prefEmail) ? 'readonly' : '';
+  const title = (mode === 'change') ? 'เปลี่ยนรหัสผ่าน (ยืนยันด้วย OTP ทางอีเมล)' : 'ลืมรหัสผ่าน / ตั้งรหัสผ่านใหม่';
+  showModal(title, `
+    <div class="space-y-3 text-sm">
+      <p class="text-gray-600">ระบบจะส่งรหัส OTP 6 หลักไปยังอีเมลของคุณ เพื่อยืนยันตัวตนก่อนตั้งรหัสผ่านใหม่</p>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">อีเมลที่ลงทะเบียนไว้</label>
+        <input id="pwOtpEmail" type="email" value="${prefEmail}" ${lockEmail} class="w-full border rounded-xl px-3 py-2" placeholder="name@bcn.ac.th">
+      </div>
+      <button type="button" id="pwOtpSendBtn" onclick="pwOtpSend('${mode}')" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">ขอรหัส OTP</button>
+      <div id="pwOtpStep2" class="hidden space-y-3 pt-3 border-t">
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">รหัส OTP (6 หลักจากอีเมล)</label>
+          <input id="pwOtpCode" maxlength="6" inputmode="numeric" class="w-full border rounded-xl px-3 py-2 text-center tracking-[0.5em] text-lg" placeholder="______">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+          <input id="pwOtpNew" type="password" class="w-full border rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">ยืนยันรหัสผ่านใหม่</label>
+          <input id="pwOtpNew2" type="password" class="w-full border rounded-xl px-3 py-2">
+        </div>
+        <button type="button" onclick="pwOtpConfirm('${mode}')" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl hover:bg-emerald-700">ตั้งรหัสผ่านใหม่</button>
+      </div>
+      <div id="pwOtpMsg" class="text-sm hidden"></div>
+    </div>
+  `);
+}
+
+function _pwOtpMsg(text, ok) {
+  const el = document.getElementById('pwOtpMsg');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'text-sm ' + (ok ? 'text-emerald-600' : 'text-red-500');
+  el.classList.remove('hidden');
+}
+
+async function pwOtpSend(mode) {
+  const email = (document.getElementById('pwOtpEmail').value || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { _pwOtpMsg('กรุณากรอกอีเมลให้ถูกต้อง', false); return; }
+  const btn = document.getElementById('pwOtpSendBtn');
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  const r = await GSheetDB.requestPasswordOtp(email);
+  btn.disabled = false; btn.textContent = 'ขอรหัส OTP อีกครั้ง';
+  if (r && r.isOk) {
+    document.getElementById('pwOtpStep2').classList.remove('hidden');
+    _pwOtpMsg('ส่งรหัส OTP ไปที่อีเมลแล้ว (หากอีเมลมีอยู่ในระบบ) — โปรดตรวจสอบกล่องจดหมาย/สแปม', true);
+  } else {
+    _pwOtpMsg((r && r.error) || 'ส่งรหัสไม่สำเร็จ', false);
+  }
+}
+
+async function pwOtpConfirm(mode) {
+  const email = (document.getElementById('pwOtpEmail').value || '').trim();
+  const code = (document.getElementById('pwOtpCode').value || '').trim();
+  const np = document.getElementById('pwOtpNew').value || '';
+  const np2 = document.getElementById('pwOtpNew2').value || '';
+  if (!/^\d{6}$/.test(code)) { _pwOtpMsg('กรุณากรอกรหัส OTP 6 หลัก', false); return; }
+  if (np.length < 6) { _pwOtpMsg('รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัวอักษร', false); return; }
+  if (np !== np2) { _pwOtpMsg('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน', false); return; }
+  const r = await GSheetDB.resetPasswordOtp({ email, code, newPassword: np, source: (mode === 'change' ? 'change' : 'forgot') });
+  if (r && r.isOk) {
+    _pwOtpMsg('ตั้งรหัสผ่านใหม่สำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสใหม่', true);
+    showToast('ตั้งรหัสผ่านใหม่สำเร็จ');
+    setTimeout(closeModal, 1400);
+    if (mode === 'change') setTimeout(handleLogout, 1500);
+  } else {
+    _pwOtpMsg((r && r.error) || 'ตั้งรหัสผ่านไม่สำเร็จ', false);
+  }
+}
+
+// แท็บในหน้าตั้งค่า (ผู้ดูแลระบบ): จัดการผู้ใช้ / บันทึกการเปลี่ยนรหัสผ่าน
+function changeSettingsTab(t) { APP._settingsTab = t; renderCurrentPage(); }
+
+function passwordLogSection() {
+  const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', deptHead: 'ประธานสาขาวิชา', registrar: 'เจ้าหน้าที่งานทะเบียน', student: 'นักศึกษา' };
+  const actionLabels = { forgot: 'ลืมรหัสผ่าน (รีเซ็ตผ่านอีเมล)', reset: 'ลืมรหัสผ่าน (รีเซ็ตผ่านอีเมล)', change: 'เปลี่ยนรหัสผ่านในระบบ' };
+  let logs = getDataByType('password_log').slice();
+  logs.sort((a, b) => String(b.created_at || b.timestamp || '').localeCompare(String(a.created_at || a.timestamp || '')));
+  const rows = logs.map(l => `<tr class="border-t hover:bg-gray-50">
+    <td class="px-4 py-3 text-sm whitespace-nowrap">${l.timestamp || ''}</td>
+    <td class="px-4 py-3 text-sm">${l.user_name || ''}</td>
+    <td class="px-4 py-3 text-sm">${l.email || ''}</td>
+    <td class="px-4 py-3 text-sm">${roleLabels[l.role] || l.role || ''}</td>
+    <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${l.action === 'change' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-700'}">${actionLabels[l.action] || l.action || ''}</span></td>
+  </tr>`).join('');
+  return `<div class="bg-white rounded-2xl p-5 border border-blue-100">
+    <h3 class="font-bold mb-1 flex items-center gap-2"><i data-lucide="key-round" class="w-5 h-5 text-primary"></i>บันทึกการเปลี่ยนรหัสผ่าน</h3>
+    <p class="text-xs text-gray-500 mb-4">บันทึกทุกครั้งที่มีการตั้ง/เปลี่ยนรหัสผ่านผ่านอีเมล (ล่าสุดอยู่บนสุด) — รวม ${logs.length} รายการ</p>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่-เวลา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">อีเมล</th><th class="px-4 py-3 font-semibold">บทบาท</th><th class="px-4 py-3 font-semibold">ประเภท</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ยังไม่มีบันทึกการเปลี่ยนรหัสผ่าน</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
 function settingsPage() {
   const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'teachers', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
@@ -6807,7 +6918,14 @@ function settingsPage() {
     <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditUserModal('${u.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${u.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
   </tr>`).join('');
 
-  return `<h2 class="text-xl font-bold text-gray-800 mb-6"><i data-lucide="settings" class="w-6 h-6 inline mr-2"></i>ตั้งค่าระบบ</h2>
+  const _stab = APP._settingsTab || 'users';
+  const _tabBar = `<h2 class="text-xl font-bold text-gray-800 mb-6"><i data-lucide="settings" class="w-6 h-6 inline mr-2"></i>ตั้งค่าระบบ</h2>
+  <div class="flex gap-1 mb-5 border-b">
+    <button onclick="changeSettingsTab('users')" class="px-4 py-2 text-sm font-medium ${_stab === 'users' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>จัดการผู้ใช้งาน</button>
+    <button onclick="changeSettingsTab('pwlog')" class="px-4 py-2 text-sm font-medium ${_stab === 'pwlog' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}"><i data-lucide="key-round" class="w-4 h-4 inline mr-1"></i>บันทึกการเปลี่ยนรหัสผ่าน</button>
+  </div>`;
+  if (_stab === 'pwlog') return _tabBar + passwordLogSection();
+  return _tabBar + `
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-6">
     <div class="flex items-center justify-between mb-4">
