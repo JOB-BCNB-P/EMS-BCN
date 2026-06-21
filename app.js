@@ -524,7 +524,7 @@ function renderCurrentPage() {
 function norm(v) { return String(v || '').replace(/\.0$/, '').replace(/\s+/g, ' ').trim() }
 
 // สถานะที่ไม่นับรวมเป็นจำนวนนักศึกษา (สำเร็จการศึกษา / พักการศึกษา / ลาออก)
-const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พักการศึกษา', 'ลาออก'];
+const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พักการศึกษา', 'ลาออก', 'ขอโอนย้ายสถานศึกษา'];
 // นับเฉพาะนักศึกษาที่ "กำลังศึกษาอยู่" — ตัดผู้ที่สถานะไม่ active และผู้ที่สำเร็จการศึกษา (year_level = 'จบ') ออก
 function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)) && norm(s && s.year_level) !== 'จบ'; }
 // คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
@@ -1383,7 +1383,7 @@ function studentsPage() {
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ห้อง</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.room || '-'}</td><td class="px-4 py-3">${s.batch || ''}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
@@ -1423,7 +1423,7 @@ function studentsPage() {
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+          <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
@@ -1466,7 +1466,7 @@ function studentsPage() {
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${s.name || ''}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
-        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
+        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
@@ -1524,7 +1524,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา *</label><input name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน</label><input name="national_id" maxlength="13" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>ลาออก</option><option>สำเร็จการศึกษา</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>กำลังศึกษา</option><option>พักการศึกษา</option><option>ลาออก</option><option>ขอโอนย้ายสถานศึกษา</option><option>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option><option value="จบ">จบ (สำเร็จการศึกษา)</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -2175,7 +2175,7 @@ function gradesPage() {
   if (data.length && (isStudent || selectedStudentName)) {
     const gradeMap = { 'A': 4, 'B+': 3.5, 'B': 3, 'C+': 2.5, 'C': 2, 'D+': 1.5, 'D': 1, 'F': 0 };
     let totalCredits = 0, totalPoints = 0;
-    data.forEach(g => { const gv = gradeMap[g.grade]; const cr = Number(g.credits) || 3; if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr } });
+    data.forEach(g => { const gv = gradeMap[g.grade]; const cr = Number(_gradeCredits(g)) || 3; if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr } });
     const gpax = totalCredits ? ((totalPoints / totalCredits).toFixed(2)) : 'N/A';
     gpaSection = `<div class="bg-gradient-to-r from-primary to-accent text-white rounded-2xl p-5 mb-4 flex items-center justify-between">
       <div><p class="text-sm opacity-90">เกรดเฉลี่ยสะสม (GPAX)</p><p class="text-3xl font-bold">${gpax}</p></div>
@@ -2202,7 +2202,7 @@ function gradesPage() {
       <tbody>${paged.length ? paged.map(g => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-mono text-primary">${g.subject_code || ''}</td><td class="px-4 py-3">${g.subject_name || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${g.grade === 'F' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${g.grade || ''}</span></td>
-        <td class="px-4 py-3">${g.credits || ''}</td><td class="px-4 py-3">${semLabel(g.semester)}/${g.academic_year || ''}</td>
+        <td class="px-4 py-3">${_gradeCredits(g) || ''}</td><td class="px-4 py-3">${semLabel(g.semester)}/${g.academic_year || ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditGradeModal('${g.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${g.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
   </div>
@@ -2212,19 +2212,30 @@ function gradesPage() {
 // ======================== Auto-fill รายวิชา จากรหัสวิชา (ฟอร์มผลการเรียน) ========================
 // คืนรายวิชาที่ไม่ซ้ำรหัส กรองตาม "ปีการศึกษาที่เลือก" และ/หรือ "ชั้นปีของนักศึกษาที่เลือก"
 // ถ้ากรองแล้วไม่เหลือรายการ → fallback ใช้ทั้งหมด (กันกรณีข้อมูล subject กรอกปี/ชั้นปีไม่ครบ)
+// หน่วยกิตของแถวเกรด: ใช้ค่าที่บันทึกในเกรด ถ้าว่างให้ดึงจากแท็บ subject ตามรหัสวิชา
+function _gradeCredits(g) {
+  var c = norm(g && g.credits);
+  if (c) return c;
+  var sub = getDataByType('subject').find(s => norm(s.subject_code) === norm(g && g.subject_code));
+  return sub ? norm(sub.credits) : '';
+}
+
 function _gradeSubjectsFor(studentId, academicYear) {
   let subs = getDataByType('subject').filter(s => norm(s.subject_code));
-  if (norm(academicYear)) {
-    const byYear = subs.filter(s => norm(s.academic_year) === norm(academicYear));
+  const stu = norm(studentId) ? getDataByType('student').find(s => norm(s.student_id) === norm(studentId)) : null;
+  const stuBatch = stu ? norm(stu.batch) : '';
+
+  if (stuBatch) {
+    // รู้รุ่น (batch) ของนักศึกษา → แสดงรายวิชา "ของรุ่นนั้น" ทั้งหมด (รวมวิชาที่ไม่ระบุรุ่น)
+    // ไม่กรองด้วยปีการศึกษา/ชั้นปี เพื่อให้เห็นวิชาของรุ่นครบทุกชั้นปี (กันวิชาตกหล่นเหมือนกรณีรุ่น 78)
+    const byBatch = subs.filter(s => !norm(s.batch) || norm(s.batch) === stuBatch);
+    if (byBatch.length) subs = byBatch;
+  } else if (norm(academicYear)) {
+    // ยังไม่เลือกนักศึกษา/ไม่รู้รุ่น → ใช้ปีการศึกษาเป็นตัวกรอง (เก็บวิชาที่ปีว่างไว้ด้วย)
+    const byYear = subs.filter(s => !norm(s.academic_year) || norm(s.academic_year) === norm(academicYear));
     if (byYear.length) subs = byYear;
   }
-  if (norm(studentId)) {
-    const stu = getDataByType('student').find(s => norm(s.student_id) === norm(studentId));
-    if (stu && norm(stu.year_level)) {
-      const byStu = subs.filter(s => !norm(s.year_level) || norm(s.year_level) === norm(stu.year_level));
-      if (byStu.length) subs = byStu;
-    }
-  }
+
   const seen = new Set(); const out = [];
   subs.forEach(s => { const c = norm(s.subject_code); if (!seen.has(c)) { seen.add(c); out.push(s); } });
   return out.sort((a, b) => norm(a.subject_code).localeCompare(norm(b.subject_code), 'th'));
@@ -2403,7 +2414,7 @@ function buildOfficialTranscript(stu, logoSrc) {
     if (sy < 1) sy = 1;
     if (!yearGroups[sy]) yearGroups[sy] = { courses: [], credits: 0 };
     yearGroups[sy].courses.push(g);
-    const cr = Number(g.credits) || 0; const gv = gradeMap[g.grade];
+    const cr = Number(_gradeCredits(g)) || 0; const gv = gradeMap[g.grade];
     yearGroups[sy].credits += cr;
     if (gv !== undefined) { totalPoints += gv * cr; totalCredits += cr; }
   });
@@ -2415,7 +2426,7 @@ function buildOfficialTranscript(stu, logoSrc) {
     const grp = yearGroups[sy]; if (!grp) return '';
     let rows = `<tr><td colspan="4" style="text-align:center;font-weight:700;padding:2px;border:1px solid #999;background:#eef5fb;font-size:10px">ชั้นปีที่ ${sy}</td></tr>`;
     grp.courses.forEach(g => {
-      rows += `<tr><td style="border:1px solid #999;padding:2px 4px;font-family:monospace;font-size:9.5px">${g.subject_code || ''}</td><td style="border:1px solid #999;padding:2px 4px;font-size:9.5px">${g.subject_name || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px">${g.credits || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px;font-weight:600">${g.grade || ''}</td></tr>`;
+      rows += `<tr><td style="border:1px solid #999;padding:2px 4px;font-family:monospace;font-size:9.5px">${g.subject_code || ''}</td><td style="border:1px solid #999;padding:2px 4px;font-size:9.5px">${g.subject_name || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px">${_gradeCredits(g) || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px;font-weight:600">${g.grade || ''}</td></tr>`;
     });
     rows += `<tr><td colspan="2" style="border:1px solid #999;padding:2px 4px;text-align:right;font-weight:600;font-size:9.5px">รวม</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-weight:700;font-size:9.5px">${grp.credits}</td><td style="border:1px solid #999"></td></tr>`;
     return rows;
@@ -2554,9 +2565,9 @@ function _renderTranscript(stu) {
     tableRows += `<tr class="bg-blue-50"><td colspan="4" class="px-3 py-2 font-bold text-primary text-center">${semText} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
-      const cr = Number(g.credits) || 0;
+      const cr = Number(_gradeCredits(g)) || 0;
       const gv = gradeMap[g.grade];
-      tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${g.credits || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
+      tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${_gradeCredits(g) || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
     const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
@@ -2648,8 +2659,8 @@ async function downloadTranscriptPDF(studentKey) {
     tableHTML += `<tr style="background:#e8f4fd"><td colspan="4" style="padding:4px 8px;font-weight:bold;text-align:center;font-size:12px;border:1px solid #999">${semText} ปีการศึกษา ${sem.year}</td></tr>`;
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
-      const cr = Number(g.credits) || 0; const gv = gradeMap[g.grade];
-      tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${g.credits || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
+      const cr = Number(_gradeCredits(g)) || 0; const gv = gradeMap[g.grade];
+      tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${_gradeCredits(g) || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
     const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
@@ -7517,7 +7528,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รหัสนักศึกษา</label><input name="student_id" value="${s.student_id || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">รุ่นที่</label><input name="batch" value="${s.batch || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 36"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัตรประชาชน <span class="text-gray-400">(เว้นว่าง = ไม่เปลี่ยน)</span></label><input name="national_id" value="" maxlength="13" placeholder="กรอกเฉพาะเมื่อต้องการแก้ไข" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'ลาออก' ? 'selected' : ''}>ลาออก</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานภาพ</label><select name="status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${s.status === 'กำลังศึกษา' ? 'selected' : ''}>กำลังศึกษา</option><option ${s.status === 'พักการศึกษา' ? 'selected' : ''}>พักการศึกษา</option><option ${s.status === 'ลาออก' ? 'selected' : ''}>ลาออก</option><option ${s.status === 'ขอโอนย้ายสถานศึกษา' ? 'selected' : ''}>ขอโอนย้ายสถานศึกษา</option><option ${s.status === 'สำเร็จการศึกษา' ? 'selected' : ''}>สำเร็จการศึกษา</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option><option value="จบ" ${norm(s.year_level) === 'จบ' ? 'selected' : ''}>จบ (สำเร็จการศึกษา)</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${s.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
@@ -7583,7 +7594,7 @@ function showEditGradeModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รหัสวิชา</label><select id="egCode" name="subject_code" class="w-full border rounded-xl px-3 py-2 text-sm" onchange="_onGradeCodeChange('eg')"></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">รายวิชา <span class="text-gray-400">(อัตโนมัติ)</span></label><input id="egName" name="subject_name" required readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="เลือกรหัสวิชาก่อน"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${g.grade === 'A' ? 'selected' : ''}>A</option><option ${g.grade === 'B+' ? 'selected' : ''}>B+</option><option ${g.grade === 'B' ? 'selected' : ''}>B</option><option ${g.grade === 'C+' ? 'selected' : ''}>C+</option><option ${g.grade === 'C' ? 'selected' : ''}>C</option><option ${g.grade === 'D+' ? 'selected' : ''}>D+</option><option ${g.grade === 'D' ? 'selected' : ''}>D</option><option ${g.grade === 'F' ? 'selected' : ''}>F</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="egCredits" name="credits" type="number" value="${g.credits || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="egCredits" name="credits" type="number" value="${_gradeCredits(g) || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="egSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(g.semester) === '2' ? 'selected' : ''}>2</option></select></div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
