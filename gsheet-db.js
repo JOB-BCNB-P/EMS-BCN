@@ -15,7 +15,7 @@ const GSheetDB = (() => {
     const SHEET_TABS = [
         'student', 'teacher', 'subject', 'schedule',
         'grade', 'eng_result', 'leave',
-        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher', 'alumni'
+        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher', 'alumni', 'password_log'
     ];
 
 
@@ -309,6 +309,33 @@ const GSheetDB = (() => {
         } catch (err) { return { isOk: false, error: err.message }; }
     }
 
+    // ---------- PASSWORD OTP (ลืม/เปลี่ยนรหัสผ่าน ยืนยันด้วยอีเมล) ----------
+    // ขั้นที่ 1: ขอรหัส OTP ส่งไปอีเมล
+    async function requestPasswordOtp(email) {
+        if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
+        try {
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'requestPasswordOtp' }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ email })
+            });
+            return await resp.json();
+        } catch (err) { return { isOk: false, error: err.message }; }
+    }
+
+    // ขั้นที่ 2: ยืนยัน OTP + ตั้งรหัสผ่านใหม่ — payload = { email, code, newPassword, source }
+    async function resetPasswordOtp(payload) {
+        if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
+        try {
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'resetPasswordOtp' }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload || {})
+            });
+            return await resp.json();
+        } catch (err) { return { isOk: false, error: err.message }; }
+    }
+
     async function debugTab(tabName) {
         try {
             const data = await _readFromScript(tabName);
@@ -321,6 +348,7 @@ const GSheetDB = (() => {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
         init, refresh, destroy, clearSession, debugTab, hasWriteAccess, login,
         studentLogin, studentRefresh, appendNoRefresh,
+        requestPasswordOtp, resetPasswordOtp,
         create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
