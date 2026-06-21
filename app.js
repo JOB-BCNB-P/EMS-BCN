@@ -62,8 +62,9 @@ async function logLoginEvent(eventType, userInfo) {
       created_at: now.toISOString()
     };
     if (GSheetDB && GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess()) {
-      // Fire and forget - don't block UI
-      GSheetDB.create(obj).catch(err => console.warn('logLoginEvent error:', err));
+      // Fire and forget - บันทึกแบบไม่อ่าน log กลับ (กันดึง login_log ทั้งหมดมาที่เบราว์เซอร์นักศึกษา)
+      const writer = GSheetDB.appendNoRefresh ? GSheetDB.appendNoRefresh(obj) : GSheetDB.create(obj);
+      Promise.resolve(writer).catch(err => console.warn('logLoginEvent error:', err));
     } else {
       console.warn('logLoginEvent: no write access (Apps Script URL not configured)');
     }
@@ -192,7 +193,9 @@ function initGSheet(sheetId, scriptUrl) {
 
 async function refreshData() {
   showToast('กำลังรีเฟรชข้อมูล...');
-  await GSheetDB.refresh();
+  // นักศึกษา: รีเฟรชเฉพาะข้อมูลตัวเอง / บุคลากร: โหลดครบทุกแท็บ
+  if (APP.currentRole === 'student') await GSheetDB.studentRefresh();
+  else await GSheetDB.refresh();
   showToast('รีเฟรชข้อมูลสำเร็จ');
 }
 
@@ -320,6 +323,11 @@ async function handleLogin() {
     }
     const u = res.user;
 
+    // บุคลากร: โหลดข้อมูลครบทุกแท็บหลังล็อกอินสำเร็จ (เดิมโหลดตั้งแต่เปิดหน้า)
+    // ต้องโหลดก่อนบรรทัด getDataByType ด้านล่าง เพื่อให้ผูกข้อมูลอาจารย์/สาขาได้ถูกต้อง
+    showScreen('loadingScreen');
+    await GSheetDB.refresh();
+
     if (role === 'admin') {
       APP.currentUser = { name: u.name || 'ผู้ดูแลระบบ', role: 'admin' };
     } else if (role === 'teacher') {
@@ -356,6 +364,7 @@ async function handleLogin() {
   document.getElementById('currentUserRole').textContent = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', teacher: 'อาจารย์', classTeacher: 'อาจารย์ประจำชั้น', student: 'นักศึกษา', executive: 'ผู้บริหาร', registrar: 'เจ้าหน้าที่งานทะเบียน', deptHead: 'ประธานสาขาวิชา' }[APP.currentRole];
   buildSidebar();
   navigateTo('dashboard');
+  updateNotifBadge();   // อัปเดตป้ายแจ้งเตือนตามบทบาท/ข้อมูลที่เพิ่งโหลด
   lucide.createIcons();
 }
 
@@ -370,6 +379,8 @@ function handleLogout() {
     }
   } catch (e) { /* ignore */ }
   APP.currentUser = null; APP.currentRole = null; APP.currentPage = 'dashboard';
+  APP.allData = [];
+  if (GSheetDB.clearSession) GSheetDB.clearSession();   // ล้างเลขบัตร/ข้อมูลใน session
   showScreen('loginScreen');
 }
 
