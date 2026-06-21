@@ -10,6 +10,7 @@ const GSheetDB = (() => {
     let _scriptUrl = null;
     let _onDataChanged = null;
     let _allData = [];
+    let _studentNID = null;   // เก็บเลขบัตรของนักศึกษาไว้ในหน่วยความจำ (เฉพาะ session) เพื่อใช้รีเฟรช — ไม่บันทึกลง localStorage
 
     const SHEET_TABS = [
         'student', 'teacher', 'subject', 'schedule',
@@ -253,24 +254,56 @@ const GSheetDB = (() => {
         _spreadsheetId = extractSheetId(config.spreadsheetId || config);
         _scriptUrl = config.scriptUrl || null;
         if (!_spreadsheetId) return { isOk: false, error: 'Invalid Spreadsheet ID' };
-        try {
-            await fetchAllData();
-            return { isOk: true };
-        } catch (err) { return { isOk: false, error: err.message }; }
+        // ไม่ preload ข้อมูลทั้ง 20 แท็บตอนเปิดหน้าอีกต่อไป — โหลดหลังล็อกอินตามบทบาท
+        // (นักศึกษา = โหลดเฉพาะข้อมูลตัวเอง, บุคลากร = โหลดครบ) เพื่อลดโหลดช่วงคนเข้าพร้อมกันเยอะ
+        return { isOk: true };
     }
 
-    async function refresh() { return fetchAllData(); }
-    function destroy() { }
+    async function refresh() { return fetchAllData(); }       // บุคลากร: โหลดครบทุกแท็บ
+    function destroy() { _studentNID = null; _allData = []; }
+    function clearSession() { _studentNID = null; _allData = []; }
     function hasWriteAccess() { return !!_scriptUrl; }
 
     // ล็อกอินนักศึกษาผ่านเซิร์ฟเวอร์ (เลขบัตรไม่ถูกส่งมาที่เบราว์เซอร์)
+    // เซิร์ฟเวอร์คืน "เฉพาะข้อมูลของนักศึกษาคนนี้" + ตารางที่ใช้ร่วมกัน มาในครั้งเดียว
     async function studentLogin(nationalId) {
         if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL' };
         try {
+            _studentNID = nationalId;
             const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'studentLogin' }).toString(), {
                 method: 'POST', redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ national_id: nationalId })
+            });
+            const result = await resp.json();
+            // ถ้ามี bundle ข้อมูลแนบมา ให้สร้าง _allData จากชุดนี้ (ไม่ต้องเรียกอ่านทุกแท็บอีก)
+            if (result && result.isOk && result.data) {
+                _allData = [];
+                Object.keys(result.data).forEach(tab => _mergeTabData(_allData, tab, result.data[tab]));
+                if (_onDataChanged) _onDataChanged(_allData);
+            }
+            return result;
+        } catch (err) { return { isOk: false, error: err.message }; }
+    }
+
+    // รีเฟรชข้อมูลนักศึกษา (ใช้เลขบัตรที่เก็บไว้ใน session) — ดึงเฉพาะข้อมูลตัวเองเหมือนตอนล็อกอิน
+    async function studentRefresh() {
+        if (!_studentNID) return { isOk: false, error: 'ไม่มี session นักศึกษา' };
+        return studentLogin(_studentNID);
+    }
+
+    // เขียนแถวใหม่แบบ "ไม่อ่านกลับ" — ใช้กับ login_log เพื่อไม่ดึง log ทั้งหมดมาที่เบราว์เซอร์
+    async function appendNoRefresh(obj) {
+        if (!_scriptUrl || !obj || !obj.type) return { isOk: false };
+        const sheet = obj.type;
+        const data = { ...obj };
+        delete data.type; delete data.__backendId; delete data.__rowIndex;
+        if (!data.created_at) data.created_at = new Date().toISOString();
+        try {
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'create', sheet }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(data)
             });
             return await resp.json();
         } catch (err) { return { isOk: false, error: err.message }; }
@@ -286,7 +319,8 @@ const GSheetDB = (() => {
 
     return {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
-        init, refresh, destroy, debugTab, hasWriteAccess, login, studentLogin,
+        init, refresh, destroy, clearSession, debugTab, hasWriteAccess, login,
+        studentLogin, studentRefresh, appendNoRefresh,
         create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
