@@ -133,3 +133,25 @@ table th {
 body {
     box-sizing: border-box;
 }
+
+/* ===== Global button loading state (สปินเนอร์ตอนกดปุ่ม) ===== */
+.btn-spin {
+    color: transparent !important;
+    position: relative;
+    pointer-events: none;
+}
+.btn-spin > * { visibility: hidden !important; }
+.btn-spin::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.1em;
+    height: 1.1em;
+    margin: -0.55em 0 0 -0.55em;
+    border: 2px solid var(--spin-color, #1e6fba);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: btnspin .6s linear infinite;
+}
+@keyframes btnspin { to { transform: rotate(360deg); } }
