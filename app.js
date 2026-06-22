@@ -989,13 +989,26 @@ function updateNotifBadge() {
 function paginationHTML(total, perPage, page, onChange) {
   const pages = Math.ceil(total / perPage) || 1;
   if (pages <= 1) return '';
-  let h = '<div class="flex items-center justify-center gap-1 mt-4">';
+  page = Math.min(Math.max(1, page), pages);
+
+  // เลือกเลขหน้าที่จะแสดง: หน้าแรก + หน้าสุดท้าย + ช่วงรอบหน้าปัจจุบัน (±2) เสมอ
+  let nums;
+  if (pages <= 7) {
+    nums = Array.from({ length: pages }, (_, i) => i + 1);
+  } else {
+    const set = new Set([1, pages, page, page - 1, page + 1, page - 2, page + 2]);
+    nums = [...set].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+  }
+
+  let h = '<div class="flex items-center justify-center gap-1 mt-4 flex-wrap">';
   h += `<button onclick="${onChange}(1)" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === 1 ? 'opacity-40' : ''}" title="หน้าแรก">«</button>`;
   h += `<button onclick="${onChange}(${Math.max(1, page - 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === 1 ? 'opacity-40' : ''}" title="ก่อนหน้า">‹</button>`;
-  for (let i = 1; i <= Math.min(pages, 7); i++) {
-    const pg = pages <= 7 ? i : i <= 3 ? i : i <= 5 ? page - 3 + i : pages - 7 + i;
-    h += `<button onclick="${onChange}(${Math.min(pages, Math.max(1, pg))})" class="px-3 py-1 rounded-lg text-sm ${pg === page ? 'bg-primary text-white' : 'border hover:bg-gray-50'}">${Math.min(pages, Math.max(1, pg))}</button>`;
-  }
+  let prev = 0;
+  nums.forEach(n => {
+    if (n - prev > 1) h += `<span class="px-2 text-gray-400 text-sm select-none">…</span>`;
+    h += `<button onclick="${onChange}(${n})" class="px-3 py-1 rounded-lg text-sm ${n === page ? 'bg-primary text-white' : 'border hover:bg-gray-50'}">${n}</button>`;
+    prev = n;
+  });
   h += `<button onclick="${onChange}(${Math.min(pages, page + 1)})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === pages ? 'opacity-40' : ''}" title="ถัดไป">›</button>`;
   h += `<button onclick="${onChange}(${pages})" class="px-3 py-1 rounded-lg border text-sm hover:bg-gray-50 ${page === pages ? 'opacity-40' : ''}" title="หน้าสุดท้าย">»</button>`;
   h += '</div>';
