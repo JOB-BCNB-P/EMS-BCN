@@ -3579,7 +3579,7 @@ function specialTeachersPage() {
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="user-plus" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์พิเศษ</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSpecialTeacherRegModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('special_teacher', 'academic_year,name,academic_position,agency,edu_level')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddSpecialTeacherRegModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มอาจารย์พิเศษ</button>${csvUploadBtn('special_teacher', 'academic_year,name,academic_position,agency,subjects')}</div>` : ''}
   </div>
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="flex items-center gap-3 flex-wrap">
@@ -3593,13 +3593,13 @@ function specialTeachersPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">ระดับวุฒิ</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">รายวิชาที่สอน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3">${t.academic_year || ''}</td>
         <td class="px-4 py-3 font-medium">${t.name || ''}</td>
         <td class="px-4 py-3">${t.academic_position || ''}</td>
         <td class="px-4 py-3">${t.agency || ''}</td>
-        <td class="px-4 py-3">${t.edu_level || ''}</td>
+        <td class="px-4 py-3">${t.subjects || t.edu_level || ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
@@ -3615,7 +3615,7 @@ function specialTeacherRegFormBody(t) {
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
       <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
     </div>
-    <div><label class="block text-xs text-gray-600 mb-1">ระดับวุฒิการศึกษา</label><select name="edu_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือก --</option>${['ปริญญาเอก', 'ปริญญาโท', 'ปริญญาตรี'].map(v => `<option ${norm(t.edu_level) === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`;
+    <div><label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอน</label><input name="subjects" value="${((t.subjects || t.edu_level) || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, กายวิภาคศาสตร์"></div>`;
 }
 
 function collectSpecialTeacherReg(form, obj) {
@@ -3623,7 +3623,7 @@ function collectSpecialTeacherReg(form, obj) {
   obj.name = combineName(form);
   obj.academic_position = form.querySelector('[name="academic_position"]').value;
   obj.agency = form.querySelector('[name="agency"]').value;
-  obj.edu_level = form.querySelector('[name="edu_level"]').value;
+  obj.subjects = form.querySelector('[name="subjects"]').value;
   return obj;
 }
 
