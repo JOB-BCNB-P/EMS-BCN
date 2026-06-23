@@ -3558,7 +3558,7 @@ function advisorInfoPage() {
         <td class="px-4 py-3">
           <div class="flex flex-wrap gap-1">
             <button onclick="showStudentDetail('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-600 hover:bg-gray-200" title="ข้อมูลนักศึกษา"><i data-lucide="user" class="w-3.5 h-3.5"></i>ข้อมูล</button>
-            ${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-amber-50 text-amber-600 hover:bg-amber-100" title="แก้ไขข้อมูลนักศึกษา/เปลี่ยนอาจารย์ที่ปรึกษา"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>แก้ไข</button>` : ''}
+            ${isAdmin ? `<button onclick="advisorRemoveStudent('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-red-50 text-red-600 hover:bg-red-100" title="นำออกจากความดูแล"><i data-lucide="user-minus" class="w-3.5 h-3.5"></i>นำออก</button>` : ''}
             <button onclick="advisorGotoGrades('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-50 text-blue-600 hover:bg-blue-100" title="ผลการเรียน"><i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>ผลการเรียน</button>
             <button onclick="advisorGotoEng('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100" title="ผลสอบภาษาอังกฤษ"><i data-lucide="languages" class="w-3.5 h-3.5"></i>ผลสอบภาษาอังกฤษ</button>
           </div>
@@ -3566,9 +3566,13 @@ function advisorInfoPage() {
       </tr>`;
     }).join('');
 
+    window._advisorCtx = { key: a.key, name: a.name, studentIds: a.students.map(x => x.__backendId) };
     return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="text-xl font-bold text-gray-800"><i data-lucide="user-check" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์ที่ปรึกษา</h2>
-      <button onclick="APP.filters._advisorSelected='';APP.pagination.page=1;renderCurrentPage()" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"><i data-lucide="arrow-left" class="w-4 h-4"></i>เลือกอาจารย์ท่านอื่น</button>
+      <div class="flex gap-2 flex-wrap">
+        ${isAdmin ? `<button onclick="showAdvisorAddStudents()" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm bg-primary text-white hover:bg-primaryDark"><i data-lucide="user-plus" class="w-4 h-4"></i>เพิ่มนักศึกษาในความดูแล</button>` : ''}
+        <button onclick="APP.filters._advisorSelected='';APP.pagination.page=1;renderCurrentPage()" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"><i data-lucide="arrow-left" class="w-4 h-4"></i>เลือกอาจารย์ท่านอื่น</button>
+      </div>
     </div>
     <div class="bg-gradient-to-br from-primary to-primaryDark rounded-2xl p-5 text-white mb-4 shadow">
       <div class="flex items-center gap-4">
@@ -3645,6 +3649,70 @@ function advisorInfoPage() {
 // เชื่อมไปหน้าผลการเรียน / ผลสอบภาษาอังกฤษ โดยเลือกนักศึกษาไว้ล่วงหน้า
 function advisorGotoGrades(sid) { navigateTo('grades'); APP.filters._gradeStudent = sid; renderCurrentPage(); }
 function advisorGotoEng(sid) { navigateTo('engResults'); APP.filters._engStudent = sid; renderCurrentPage(); }
+
+// ----- จัดการรายชื่อนักศึกษาในความดูแลของอาจารย์ที่ปรึกษา (เพิ่ม/นำออก) -----
+async function advisorRemoveStudent(id) {
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
+  const advName = (window._advisorCtx && window._advisorCtx.name) || s.advisor || '';
+  showModal('นำนักศึกษาออกจากความดูแล', `
+    <div class="space-y-2 text-sm">
+      <p>ต้องการนำ <strong class="text-primary">${s.name || ''}</strong> ออกจากความดูแลของ <strong>${advName}</strong> ใช่หรือไม่?</p>
+      <p class="text-xs text-gray-500">ระบบจะล้างค่า "อาจารย์ที่ปรึกษา" ของนักศึกษาคนนี้ (ข้อมูลอื่นไม่เปลี่ยน) ภายหลังกำหนดที่ปรึกษาใหม่ได้</p>
+    </div>`, async () => {
+    closeModal();
+    s.advisor = '';
+    showToast('กำลังบันทึก...', 'loading');
+    const r = await GSheetDB.update(s);
+    hideLoadingToast();
+    if (r.isOk) { showToast('นำออกจากความดูแลแล้ว'); renderCurrentPage(); }
+    else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+  });
+}
+
+function showAdvisorAddStudents() {
+  const ctx = window._advisorCtx; if (!ctx || !ctx.name) return;
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const inSet = new Set(ctx.studentIds || []);
+  const pool = activeStudents(getDataByType('student'))
+    .filter(s => !inSet.has(s.__backendId))
+    .sort((x, y) => norm(x.year_level).localeCompare(norm(y.year_level)) || norm(x.name).localeCompare(norm(y.name), 'th'));
+  const rowsHTML = pool.map(s => `<label class="adv-add-row flex items-center gap-3 px-3 py-2 border-b hover:bg-gray-50 cursor-pointer" data-search="${((s.student_id || '') + ' ' + (s.name || '') + ' ' + (s.advisor || '')).toLowerCase().replace(/"/g, '')}">
+      <input type="checkbox" class="adv-add-chk w-4 h-4" value="${s.__backendId}">
+      <span class="flex-1 text-sm"><span class="font-mono text-xs text-gray-500">${s.student_id || ''}</span> ${s.name || ''} <span class="text-xs text-gray-400">· ชั้นปี ${s.year_level || '-'} · รุ่น ${s.batch || '-'}</span>${norm(s.advisor) ? `<span class="text-xs text-amber-600"> · ที่ปรึกษาปัจจุบัน: ${s.advisor}</span>` : ''}</span>
+    </label>`).join('');
+  showModal('เพิ่มนักศึกษาในความดูแล', `
+    <div class="space-y-3">
+      <p class="text-sm text-gray-600">เลือกนักศึกษาเพื่อกำหนดให้อยู่ในความดูแลของ <strong class="text-primary">${ctx.name}</strong></p>
+      <div class="relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหาชื่อ/รหัส..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="advisorFilterAddList(this.value)"></div>
+      <p class="text-xs text-amber-600"><i data-lucide="info" class="w-3 h-3 inline"></i> นักศึกษาที่มีที่ปรึกษาอยู่แล้ว หากเลือก ระบบจะย้ายมาอยู่ในความดูแลของอาจารย์ท่านนี้แทน</p>
+      <div class="border border-gray-200 rounded-xl max-h-80 overflow-y-auto" id="advAddList">${rowsHTML || '<p class="px-3 py-6 text-center text-gray-400 text-sm">ไม่มีนักศึกษาที่กำลังศึกษาให้เพิ่ม</p>'}</div>
+      <button onclick="advisorAssignSelected()" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark text-sm font-medium"><i data-lucide="user-plus" class="w-4 h-4 inline mr-1"></i>เพิ่มนักศึกษาที่เลือก</button>
+    </div>`, null, 'max-w-2xl');
+  setTimeout(() => lucide.createIcons(), 50);
+}
+
+function advisorFilterAddList(q) {
+  q = (q || '').toLowerCase();
+  document.querySelectorAll('#advAddList .adv-add-row').forEach(el => {
+    el.style.display = (!q || (el.dataset.search || '').includes(q)) ? '' : 'none';
+  });
+}
+
+async function advisorAssignSelected() {
+  const ctx = window._advisorCtx; if (!ctx || !ctx.name) return;
+  const ids = [...document.querySelectorAll('.adv-add-chk:checked')].map(b => b.value);
+  if (!ids.length) { showToast('ยังไม่ได้เลือกนักศึกษา', 'error'); return; }
+  const list = ids.map(id => APP.allData.find(d => d.__backendId === id)).filter(Boolean);
+  list.forEach(s => s.advisor = ctx.name);
+  closeModal();
+  showToast('กำลังบันทึก ' + list.length + ' คน...', 'loading');
+  const r = await GSheetDB.updateMany(list);
+  hideLoadingToast();
+  if (r.isOk) showToast('เพิ่มเข้าความดูแลแล้ว ' + (r.ok != null ? r.ok : list.length) + ' คน');
+  else showToast('บันทึกเสร็จ ' + (r.ok || 0) + ' คน · ผิดพลาด ' + (r.fail || 0) + ' คน', (r.ok ? 'success' : 'error'));
+  renderCurrentPage();
+}
 
 // ======================== เลื่อนชั้นปี (Promote) ========================
 // แผงปุ่มเลื่อนชั้น แยกต่อชั้นปี (admin เท่านั้น) — เลื่อนเฉพาะผู้ที่กำลังศึกษา
