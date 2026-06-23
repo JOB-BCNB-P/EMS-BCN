@@ -3,7 +3,7 @@ let APP = {
   currentUser: null, currentRole: null, currentPage: 'dashboard', sidebarOpen: false,
   allData: [],
   config: { system_title: 'ระบบบริหารจัดการงานวิชาการ (EMS-BCNB)', college_name: 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ' },
-  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1 }, registrar: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, leave: 1 }, deptHead: { dashboard: 1, teacherDirectory: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 } },
+  permissions: { admin: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, loginLog: 1, advisors: 1 }, academic: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, settings: 1, advisors: 1 }, registrar: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, services: 1, leave: 1, advisors: 1 }, deptHead: { dashboard: 1, teacherDirectory: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1 }, teacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, classTeacher: { dashboard: 1, students: 1, subjects: 1, grades: 1, engResults: 1, tracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1 }, student: { dashboard: 1, students: 1, grades: 1, engResults: 1, leave: 1 }, executive: { dashboard: 1, students: 1, subjects: 1, schedule: 1, grades: 1, engResults: 1, teachers: 1, specialTeachers: 1, alumni: 1, teacherDirectory: 1, tracking: 1, resultTracking: 1, gradeTracking: 1, fileTracking: 1, leave: 1, advisors: 1 } },
   filters: { semester: '', academicYear: '', search: '', yearLevel: '' },
   pagination: { page: 1, perPage: 10 }
 };
@@ -409,6 +409,7 @@ function buildSidebar() {
     if (p.students) regSub.push({ id: 'students', label: 'ข้อมูลนักศึกษา' });
   }
   if (p.teachers) regSub.push({ id: 'teachers', label: 'ข้อมูลอาจารย์' });
+  if (p.advisors) regSub.push({ id: 'advisorInfo', label: 'ข้อมูลอาจารย์ที่ปรึกษา' });
   if (p.specialTeachers) regSub.push({ id: 'specialTeachers', label: 'ข้อมูลอาจารย์พิเศษ' });
   if (p.alumni) regSub.push({ id: 'alumni', label: 'ข้อมูลศิษย์เก่า' });
   if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
@@ -492,6 +493,9 @@ function navigateTo(page) {
   APP.filters._studentYearLevel = '';
   APP.filters._engAdvisor = '';
   APP.filters._gradeAdvisor = '';
+  APP.filters._advisorDept = '';
+  APP.filters._advisorSearch = '';
+  APP.filters._advisorSelected = '';
   APP.filters._gradeBatch = '';
   APP.filters._engYear = '';
   APP.filters._engYearLevel = '';
@@ -1126,6 +1130,7 @@ function getPageContent(page, role) {
     case 'dashboard': return dashboardPage();
     case 'students': return studentsPage();
     case 'studentInfo': return studentInfoPage();
+    case 'advisorInfo': return advisorInfoPage();
     case 'subjects': return subjectsPage();
     case 'schedule': return schedulePage();
     case 'grades': return gradesPage();
@@ -3492,6 +3497,139 @@ function teachersPage() {
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
 }
+
+// ======================== ข้อมูลอาจารย์ที่ปรึกษา (ระบบทะเบียน) ========================
+// รวมข้อมูลอาจารย์ที่ปรึกษา → จำนวน/รายชื่อนักศึกษาในความดูแล
+// + ลิงก์เชื่อมไปยัง ผลการเรียน / ผลสอบภาษาอังกฤษ / ข้อมูลนักศึกษา
+function advisorInfoPage() {
+  const students = getDataByType('student');
+  const teachers = getDataByType('teacher');
+  const NO_DEPT = 'ไม่ระบุสาขาวิชา';
+
+  // ชื่ออาจารย์ -> record อาจารย์ (เพื่อดึงสาขาวิชา/ช่องทางติดต่อ)
+  const teacherByName = {};
+  teachers.forEach(t => { const n = norm(t.name); if (n) teacherByName[n] = t; });
+
+  // รวมกลุ่มนักศึกษาตามอาจารย์ที่ปรึกษา (ฟิลด์ advisor ของนักศึกษา)
+  const advisorMap = {};
+  students.forEach(s => {
+    const adv = norm(s.advisor);
+    if (!adv) return;
+    if (!advisorMap[adv]) {
+      const t = teacherByName[adv];
+      advisorMap[adv] = { name: adv, dept: t ? (norm(t.department) || NO_DEPT) : NO_DEPT, phone: t ? norm(t.phone) : '', email: t ? norm(t.email) : '', students: [] };
+    }
+    advisorMap[adv].students.push(s);
+  });
+  let advisors = Object.values(advisorMap).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+
+  const selectedDept = APP.filters._advisorDept || '';
+  const selectedAdvisor = APP.filters._advisorSelected || '';
+
+  // ---------- มุมมองรายละเอียดอาจารย์ที่เลือก ----------
+  if (selectedAdvisor && advisorMap[selectedAdvisor]) {
+    const a = advisorMap[selectedAdvisor];
+    const list = a.students.slice().sort((x, y) => norm(x.year_level).localeCompare(norm(y.year_level)) || norm(x.name).localeCompare(norm(y.name), 'th'));
+    const activeCount = activeStudents(a.students).length;
+    const totalCount = a.students.length;
+    const rows = list.map(s => {
+      const sid = (s.student_id || s.name || '').replace(/'/g, "\\'");
+      const stColor = s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700';
+      return `<tr class="border-t hover:bg-gray-50">
+        <td class="px-4 py-3">${s.student_id || ''}</td>
+        <td class="px-4 py-3 font-medium">${s.name || ''}</td>
+        <td class="px-4 py-3">${s.year_level || ''}</td>
+        <td class="px-4 py-3">${s.batch || ''}</td>
+        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${s.status || ''}</span></td>
+        <td class="px-4 py-3">
+          <div class="flex flex-wrap gap-1">
+            <button onclick="showStudentDetail('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-600 hover:bg-gray-200" title="ข้อมูลนักศึกษา"><i data-lucide="user" class="w-3.5 h-3.5"></i>ข้อมูล</button>
+            <button onclick="advisorGotoGrades('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-50 text-blue-600 hover:bg-blue-100" title="ผลการเรียน"><i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>ผลการเรียน</button>
+            <button onclick="advisorGotoEng('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100" title="ผลสอบภาษาอังกฤษ"><i data-lucide="languages" class="w-3.5 h-3.5"></i>ผลสอบภาษาอังกฤษ</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-xl font-bold text-gray-800"><i data-lucide="user-check" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์ที่ปรึกษา</h2>
+      <button onclick="APP.filters._advisorSelected='';APP.pagination.page=1;renderCurrentPage()" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"><i data-lucide="arrow-left" class="w-4 h-4"></i>เลือกอาจารย์ท่านอื่น</button>
+    </div>
+    <div class="bg-gradient-to-br from-primary to-primaryDark rounded-2xl p-5 text-white mb-4 shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center flex-shrink-0"><i data-lucide="user-check" class="w-7 h-7 text-white"></i></div>
+        <div class="flex-1 min-w-0">
+          <p class="text-lg font-bold truncate">${a.name}</p>
+          <p class="text-sm text-white text-opacity-90 truncate">${a.dept}${a.phone ? ' · โทร. ' + a.phone : ''}${a.email ? ' · ' + a.email : ''}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-3xl font-bold">${activeCount}</p>
+          <p class="text-xs text-white text-opacity-90">กำลังศึกษา${totalCount > activeCount ? ' / ' + totalCount + ' ทั้งหมด' : ''}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">ดูข้อมูลเชื่อมโยง</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีนักศึกษาในความดูแล</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // ---------- มุมมองรายชื่ออาจารย์ที่ปรึกษา ----------
+  // ตัวเลือกสาขาวิชา (ดันตัวเลือก "ไม่ระบุสาขาวิชา" ไว้ท้ายสุด)
+  const depts = [...new Set(advisors.map(a => a.dept))].sort((a, b) => a === NO_DEPT ? 1 : b === NO_DEPT ? -1 : a.localeCompare(b, 'th'));
+  if (selectedDept) advisors = advisors.filter(a => a.dept === selectedDept);
+  const searchVal = APP.filters._advisorSearch || '';
+  if (searchVal) { const q = searchVal.toLowerCase(); advisors = advisors.filter(a => a.name.toLowerCase().includes(q)); }
+
+  const deptFilter = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <div class="flex items-center gap-3 flex-wrap">
+      <label class="text-sm font-medium text-gray-700"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>สาขาวิชา:</label>
+      <select onchange="APP.filters._advisorDept=this.value;APP.filters._advisorSearch='';APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
+        <option value="">-- ทุกสาขาวิชา --</option>
+        ${depts.map(d => `<option value="${d}" ${selectedDept === d ? 'selected' : ''}>${d}</option>`).join('')}
+      </select>
+      ${selectedDept ? `<span class="text-xs text-gray-500">แสดงสาขา: ${selectedDept}</span>` : ''}
+    </div>
+  </div>`;
+
+  const searchBox = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>ค้นหาอาจารย์ที่ปรึกษา</label>
+    <div class="relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ชื่ออาจารย์ที่ปรึกษา..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._advisorSearchTimer);window._advisorSearchTimer=setTimeout(()=>{APP.filters._advisorSearch=this.value;APP.pagination.page=1;renderCurrentPage()},300)"></div>
+    <p class="text-xs text-gray-400 mt-2">คลิกการ์ดรายชื่อด้านล่างเพื่อดูนักศึกษาในความดูแล</p>
+  </div>`;
+
+  const cards = advisors.map(a => {
+    const activeCount = activeStudents(a.students).length;
+    const safeName = a.name.replace(/'/g, "\\'");
+    return `<button onclick="APP.filters._advisorSelected='${safeName}';APP.pagination.page=1;renderCurrentPage()" class="text-left bg-white rounded-2xl p-4 border border-blue-100 hover:border-primary hover:shadow-md transition">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 bg-primaryLight rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="user-check" class="w-5 h-5 text-primary"></i></div>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold text-gray-800 truncate">${a.name}</p>
+          <p class="text-xs text-gray-500 truncate">${a.dept}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-xl font-bold text-primary">${activeCount}</p>
+          <p class="text-xs text-gray-400">คน</p>
+        </div>
+      </div>
+    </button>`;
+  }).join('');
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="user-check" class="w-6 h-6 inline mr-2"></i>ข้อมูลอาจารย์ที่ปรึกษา</h2>
+    <span class="text-sm text-gray-500">ทั้งหมด ${advisors.length} ท่าน</span>
+  </div>
+  ${deptFilter}
+  ${searchBox}
+  ${advisors.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>` : '<div class="bg-white rounded-2xl p-8 text-center border border-blue-100"><p class="text-gray-400">ไม่พบอาจารย์ที่ปรึกษาตามเงื่อนไข</p></div>'}`;
+}
+
+// เชื่อมไปหน้าผลการเรียน / ผลสอบภาษาอังกฤษ โดยเลือกนักศึกษาไว้ล่วงหน้า
+function advisorGotoGrades(sid) { navigateTo('grades'); APP.filters._gradeStudent = sid; renderCurrentPage(); }
+function advisorGotoEng(sid) { navigateTo('engResults'); APP.filters._engStudent = sid; renderCurrentPage(); }
 
 // ======================== เลื่อนชั้นปี (Promote) ========================
 // แผงปุ่มเลื่อนชั้น แยกต่อชั้นปี (admin เท่านั้น) — เลื่อนเฉพาะผู้ที่กำลังศึกษา
