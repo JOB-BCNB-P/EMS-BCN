@@ -2238,6 +2238,13 @@ function _gradeCredits(g) {
   return sub ? norm(sub.credits) : '';
 }
 
+// รหัสหน่วยกิตของแถวเกรด แสดงแบบ น(ท-ป-อ) เหมือนหน้ารายวิชา — ดึงชั่วโมง ท/ป/อ จากแท็บ subject ตามรหัสวิชา
+function _gradeCreditCode(g) {
+  var sub = getDataByType('subject').find(s => norm(s.subject_code) === norm(g && g.subject_code));
+  if (sub) { var cc = creditCode(sub); if (cc) return cc; }
+  return norm(g && g.credits) || '';
+}
+
 function _gradeSubjectsFor(studentId, academicYear) {
   let subs = getDataByType('subject').filter(s => norm(s.subject_code));
   const stu = norm(studentId) ? getDataByType('student').find(s => norm(s.student_id) === norm(studentId)) : null;
@@ -2444,7 +2451,7 @@ function buildOfficialTranscript(stu, logoSrc) {
     const grp = yearGroups[sy]; if (!grp) return '';
     let rows = `<tr><td colspan="4" style="text-align:center;font-weight:700;padding:2px;border:1px solid #999;background:#eef5fb;font-size:10px">ชั้นปีที่ ${sy}</td></tr>`;
     grp.courses.forEach(g => {
-      rows += `<tr><td style="border:1px solid #999;padding:2px 4px;font-family:monospace;font-size:9.5px">${g.subject_code || ''}</td><td style="border:1px solid #999;padding:2px 4px;font-size:9.5px">${g.subject_name || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px">${_gradeCredits(g) || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px;font-weight:600">${g.grade || ''}</td></tr>`;
+      rows += `<tr><td style="border:1px solid #999;padding:2px 4px;font-family:monospace;font-size:9.5px">${g.subject_code || ''}</td><td style="border:1px solid #999;padding:2px 4px;font-size:9.5px">${g.subject_name || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px">${_gradeCreditCode(g) || ''}</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-size:9.5px;font-weight:600">${g.grade || ''}</td></tr>`;
     });
     rows += `<tr><td colspan="2" style="border:1px solid #999;padding:2px 4px;text-align:right;font-weight:600;font-size:9.5px">รวม</td><td style="border:1px solid #999;padding:2px 4px;text-align:center;font-weight:700;font-size:9.5px">${grp.credits}</td><td style="border:1px solid #999"></td></tr>`;
     return rows;
@@ -2585,7 +2592,7 @@ function _renderTranscript(stu) {
     sem.grades.forEach(g => {
       const cr = Number(_gradeCredits(g)) || 0;
       const gv = gradeMap[g.grade];
-      tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${_gradeCredits(g) || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
+      tableRows += `<tr class="border-t border-gray-200"><td class="px-3 py-1.5 font-mono text-xs">${g.subject_code || ''}</td><td class="px-3 py-1.5 text-xs">${g.subject_name || ''}</td><td class="px-3 py-1.5 text-center text-xs">${_gradeCreditCode(g) || ''}</td><td class="px-3 py-1.5 text-center text-xs font-bold">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
     const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
@@ -2678,7 +2685,7 @@ async function downloadTranscriptPDF(studentKey) {
     let semCredits = 0, semPoints = 0;
     sem.grades.forEach(g => {
       const cr = Number(_gradeCredits(g)) || 0; const gv = gradeMap[g.grade];
-      tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${_gradeCredits(g) || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
+      tableHTML += `<tr><td style="padding:3px 8px;font-size:11px;border:1px solid #999;font-family:monospace">${g.subject_code || ''}</td><td style="padding:3px 8px;font-size:11px;border:1px solid #999">${g.subject_name || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;border:1px solid #999">${_gradeCreditCode(g) || ''}</td><td style="padding:3px 8px;font-size:11px;text-align:center;font-weight:bold;border:1px solid #999">${g.grade || ''}</td></tr>`;
       if (gv !== undefined) { semPoints += gv * cr; semCredits += cr; }
     });
     const semGpa = semCredits ? (semPoints / semCredits).toFixed(2) : 'N/A';
@@ -3502,24 +3509,31 @@ function teachersPage() {
 // รวมข้อมูลอาจารย์ที่ปรึกษา → จำนวน/รายชื่อนักศึกษาในความดูแล
 // + ลิงก์เชื่อมไปยัง ผลการเรียน / ผลสอบภาษาอังกฤษ / ข้อมูลนักศึกษา
 function advisorInfoPage() {
+  const isAdmin = isAdminRole();
   const students = getDataByType('student');
   const teachers = getDataByType('teacher');
   const NO_DEPT = 'ไม่ระบุสาขาวิชา';
 
-  // ชื่ออาจารย์ -> record อาจารย์ (เพื่อดึงสาขาวิชา/ช่องทางติดต่อ)
-  const teacherByName = {};
-  teachers.forEach(t => { const n = norm(t.name); if (n) teacherByName[n] = t; });
+  // ----- จับคู่ชื่ออาจารย์ที่ปรึกษากับทะเบียนอาจารย์ (ยืดหยุ่นเรื่องเว้นวรรค/คำนำหน้า) -----
+  const TITLES = ['ผศ.ดร.', 'รศ.ดร.', 'ศ.ดร.', 'ผศ.', 'รศ.', 'ศ.', 'ดร.', 'อ.', 'อาจารย์', 'ว่าที่ร.ต.', 'ว่าที่ร้อยตรี', 'น.ส.', 'นางสาว', 'นาง', 'นาย', 'นพ.', 'พญ.'];
+  const nameKey = v => norm(v).replace(/\s+/g, '');
+  const stripTitle = k => { let n = k, go = true; while (go) { go = false; for (const pr of TITLES) { const pk = pr.replace(/\s+/g, ''); if (pk && n.startsWith(pk)) { n = n.slice(pk.length); go = true; break; } } } return n; };
+  // ดัชนีอาจารย์: ทั้งคีย์เต็มและคีย์ที่ตัดคำนำหน้าออก เพื่อจับคู่แม้พิมพ์เว้นวรรค/คำนำหน้าต่างกัน
+  const teacherIdx = {};
+  teachers.forEach(t => { const k = nameKey(t.name); if (!k) return; teacherIdx[k] = t; const sk = stripTitle(k); if (sk && !(sk in teacherIdx)) teacherIdx[sk] = t; });
+  const findTeacher = adv => { const k = nameKey(adv); return teacherIdx[k] || teacherIdx[stripTitle(k)] || null; };
 
-  // รวมกลุ่มนักศึกษาตามอาจารย์ที่ปรึกษา (ฟิลด์ advisor ของนักศึกษา)
+  // รวมกลุ่มนักศึกษาตามอาจารย์ที่ปรึกษา (รวมชื่อที่พิมพ์เว้นวรรคต่างกันให้เป็นกลุ่มเดียว)
   const advisorMap = {};
   students.forEach(s => {
     const adv = norm(s.advisor);
     if (!adv) return;
-    if (!advisorMap[adv]) {
-      const t = teacherByName[adv];
-      advisorMap[adv] = { name: adv, dept: t ? (norm(t.department) || NO_DEPT) : NO_DEPT, phone: t ? norm(t.phone) : '', email: t ? norm(t.email) : '', students: [] };
+    const t = findTeacher(adv);
+    const key = t ? nameKey(t.name) : nameKey(adv);
+    if (!advisorMap[key]) {
+      advisorMap[key] = { key: key, name: t ? norm(t.name) : adv, dept: t ? (norm(t.department) || NO_DEPT) : NO_DEPT, phone: t ? norm(t.phone) : '', email: t ? norm(t.email) : '', students: [] };
     }
-    advisorMap[adv].students.push(s);
+    advisorMap[key].students.push(s);
   });
   let advisors = Object.values(advisorMap).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
@@ -3544,6 +3558,7 @@ function advisorInfoPage() {
         <td class="px-4 py-3">
           <div class="flex flex-wrap gap-1">
             <button onclick="showStudentDetail('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-600 hover:bg-gray-200" title="ข้อมูลนักศึกษา"><i data-lucide="user" class="w-3.5 h-3.5"></i>ข้อมูล</button>
+            ${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-amber-50 text-amber-600 hover:bg-amber-100" title="แก้ไขข้อมูลนักศึกษา/เปลี่ยนอาจารย์ที่ปรึกษา"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>แก้ไข</button>` : ''}
             <button onclick="advisorGotoGrades('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-50 text-blue-600 hover:bg-blue-100" title="ผลการเรียน"><i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>ผลการเรียน</button>
             <button onclick="advisorGotoEng('${sid}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100" title="ผลสอบภาษาอังกฤษ"><i data-lucide="languages" class="w-3.5 h-3.5"></i>ผลสอบภาษาอังกฤษ</button>
           </div>
@@ -3602,7 +3617,7 @@ function advisorInfoPage() {
 
   const cards = advisors.map(a => {
     const activeCount = activeStudents(a.students).length;
-    const safeName = a.name.replace(/'/g, "\\'");
+    const safeName = (a.key || a.name).replace(/'/g, "\\'");
     return `<button onclick="APP.filters._advisorSelected='${safeName}';APP.pagination.page=1;renderCurrentPage()" class="text-left bg-white rounded-2xl p-4 border border-blue-100 hover:border-primary hover:shadow-md transition">
       <div class="flex items-center gap-3">
         <div class="w-11 h-11 bg-primaryLight rounded-xl flex items-center justify-center flex-shrink-0"><i data-lucide="user-check" class="w-5 h-5 text-primary"></i></div>
