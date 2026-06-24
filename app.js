@@ -793,7 +793,7 @@ function hideLoadingToast() {
 async function withLoading(btnOrForm, asyncFn) {
   const btn = btnOrForm ? (btnOrForm.tagName === 'FORM' ? btnOrForm.querySelector('[type="submit"]') : btnOrForm) : null;
   const origText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline mr-1"></i>กำลังบันทึก...'; lucide.createIcons(); }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังบันทึก...'; lucide.createIcons(); }
   try {
     await asyncFn();
   } finally {
@@ -1952,7 +1952,7 @@ async function runImportGradesFromSubject(subjectId) {
   if (selected.length === 0) { showToast('กรุณาเลือกอย่างน้อย 1 คน', 'error'); return; }
 
   const btn = document.getElementById('importGradeConfirmBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline animate-spin mr-1"></i>กำลังสร้าง...'; lucide.createIcons(); }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังสร้าง...'; lucide.createIcons(); }
 
   showLoading(`กำลังนำเข้า 0/${selected.length}...`);
 
@@ -7742,7 +7742,7 @@ async function editRecord(id, formId) {
   const form = document.getElementById(formId); if (!form) return;
   const btn = form.querySelector('[type="submit"]');
   const origText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i>กำลังบันทึก...</span>'; lucide.createIcons() }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังบันทึก...</span>'; lucide.createIcons() }
   const fd = new FormData(form);
   fd.forEach((v, k) => { if (k !== '__backendId') rec[k] = v });
   // ฟอร์มที่ใช้ตัวเลือกคำนำหน้า → รวมคำนำหน้า + ชื่อ เป็นชื่อเต็ม
