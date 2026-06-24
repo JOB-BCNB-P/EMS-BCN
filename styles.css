@@ -134,7 +134,7 @@ body {
     box-sizing: border-box;
 }
 
-/* ===== Global button loading state (สปินเนอร์ตอนกดปุ่ม) ===== */
+/* ===== Global button loading state (แมวบัณฑิตวิ่งตอนกดปุ่ม) ===== */
 .btn-spin {
     color: transparent !important;
     position: relative;
@@ -146,12 +146,27 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 1.1em;
-    height: 1.1em;
-    margin: -0.55em 0 0 -0.55em;
-    border: 2px solid var(--spin-color, #1e6fba);
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: btnspin .6s linear infinite;
+    width: 1.9em;
+    height: 1.9em;
+    margin: -0.95em 0 0 -0.95em;
+    background: url("https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png") center/contain no-repeat;
+    transform-origin: 50% 80%;
+    animation: catrun .45s ease-in-out infinite;
 }
-@keyframes btnspin { to { transform: rotate(360deg); } }
+/* แมววิ่ง: เด้งขึ้น-ลง + เอียงตัวเล็กน้อยให้เหมือนวิ่ง */
+@keyframes catrun {
+    0%   { transform: translateY(0) rotate(-6deg); }
+    50%  { transform: translateY(-26%) rotate(6deg); }
+    100% { transform: translateY(0) rotate(-6deg); }
+}
+/* รูปแมววิ่งแบบ inline (ใช้ในปุ่มที่แทนข้อความ "กำลังบันทึก...") */
+.cat-run-inline {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: .35em;
+    transform-origin: 50% 80%;
+    animation: catrun .45s ease-in-out infinite;
+}
