@@ -759,7 +759,7 @@ function showLoading(msg = 'กำลังบันทึก...') {
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = `<div class="bg-white rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3 fade-in">
-    <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+    <img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_pose_white.gif" alt="" class="w-16 h-16 object-contain">
     <p class="text-sm text-gray-700 font-medium" id="loadingMsg">${msg}</p>
   </div>`;
   overlay.classList.remove('hidden');
@@ -776,7 +776,10 @@ function showToast(msg, type = 'success') {
   const icon = type === 'success' ? 'check-circle' : type === 'loading' ? 'loader' : 'alert-circle';
   const d = document.createElement('div');
   d.className = `toast ${colors} text-white px-5 py-3.5 rounded-xl shadow-lg text-sm flex items-center gap-2`;
-  d.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 ${type === 'loading' ? 'animate-spin' : ''}"></i>${msg}`;
+  const iconHTML = type === 'loading'
+    ? `<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_pose_white.gif" style="width:1.7em;height:1.7em;object-fit:contain;flex-shrink:0" alt="">`
+    : `<i data-lucide="${icon}" class="w-5 h-5"></i>`;
+  d.innerHTML = iconHTML + msg;
   if (type === 'loading') d.id = 'loadingToast';
   c.appendChild(d);
   lucide.createIcons();
@@ -793,7 +796,7 @@ function hideLoadingToast() {
 async function withLoading(btnOrForm, asyncFn) {
   const btn = btnOrForm ? (btnOrForm.tagName === 'FORM' ? btnOrForm.querySelector('[type="submit"]') : btnOrForm) : null;
   const origText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังบันทึก...'; lucide.createIcons(); }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_run_transparent.gif" class="cat-run-inline" alt="">กำลังบันทึก...'; lucide.createIcons(); }
   try {
     await asyncFn();
   } finally {
@@ -1952,7 +1955,7 @@ async function runImportGradesFromSubject(subjectId) {
   if (selected.length === 0) { showToast('กรุณาเลือกอย่างน้อย 1 คน', 'error'); return; }
 
   const btn = document.getElementById('importGradeConfirmBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังสร้าง...'; lucide.createIcons(); }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_run_transparent.gif" class="cat-run-inline" alt="">กำลังสร้าง...'; lucide.createIcons(); }
 
   showLoading(`กำลังนำเข้า 0/${selected.length}...`);
 
@@ -7742,7 +7745,7 @@ async function editRecord(id, formId) {
   const form = document.getElementById(formId); if (!form) return;
   const btn = form.querySelector('[type="submit"]');
   const origText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat-run.png" class="cat-run-inline" alt="">กำลังบันทึก...</span>'; lucide.createIcons() }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="flex items-center justify-center gap-2"><img src="https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_run_transparent.gif" class="cat-run-inline" alt="">กำลังบันทึก...</span>'; lucide.createIcons() }
   const fd = new FormData(form);
   fd.forEach((v, k) => { if (k !== '__backendId') rec[k] = v });
   // ฟอร์มที่ใช้ตัวเลือกคำนำหน้า → รวมคำนำหน้า + ชื่อ เป็นชื่อเต็ม
