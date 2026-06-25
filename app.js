@@ -1034,7 +1034,8 @@ function filterBar(opts = {}) {
     const yr = APP.filters.academicYear || '';
     // ดึงปีการศึกษาเฉพาะจากข้อมูลจริงในระบบ (ไม่ hardcode ปีที่ไม่มีข้อมูล)
     const yrSet = new Set();
-    (APP.allData || []).forEach(d => { const y = norm(d.academic_year); if (y) yrSet.add(y); });
+    const _yrSrc = Array.isArray(opts.yearData) ? opts.yearData : (APP.allData || []);
+    _yrSrc.forEach(d => { const y = norm(d.academic_year); if (y) yrSet.add(y); });
     // ถ้ายังไม่มีข้อมูลเลย ให้ใส่ปีปัจจุบันเป็น default
     if (!yrSet.size) {
       const cur = new Date().getFullYear() + 543;
@@ -2179,6 +2180,7 @@ function gradesPage() {
   } else {
     data = [];
   }
+  const yearScopeGrades = data.slice(); // เกรดของนักศึกษาคนนี้ (ก่อนกรองปี) — ใช้สร้างตัวเลือก "ปีการศึกษา" เฉพาะรุ่น/ปีที่มีจริง
   data = applyFilters(data);
   // เรียงตามปีการศึกษา จากเก่าไปใหม่ แล้วตามภาคการศึกษา (1, 2, ฤดูร้อน=3)
   data.sort((a, b) => {
@@ -2215,7 +2217,7 @@ function gradesPage() {
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddGradeModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลการเรียน</button>${csvUploadBtn('grade', 'student_id,subject_code,subject_name,grade,credits,semester,academic_year')}</div>` : ''}
   </div>
   ${studentSelector}
-  ${noSelectionMsg || `${filterBar()}
+  ${noSelectionMsg || `${filterBar({ yearData: yearScopeGrades })}
   ${gpaSection}
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -3544,8 +3546,9 @@ function advisorInfoPage() {
   const selectedAdvisor = APP.filters._advisorSelected || '';
 
   // ---------- มุมมองรายละเอียดอาจารย์ที่เลือก ----------
-  if (selectedAdvisor && advisorMap[selectedAdvisor]) {
-    const a = advisorMap[selectedAdvisor];
+  if (selectedAdvisor && (advisorMap[selectedAdvisor] || teacherIdx[selectedAdvisor])) {
+    let a = advisorMap[selectedAdvisor];
+    if (!a) { const _t = teacherIdx[selectedAdvisor]; a = { key: selectedAdvisor, name: norm(_t.name), dept: norm(_t.department) || NO_DEPT, phone: norm(_t.phone), email: norm(_t.email), students: [] }; }
     const list = a.students.slice().sort((x, y) => norm(x.year_level).localeCompare(norm(y.year_level)) || norm(x.name).localeCompare(norm(y.name), 'th'));
     const activeCount = activeStudents(a.students).length;
     const totalCount = a.students.length;
@@ -3622,6 +3625,47 @@ function advisorInfoPage() {
     <p class="text-xs text-gray-400 mt-2">คลิกการ์ดรายชื่อด้านล่างเพื่อดูนักศึกษาในความดูแล</p>
   </div>`;
 
+  // ----- พาเนล: นักศึกษาที่ยังไม่มีอาจารย์ที่ปรึกษา (เฉพาะที่กำลังศึกษา) -----
+  const noAdvisorStudents = activeStudents(students).filter(s => !norm(s.advisor))
+    .sort((x, y) => norm(x.year_level).localeCompare(norm(y.year_level)) || norm(x.name).localeCompare(norm(y.name), 'th'));
+  const noAdvRows = noAdvisorStudents.map(s => `<tr class="border-t border-amber-100 hover:bg-amber-50">
+      <td class="px-4 py-2.5">${s.student_id || ''}</td>
+      <td class="px-4 py-2.5 font-medium">${s.name || ''}</td>
+      <td class="px-4 py-2.5">${s.year_level || ''}</td>
+      <td class="px-4 py-2.5">${s.batch || ''}</td>
+      <td class="px-4 py-2.5"><div class="flex flex-wrap gap-1">
+        <button onclick="showStudentDetail('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-gray-100 text-gray-600 hover:bg-gray-200" title="ข้อมูลนักศึกษา"><i data-lucide="user" class="w-3.5 h-3.5"></i>ข้อมูล</button>
+        ${isAdmin ? `<button onclick="showAssignAdvisorToStudent('${s.__backendId}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-primary text-white hover:bg-primaryDark" title="กำหนดอาจารย์ที่ปรึกษา"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i>กำหนดที่ปรึกษา</button>` : ''}
+      </div></td>
+    </tr>`).join('');
+  const noAdvisorPanel = `<details class="bg-amber-50 border border-amber-200 rounded-2xl mb-4">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-amber-800 flex items-center gap-2"><i data-lucide="user-x" class="w-4 h-4"></i>นักศึกษาที่ยังไม่มีอาจารย์ที่ปรึกษา <span class="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-xs">${noAdvisorStudents.length} คน</span></summary>
+    <div class="px-3 pb-3">
+      ${noAdvisorStudents.length ? `<div class="bg-white rounded-xl border border-amber-100 overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead><tr class="bg-amber-100 text-left text-amber-900"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold">ชั้นปี</th><th class="px-4 py-2 font-semibold">รุ่นที่</th><th class="px-4 py-2 font-semibold">จัดการ</th></tr></thead>
+        <tbody>${noAdvRows}</tbody></table></div></div>` : '<p class="text-sm text-amber-700 px-1 py-2">นักศึกษาที่กำลังศึกษาทุกคนมีอาจารย์ที่ปรึกษาแล้ว</p>'}
+    </div>
+  </details>`;
+
+  // ----- พาเนล: อาจารย์ที่ยังไม่มีนักศึกษาในความดูแล (ไม่รวมผู้ที่ลาออก, เคารพตัวกรองสาขาวิชา) -----
+  let freeTeachers = teachers.filter(t => norm(t.name) && norm(t.teacher_status || '') !== 'ลาออก' && !advisorMap[nameKey(t.name)]);
+  if (selectedDept) freeTeachers = freeTeachers.filter(t => (norm(t.department) || NO_DEPT) === selectedDept);
+  freeTeachers.sort((a, b) => norm(a.name).localeCompare(norm(b.name), 'th'));
+  const freeTeacherCards = freeTeachers.map(t => {
+    const tkey = nameKey(t.name).replace(/'/g, "\\'");
+    return `<button onclick="APP.filters._advisorSelected='${tkey}';APP.pagination.page=1;renderCurrentPage()" class="text-left bg-white rounded-xl p-3 border border-gray-200 hover:border-primary hover:shadow transition flex items-center gap-3">
+      <div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0"><i data-lucide="user" class="w-4 h-4 text-gray-400"></i></div>
+      <div class="min-w-0 flex-1"><p class="font-medium text-gray-800 truncate text-sm">${norm(t.name)}</p><p class="text-xs text-gray-500 truncate">${norm(t.department) || NO_DEPT}</p></div>
+      ${isAdmin ? '<i data-lucide="user-plus" class="w-4 h-4 text-primary flex-shrink-0"></i>' : ''}
+    </button>`;
+  }).join('');
+  const freeTeacherPanel = `<details class="bg-gray-50 border border-gray-200 rounded-2xl mb-4">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700 flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i>อาจารย์ที่ยังไม่มีนักศึกษาในความดูแล <span class="px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-xs">${freeTeachers.length} ท่าน</span></summary>
+    <div class="px-3 pb-3">
+      ${freeTeachers.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${freeTeacherCards}</div>${isAdmin ? '<p class="text-xs text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline"></i> คลิกอาจารย์เพื่อเปิดและเพิ่มนักศึกษาในความดูแล</p>' : ''}` : '<p class="text-sm text-gray-500 px-1 py-2">อาจารย์ทุกท่านตามเงื่อนไขมีนักศึกษาในความดูแลแล้ว</p>'}
+    </div>
+  </details>`;
+
   const cards = advisors.map(a => {
     const activeCount = activeStudents(a.students).length;
     const safeName = (a.key || a.name).replace(/'/g, "\\'");
@@ -3646,12 +3690,49 @@ function advisorInfoPage() {
   </div>
   ${deptFilter}
   ${searchBox}
+  ${noAdvisorPanel}
+  ${freeTeacherPanel}
   ${advisors.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>` : '<div class="bg-white rounded-2xl p-8 text-center border border-blue-100"><p class="text-gray-400">ไม่พบอาจารย์ที่ปรึกษาตามเงื่อนไข</p></div>'}`;
 }
 
 // เชื่อมไปหน้าผลการเรียน / ผลสอบภาษาอังกฤษ โดยเลือกนักศึกษาไว้ล่วงหน้า
 function advisorGotoGrades(sid) { navigateTo('grades'); APP.filters._gradeStudent = sid; renderCurrentPage(); }
 function advisorGotoEng(sid) { navigateTo('engResults'); APP.filters._engStudent = sid; renderCurrentPage(); }
+
+// ----- กำหนดอาจารย์ที่ปรึกษาให้นักศึกษา (สำหรับนักศึกษาที่ยังไม่มีที่ปรึกษา) -----
+function showAssignAdvisorToStudent(id) {
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
+  const tList = getDataByType('teacher').filter(t => norm(t.name) && norm(t.teacher_status || '') !== 'ลาออก')
+    .sort((a, b) => norm(a.name).localeCompare(norm(b.name), 'th'));
+  const rows = tList.map(t => {
+    const nm = norm(t.name).replace(/'/g, "\\'");
+    return `<button onclick="advisorDoAssign('${s.__backendId}','${nm}')" class="adv-asg-row w-full text-left px-3 py-2 border-b hover:bg-blue-50 text-sm" data-search="${(norm(t.name) + ' ' + norm(t.department)).toLowerCase().replace(/"/g, '')}"><span class="font-medium text-gray-800">${norm(t.name)}</span> <span class="text-xs text-gray-400">· ${norm(t.department) || 'ไม่ระบุสาขาวิชา'}</span></button>`;
+  }).join('');
+  showModal('กำหนดอาจารย์ที่ปรึกษา', `
+    <div class="space-y-3">
+      <p class="text-sm text-gray-600">เลือกอาจารย์ที่ปรึกษาให้ <strong class="text-primary">${s.name || ''}</strong></p>
+      <div class="relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="ค้นหาชื่อ/สาขาวิชา..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="advisorFilterAssignList(this.value)"></div>
+      <div class="border border-gray-200 rounded-xl max-h-80 overflow-y-auto" id="advAsgList">${rows || '<p class="px-3 py-6 text-center text-gray-400 text-sm">ไม่มีรายชื่ออาจารย์</p>'}</div>
+    </div>`, null, 'max-w-lg');
+  setTimeout(() => lucide.createIcons(), 50);
+}
+
+function advisorFilterAssignList(q) {
+  q = (q || '').toLowerCase();
+  document.querySelectorAll('#advAsgList .adv-asg-row').forEach(el => { el.style.display = (!q || (el.dataset.search || '').includes(q)) ? '' : 'none'; });
+}
+
+async function advisorDoAssign(id, teacherName) {
+  const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
+  s.advisor = teacherName;
+  closeModal();
+  showToast('กำลังบันทึก...', 'loading');
+  const r = await GSheetDB.update(s);
+  hideLoadingToast();
+  if (r.isOk) { showToast('กำหนดอาจารย์ที่ปรึกษาแล้ว'); renderCurrentPage(); }
+  else showToast('เกิดข้อผิดพลาด: ' + (r.error || ''), 'error');
+}
 
 // ----- จัดการรายชื่อนักศึกษาในความดูแลของอาจารย์ที่ปรึกษา (เพิ่ม/นำออก) -----
 async function advisorRemoveStudent(id) {
