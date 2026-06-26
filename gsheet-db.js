@@ -15,7 +15,8 @@ const GSheetDB = (() => {
     const SHEET_TABS = [
         'student', 'teacher', 'subject', 'schedule',
         'grade', 'eng_result', 'leave',
-        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher', 'alumni', 'password_log'
+        'tracking', 'result_tracking', 'grade_tracking', 'file_tracking', 'announcement', 'user', 'doc_request', 'permission', 'teacher_directory', 'directory_summary', 'login_log', 'special_teacher', 'alumni', 'password_log',
+        'survey_config', 'survey_question', 'survey_response'
     ];
 
 
@@ -336,6 +337,21 @@ const GSheetDB = (() => {
         } catch (err) { return { isOk: false, error: err.message }; }
     }
 
+    // ---------- SURVEY (แบบประเมินความพึงพอใจ) ----------
+    // ส่งคำตอบแบบประเมิน — เซิร์ฟเวอร์เป็นผู้บังคับกติกา "ประเมินได้ครั้งเดียวต่อปีการศึกษา"
+    // และตรวจว่าแบบประเมินของปีนั้น "เปิด" อยู่ ก่อนบันทึก
+    async function surveySubmit(payload) {
+        if (!_scriptUrl) return { isOk: false, error: 'ยังไม่ได้ตั้งค่า Apps Script URL — บันทึกแบบประเมินไม่ได้' };
+        try {
+            const resp = await fetch(_scriptUrl + '?' + new URLSearchParams({ action: 'surveySubmit' }).toString(), {
+                method: 'POST', redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload || {})
+            });
+            return await resp.json();
+        } catch (err) { return { isOk: false, error: err.message }; }
+    }
+
     async function debugTab(tabName) {
         try {
             const data = await _readFromScript(tabName);
@@ -348,7 +364,7 @@ const GSheetDB = (() => {
         getStoredConfig, storeConfig, clearConfig, extractSheetId,
         init, refresh, destroy, clearSession, debugTab, hasWriteAccess, login,
         studentLogin, studentRefresh, appendNoRefresh,
-        requestPasswordOtp, resetPasswordOtp,
+        requestPasswordOtp, resetPasswordOtp, surveySubmit,
         create, createMany, update, updateMany, delete: remove, SHEET_TABS
     };
 })();
