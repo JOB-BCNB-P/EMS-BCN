@@ -7242,10 +7242,10 @@ function passwordLogSection() {
 }
 
 function settingsPage() {
-  const roles = ['admin', 'academic', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'teachers', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินการศึกษา', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา' };
-  const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
+  const roles = ['admin', 'academic', 'registrar', 'deptHead', 'executive', 'teacher', 'classTeacher', 'student'];
+  const modules = ['dashboard', 'students', 'teachers', 'advisors', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave', 'survey'];
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', advisors: 'ข้อมูลอาจารย์ที่ปรึกษา', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินการศึกษา', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา', survey: 'แบบประเมินความพึงพอใจ' };
+  const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', registrar: 'งานทะเบียน', deptHead: 'ประธานสาขา', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
   const total = users.length; const paged = paginate(users);
@@ -7282,9 +7282,10 @@ function settingsPage() {
   
   <div class="bg-white rounded-2xl p-5 border border-blue-100">
     <h3 class="font-bold mb-4">สิทธิ์การเข้าถึงระบบ</h3>
-    <div class="overflow-x-auto"><table class="w-full text-sm table-fixed" style="min-width:600px">
-      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold" style="width: 20%;">โมดูล</th>${roles.map(r => `<th class="px-3 py-2 text-center font-semibold" style="width: 20%;">${roleLabels[r]}</th>`).join('')}</tr></thead>
-      <tbody>${modules.map(m => `<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium">${moduleLabels[m]}</td>${roles.map(r => `<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[m] ? 'checked' : ''} onchange="togglePermission('${r}','${m}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`).join('')}</tr>`).join('')}</tbody>
+    <p class="text-xs text-gray-400 mb-3">หมายเหตุ: ช่อง "แบบประเมินความพึงพอใจ" ของผู้ดูแลระบบ = สิทธิ์จัดการ/สรุปผลแบบประเมิน · บทบาทอื่น = สิทธิ์ทำแบบประเมิน</p>
+    <div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:980px">
+      <thead><tr class="bg-surface"><th class="px-3 py-2 text-left font-semibold whitespace-nowrap">โมดูล</th>${roles.map(r => `<th class="px-3 py-2 text-center font-semibold whitespace-nowrap">${roleLabels[r]}</th>`).join('')}</tr></thead>
+      <tbody>${modules.map(m => `<tr class="border-t hover:bg-gray-50"><td class="px-3 py-2 font-medium whitespace-nowrap">${moduleLabels[m]}</td>${roles.map(r => { const mk = (m === 'survey' && r === 'admin') ? 'surveyManage' : m; return `<td class="px-3 py-2 text-center"><label class="inline-flex"><input type="checkbox" ${APP.permissions[r]?.[mk] ? 'checked' : ''} onchange="togglePermission('${r}','${mk}',this.checked)" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"></label></td>`; }).join('')}</tr>`).join('')}</tbody>
     </table></div>
   `;
 }
@@ -8674,7 +8675,8 @@ function surveyResultsTabHTML(year) {
   });
   const chip = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">${surveyEsc(k)} <b class="text-primary">${v}</b></span>`).join(' ');
 
-  let h = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+  let h = `<div class="flex justify-end mb-3"><button onclick="downloadSurveyResultsPDF('${year}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button></div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
     ${statCard('users', 'จำนวนผู้ตอบ', resps.length, 'คน', 'bg-blue-500')}
     ${statCard('bar-chart-3', 'ค่าเฉลี่ยรวม (μ)', grand.mean.toFixed(2), '/ 5.00', 'bg-emerald-500')}
     <div class="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
@@ -8752,4 +8754,127 @@ function surveyResultsTabHTML(year) {
 
   h += `<div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mt-4 text-xs text-blue-800">เกณฑ์แปลผล (AUN-QA): 4.51-5.00 มากที่สุด · 3.51-4.50 มาก · 2.51-3.50 ปานกลาง · 1.51-2.50 น้อย · 1.00-1.50 น้อยที่สุด &nbsp;|&nbsp; S.D. คำนวณแบบ n-1 (sample)</div>`;
   return h;
+}
+
+// ดาวน์โหลดสรุปผลแบบประเมินเป็น PDF — เปิดหน้าจัดรูปแบบ A4 (ฟอนต์ Sarabun) แล้วสั่งพิมพ์/บันทึกเป็น PDF
+// (ใช้แนวทางเดียวกับการพิมพ์ใบรายงานผลการเรียน/ใบ Transcript ของระบบเดิม)
+function downloadSurveyResultsPDF(year) {
+  const resps = surveyResponsesForYear(year);
+  if (!resps.length) { showToast('ยังไม่มีผู้ตอบแบบประเมินของปีการศึกษานี้', 'error'); return; }
+  const qs = surveyQuestionsForYear(year, false);
+  const parsed = resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return { r, a }; });
+
+  // ค่าเฉลี่ยรวม
+  let allVals = [];
+  parsed.forEach(p => Object.keys(p.a).forEach(k => { const v = Number(p.a[k]); if (!isNaN(v) && v >= 1 && v <= 5) allVals.push(v); }));
+  const grand = surveyMeanSD(allVals); const gi = surveyInterpret(grand.mean);
+
+  // ข้อมูลผู้ตอบ
+  const byRole = {}, byDevice = {}, byFreq = {}, byYear = {};
+  resps.forEach(r => {
+    const rl = r.role_label || SURVEY_ROLE_LABEL[r.role] || r.role || '-'; byRole[rl] = (byRole[rl] || 0) + 1;
+    byDevice[r.device || '-'] = (byDevice[r.device || '-'] || 0) + 1;
+    byFreq[r.frequency || '-'] = (byFreq[r.frequency || '-'] || 0) + 1;
+    if (norm(r.role) === 'student') { const y = r.year_level || 'ไม่ระบุ'; byYear[y] = (byYear[y] || 0) + 1; }
+  });
+  const kv = (obj) => { const ent = Object.entries(obj).sort((a, b) => b[1] - a[1]); const tot = ent.reduce((s, e) => s + e[1], 0) || 1; return `<table class="mini"><tbody>${ent.map(([k, v]) => `<tr><td>${surveyEsc(k)}</td><td class="c">${v} (${(v / tot * 100).toFixed(1)}%)</td></tr>`).join('')}</tbody></table>`; };
+
+  // ตารางผลรายข้อ (rating) แยกตามด้าน
+  const ratingQs = qs.filter(q => q.q_type === 'rating');
+  const sections = [];
+  ratingQs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
+  let tableRows = '';
+  sections.forEach(sec => {
+    const secQs = ratingQs.filter(q => q.section === sec);
+    let secVals = [];
+    const rows = secQs.map(q => {
+      const vals = parsed.map(p => Number(p.a[q.q_id])).filter(v => !isNaN(v) && v >= 1 && v <= 5);
+      secVals = secVals.concat(vals);
+      const s = surveyMeanSD(vals); const it = surveyInterpret(s.mean);
+      return `<tr><td>${surveyEsc(q.question_text)}</td><td class="c">${s.n}</td><td class="c">${s.mean.toFixed(2)}</td><td class="c">${s.sd.toFixed(2)}</td><td class="c">${(s.mean / 5 * 100).toFixed(1)}</td><td class="c">${it.t}</td></tr>`;
+    }).join('');
+    const ss = surveyMeanSD(secVals); const sit = surveyInterpret(ss.mean);
+    tableRows += `<tr class="sec"><td>▸ ${surveyEsc(sec)}</td><td class="c">-</td><td class="c">${ss.mean.toFixed(2)}</td><td class="c">${ss.sd.toFixed(2)}</td><td class="c">${(ss.mean / 5 * 100).toFixed(1)}</td><td class="c">${sit.t}</td></tr>` + rows;
+  });
+
+  // คำถามแบบตัวเลือก
+  const choiceQs = qs.filter(q => q.q_type === 'choice');
+  let choiceHTML = '';
+  if (choiceQs.length) {
+    choiceHTML = '<h3>ผลคำถามแบบตัวเลือก</h3>';
+    choiceQs.forEach(q => {
+      const counts = {}; parsed.forEach(p => { const v = (p.a[q.q_id] || '').toString().trim(); if (v) counts[v] = (counts[v] || 0) + 1; });
+      const tot = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+      const opts = surveyParseOptions(q.options); const keys = opts.length ? opts.slice() : Object.keys(counts);
+      Object.keys(counts).forEach(k => { if (keys.indexOf(k) === -1) keys.push(k); });
+      choiceHTML += `<div class="q"><b>${surveyEsc(q.question_text)}</b><table class="mini"><tbody>${keys.map(k => { const c = counts[k] || 0; return `<tr><td>${surveyEsc(k)}</td><td class="c">${c} (${(c / tot * 100).toFixed(1)}%)</td></tr>`; }).join('')}</tbody></table></div>`;
+    });
+  }
+
+  // ข้อเสนอแนะ
+  const textQs = qs.filter(q => q.q_type === 'text');
+  let sugHTML = '';
+  if (textQs.length) {
+    sugHTML = '<h3>ข้อเสนอแนะเพิ่มเติม (เชิงคุณภาพ)</h3>';
+    textQs.forEach(q => {
+      const items = parsed.map(p => ({ txt: (p.a[q.q_id] || '').toString().trim(), role: p.r.role_label || p.r.role || '' })).filter(x => x.txt);
+      sugHTML += `<div class="q"><b>${surveyEsc(q.question_text)} (${items.length})</b>`;
+      sugHTML += items.length ? `<ul>${items.map(x => `<li>${surveyEsc(x.txt)} <span class="muted">— ${surveyEsc(x.role)}</span></li>`).join('')}</ul>` : '<p class="muted">— ไม่มีผู้ตอบ —</p>';
+      sugHTML += '</div>';
+    });
+  }
+
+  const cfg = surveyConfigForYear(year);
+  const title = (cfg && norm(cfg.title)) || 'แบบประเมินความพึงพอใจการใช้งานระบบ EMS-BCNB';
+  const college = (APP.config && APP.config.college_name) || 'วิทยาลัยพยาบาลบรมราชชนนี กรุงเทพ';
+  let today = ''; try { today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }); } catch (_) { today = new Date().toLocaleDateString(); }
+
+  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>สรุปผลแบบประเมิน ปีการศึกษา ${year}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+*{font-family:'Sarabun',sans-serif;box-sizing:border-box}
+body{margin:0;padding:10mm;color:#1f2937;font-size:12px}
+h1{font-size:18px;text-align:center;margin:0}
+h2{font-size:13px;text-align:center;margin:2px 0 0;font-weight:400;color:#374151}
+h3{font-size:13px;margin:14px 0 5px;border-left:4px solid #1e6fba;padding-left:8px}
+.meta{text-align:center;color:#6b7280;font-size:11px;margin:6px 0 10px}
+table{width:100%;border-collapse:collapse;margin-top:4px}
+th,td{border:1px solid #cbd5e1;padding:5px 7px;font-size:11px;vertical-align:top}
+th{background:#eaf2fb}
+.c{text-align:center;white-space:nowrap}
+tr.sec td{background:#f0f7ff;font-weight:600;color:#14507f}
+.summary{display:flex;gap:8px;margin:8px 0}
+.box{flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:8px;text-align:center}
+.box .n{font-size:19px;font-weight:700;color:#1e6fba}
+.box .l{font-size:10px;color:#6b7280}
+.muted{color:#6b7280}
+ul{margin:4px 0;padding-left:18px}
+li{margin:2px 0}
+.q{margin:6px 0}
+.mini{width:60%}
+.foot{margin-top:14px;font-size:10px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:6px}
+@media print{@page{size:A4;margin:8mm}h3,.q{page-break-inside:avoid}tr{page-break-inside:avoid}}
+</style></head><body>
+<h1>${surveyEsc(title)}</h1>
+<h2>${surveyEsc(college)}</h2>
+<div class="meta">สรุปผลการประเมิน ปีการศึกษา ${year} · จำนวนผู้ตอบ ${resps.length} คน · พิมพ์เมื่อ ${today}</div>
+<div class="summary">
+  <div class="box"><div class="n">${resps.length}</div><div class="l">จำนวนผู้ตอบ (คน)</div></div>
+  <div class="box"><div class="n">${grand.mean.toFixed(2)}</div><div class="l">ค่าเฉลี่ยรวม μ (เต็ม 5)</div></div>
+  <div class="box"><div class="n">${grand.sd.toFixed(2)}</div><div class="l">ส่วนเบี่ยงเบนมาตรฐาน S.D.</div></div>
+  <div class="box"><div class="n">${(grand.mean / 5 * 100).toFixed(1)}%</div><div class="l">ระดับ: ${gi.t}</div></div>
+</div>
+<h3>ข้อมูลผู้ตอบ — แยกตามบทบาท</h3>${kv(byRole)}
+<h3>อุปกรณ์ที่ใช้งานเป็นหลัก</h3>${kv(byDevice)}
+<h3>ความถี่ในการใช้งานระบบ</h3>${kv(byFreq)}
+${Object.keys(byYear).length ? `<h3>นักศึกษา — แยกตามชั้นปี</h3>${kv(byYear)}` : ''}
+${tableRows ? `<h3>ผลรายข้อ (μ, S.D., ร้อยละ, แปลผล)</h3>
+<table><thead><tr><th>ข้อคำถาม</th><th class="c">n</th><th class="c">μ</th><th class="c">S.D.</th><th class="c">ร้อยละ</th><th class="c">แปลผล</th></tr></thead><tbody>${tableRows}</tbody></table>` : ''}
+${choiceHTML}
+${sugHTML}
+<div class="foot">เกณฑ์แปลผล (AUN-QA): 4.51-5.00 มากที่สุด · 3.51-4.50 มาก · 2.51-3.50 ปานกลาง · 1.51-2.50 น้อย · 1.00-1.50 น้อยที่สุด | S.D. คำนวณแบบ n-1 (sample) | ระบบบริหารจัดการงานวิชาการ EMS-BCNB</div>
+<script>window.onload=function(){window.print()}<\/script></body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else { showToast('กรุณาอนุญาต Popup เพื่อดาวน์โหลด PDF', 'error'); }
 }
