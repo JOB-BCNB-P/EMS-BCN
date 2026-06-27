@@ -8543,15 +8543,41 @@ async function surveySaveConfig(year, status) {
   const title = (document.getElementById('surveyCfgTitle') || {}).value || '';
   const desc = (document.getElementById('surveyCfgDesc') || {}).value || '';
   const existing = surveyConfigForYear(year);
+  const wasOpen = existing && String(existing.status).trim() === 'open';
   const now = new Date().toISOString();
   const btn = document.getElementById('surveyCfgSaveBtn');
   await withLoading(btn, async () => {
     let res;
     if (existing) res = await GSheetDB.update({ ...existing, status, title, description: desc, updated_at: now });
     else res = await GSheetDB.create({ type: 'survey_config', academic_year: year, status, title, description: desc, updated_at: now });
-    if (res && res.isOk) { showToast('บันทึกการตั้งค่าแล้ว', 'success'); renderCurrentPage(); }
+    if (res && res.isOk) {
+      // เปลี่ยนเป็น "เปิดรับ" ครั้งใหม่ → สร้างประกาศแจ้งเตือนในระบบ (กระดิ่ง + การ์ดหน้าหลัก) โดยไม่ส่ง LINE
+      if (status === 'open' && !wasOpen) await surveyCreateOpenAnnouncement(year, title);
+      showToast('บันทึกการตั้งค่าแล้ว', 'success');
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+      renderCurrentPage();
+    }
     else showToast((res && res.error) || 'บันทึกไม่สำเร็จ', 'error');
   });
+}
+
+// สร้างประกาศแจ้งเตือน "เปิดให้ทำแบบประเมิน" เข้าระบบ (กระดิ่ง + การ์ดหน้าหลัก)
+// ตั้ง line_sent ไว้ล่วงหน้า เพื่อกันไม่ให้ตัวแจ้งเตือน LINE (line-announcement-notify.gs) หยิบไปส่ง
+async function surveyCreateOpenAnnouncement(year, title) {
+  try {
+    const pad = n => String(n).padStart(2, '0');
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const t = (title && norm(title)) || 'แบบประเมินความพึงพอใจการใช้งานระบบ EMS-BCNB';
+    await GSheetDB.create({
+      type: 'announcement',
+      announcement_title: 'เปิดให้ทำแบบประเมินความพึงพอใจ ปีการศึกษา ' + year,
+      announcement_content: 'ขอเชิญผู้ใช้งานร่วมทำ "' + t + '" ประจำปีการศึกษา ' + year + ' ได้ที่เมนู "แบบประเมินความพึงพอใจ" (ทำได้ครั้งเดียวต่อปีการศึกษา)',
+      announcement_date: dateStr,
+      line_sent: 'ไม่ส่ง LINE (แจ้งเฉพาะในระบบ)',
+      line_notify: ''
+    });
+  } catch (e) { /* ไม่ให้การสร้างประกาศที่ผิดพลาดทำให้การเปิดแบบประเมินล้มเหลว */ }
 }
 
 async function surveyCreateDefaultQuestions(year, role) {
