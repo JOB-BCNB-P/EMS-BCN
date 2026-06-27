@@ -8581,11 +8581,17 @@ function surveyQuestionsTabHTML(year) {
       </select>
       <span class="text-sm text-gray-500">${qs.length} ข้อ</span>
     </div>
-    <button onclick="surveyAddQuestionModal('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มคำถาม</button></div>
+    <div class="flex gap-2 flex-wrap">
+      <button onclick="surveyPickBaseQuestionsModal('${year}')" class="px-4 py-2 bg-white border border-primary text-primary rounded-xl text-sm hover:bg-primaryLight flex items-center gap-1"><i data-lucide="list-checks" class="w-4 h-4"></i>เลือกจากคำถามพื้นฐาน</button>
+      <button onclick="surveyAddQuestionModal('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มคำถามเอง</button>
+    </div></div>
   <p class="text-xs text-gray-400 mb-3">การแก้ไข/ลบ/เปิด-ปิด จะมีผลเฉพาะบทบาท <b>"${roleName}"</b> เท่านั้น · ข้อที่ยัง "ใช้ร่วมทุกบทบาท" เมื่อแก้จะถูกแยกเป็นชุดเฉพาะบทบาทนี้ให้อัตโนมัติ (บทบาทอื่นไม่เปลี่ยน)</p>`;
   if (!qs.length) {
     return h + `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-500">ยังไม่มีคำถามสำหรับบทบาท "${roleName}"
-      <div class="mt-3"><button onclick="surveyCreateDefaultQuestions('${year}','${role}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้นสำหรับบทบาทนี้</button></div></div>`;
+      <div class="mt-3 flex gap-2 justify-center flex-wrap">
+        <button onclick="surveyCreateDefaultQuestions('${year}','${role}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้นทั้งหมด</button>
+        <button onclick="surveyPickBaseQuestionsModal('${year}')" class="px-4 py-2 bg-white border border-primary text-primary rounded-xl text-sm hover:bg-primaryLight">เลือกจากคำถามพื้นฐาน</button>
+      </div></div>`;
   }
 
   const sections = [];
@@ -8683,6 +8689,51 @@ async function surveyDeleteQuestion(qid) {
   const res = await surveyApplyToRole(q, role, null);
   if (res && res.isOk) { showToast(shared ? 'นำออกจากบทบาทนี้แล้ว' : 'ลบคำถามแล้ว', 'success'); renderCurrentPage(); }
   else showToast((res && res.error) || 'ลบไม่สำเร็จ', 'error');
+}
+
+// เลือกจากคลังคำถามพื้นฐาน (SURVEY_DEFAULT_QUESTIONS) มาเพิ่มให้บทบาทที่กำลังทำงาน
+function surveyPickBaseQuestionsModal(year) {
+  const role = surveyActiveManageRole();
+  const roleName = SURVEY_ROLE_LABEL[role] || role;
+  const existingTexts = {}; surveyQuestionsForRole(year, role, false).forEach(q => { existingTexts[norm(q.question_text)] = true; });
+  const sections = []; SURVEY_DEFAULT_QUESTIONS.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
+  let body = `<div class="flex items-center justify-between mb-2 gap-2">
+    <p class="text-sm text-gray-600">เลือกข้อคำถามเพื่อเพิ่มให้บทบาท <b>"${roleName}"</b></p>
+    <button type="button" onclick="document.querySelectorAll('.survey-base-q:not(:disabled)').forEach(function(c){c.checked=true})" class="text-xs text-primary hover:underline whitespace-nowrap">เลือกทั้งหมด</button>
+  </div><div class="max-h-[55vh] overflow-auto space-y-3 pr-1">`;
+  sections.forEach(sec => {
+    body += `<div><p class="font-semibold text-sm text-gray-700 mb-1">${surveyEsc(sec)}</p><div class="space-y-1">`;
+    SURVEY_DEFAULT_QUESTIONS.forEach((q, idx) => {
+      if (q.section !== sec) return;
+      const added = !!existingTexts[norm(q.question_text)];
+      const typeTag = q.q_type === 'text' ? 'ข้อความ' : (q.q_type === 'choice' ? 'ตัวเลือก' : 'มาตรวัด 1-5');
+      body += `<label class="flex items-start gap-2 text-sm p-1.5 rounded-lg ${added ? 'opacity-50' : 'hover:bg-gray-50 cursor-pointer'}">
+        <input type="checkbox" class="survey-base-q accent-primary mt-0.5" value="${idx}" ${added ? 'disabled' : ''}>
+        <span class="flex-1">${surveyEsc(q.question_text)} <span class="text-xs text-gray-400">(${typeTag}${added ? ' · เพิ่มแล้ว' : ''})</span></span></label>`;
+    });
+    body += `</div></div>`;
+  });
+  body += `</div>`;
+  showModal('เลือกจากคำถามพื้นฐาน — บทบาท ' + roleName, body, () => surveyAddBaseQuestions(year), 'max-w-2xl');
+}
+
+async function surveyAddBaseQuestions(year) {
+  const role = surveyActiveManageRole();
+  const idxs = Array.prototype.map.call(document.querySelectorAll('.survey-base-q:checked'), el => Number(el.value));
+  if (!idxs.length) { showToast('กรุณาเลือกอย่างน้อย 1 ข้อ', 'error'); return; }
+  const existing = surveyQuestionsForRole(year, role, false);
+  let order = existing.reduce((m, q) => Math.max(m, Number(q.q_order) || 0), 0);
+  const base = Date.now();
+  const objs = idxs.map((idx, i) => {
+    const dq = SURVEY_DEFAULT_QUESTIONS[idx]; order += 10;
+    return { type: 'survey_question', q_id: 'Q' + base + '_' + i, academic_year: year, section: dq.section, q_order: order, question_text: dq.question_text, q_type: dq.q_type, options: '', roles: role, active: '1' };
+  });
+  closeModal();
+  showToast('กำลังเพิ่มคำถาม...', 'loading');
+  const res = await GSheetDB.createMany(objs);
+  hideLoadingToast();
+  if (res && res.isOk) { showToast('เพิ่มคำถามแล้ว ' + (res.ok || objs.length) + ' ข้อ', 'success'); renderCurrentPage(); }
+  else showToast('เพิ่มคำถามไม่สำเร็จ' + (res && res.fail ? ' (สำเร็จ ' + res.ok + ' / ล้มเหลว ' + res.fail + ')' : ''), 'error');
 }
 
 // ======================== สรุปผล (admin) ========================
