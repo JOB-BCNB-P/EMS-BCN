@@ -511,6 +511,7 @@ function navigateTo(page) {
   APP.filters._surveyYear = '';
   APP.filters._surveyManageYear = '';
   APP.filters._surveyQRoleFilter = '';
+  APP.filters._surveyManageRole = '';
   APP._surveyManageTab = 'config';
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('bg-primaryLight', n.dataset.page === page);
@@ -8238,6 +8239,31 @@ function surveyParseRoles(s) { return String(s == null ? '' : s).split(/[,|]/).m
 function surveyQuestionAppliesTo(q, role) { const rs = surveyParseRoles(q && q.roles); return rs.length === 0 || rs.indexOf(role) !== -1; }
 function surveyRolesLabel(q) { const rs = surveyParseRoles(q && q.roles); if (!rs.length || rs.length === SURVEY_EVAL_ROLES.length) return 'ทุกบทบาท'; return rs.map(r => SURVEY_ROLE_LABEL[r] || r).join(', '); }
 function surveyQuestionsForRole(year, role, onlyActive) { return surveyQuestionsForYear(year, onlyActive).filter(q => surveyQuestionAppliesTo(q, role)); }
+// บทบาทที่คำถามนี้มีผลจริง (ว่าง = ทุกบทบาท)
+function surveyEffectiveRoles(q) { const rs = surveyParseRoles(q && q.roles); return rs.length ? rs : SURVEY_EVAL_ROLES.slice(); }
+// บทบาทที่กำลังทำงานอยู่ในหน้าจัดการคำถาม (active role)
+function surveyActiveManageRole() { return norm(APP.filters._surveyManageRole) || SURVEY_EVAL_ROLES[0]; }
+// คำถามนี้เป็นของ "เฉพาะบทบาทนี้บทบาทเดียว" หรือไม่
+function surveyIsExclusiveTo(q, role) { const eff = surveyEffectiveRoles(q); return eff.length === 1 && eff[0] === role; }
+// แก้ไข/ลบคำถาม "เฉพาะบทบาทที่เลือก" โดยไม่กระทบบทบาทอื่น
+//   newFields = null  → เอาคำถามนี้ออกจากบทบาทนี้ (ถ้าผูกบทบาทเดียว = ลบจริง)
+//   newFields = {...} → ใช้ค่าที่แก้กับบทบาทนี้เท่านั้น
+// ถ้าคำถามใช้ร่วมหลายบทบาท ระบบจะแตกเป็นสำเนาเฉพาะบทบาทนี้ และคงข้อเดิมไว้ให้บทบาทอื่น
+async function surveyApplyToRole(q, role, newFields) {
+  if (surveyIsExclusiveTo(q, role)) {
+    if (newFields === null) return GSheetDB.delete(q);
+    return GSheetDB.update({ ...q, ...newFields, roles: role });
+  }
+  const remaining = surveyEffectiveRoles(q).filter(r => r !== role);
+  const r1 = await GSheetDB.update({ ...q, roles: remaining.join(',') });
+  if (newFields === null) return r1;
+  const pick = (k) => (newFields[k] != null ? newFields[k] : q[k]);
+  return GSheetDB.create({
+    type: 'survey_question', q_id: 'Q' + Date.now(), academic_year: q.academic_year,
+    section: pick('section'), q_order: pick('q_order'), question_text: pick('question_text'),
+    q_type: pick('q_type'), options: pick('options'), active: pick('active'), roles: role
+  });
+}
 function surveyConfigs() { return getDataByType('survey_config'); }
 function surveyConfigForYear(y) { return surveyConfigs().find(c => norm(c.academic_year) === norm(y)) || null; }
 function surveyQuestionsAll() { return getDataByType('survey_question'); }
@@ -8507,7 +8533,7 @@ function surveyConfigTabHTML(year) {
       ${isOpen
       ? `<button onclick="surveySaveConfig('${year}','closed')" class="px-4 py-2 bg-red-500 text-white rounded-xl text-sm hover:bg-red-600">ปิดรับการประเมิน</button>`
       : `<button onclick="surveySaveConfig('${year}','open')" class="px-4 py-2 bg-green-500 text-white rounded-xl text-sm hover:bg-green-600">เปิดรับการประเมิน</button>`}
-      ${qCount === 0 ? `<button onclick="surveyCreateDefaultQuestions('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้น</button>` : ''}
+      ${qCount === 0 ? `<button onclick="surveyCreateDefaultQuestions('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้น (ใช้ร่วมทุกบทบาท)</button>` : ''}
     </div>
     <p class="text-xs text-gray-400 mt-3">หมายเหตุ: เมื่อ "เปิดรับ" ผู้ใช้ทุกบทบาทจะเห็นแบบประเมินของปีนี้ และทำได้คนละครั้งเดียว</p>
   </div>`;
@@ -8528,12 +8554,13 @@ async function surveySaveConfig(year, status) {
   });
 }
 
-async function surveyCreateDefaultQuestions(year) {
-  if (!confirm('สร้างชุดคำถามเริ่มต้น (' + SURVEY_DEFAULT_QUESTIONS.length + ' ข้อ) สำหรับปีการศึกษา ' + year + ' หรือไม่?')) return;
+async function surveyCreateDefaultQuestions(year, role) {
+  const label = role ? ('บทบาท "' + (SURVEY_ROLE_LABEL[role] || role) + '"') : 'ทุกบทบาท (ใช้ร่วมกัน)';
+  if (!confirm('สร้างชุดคำถามเริ่มต้น (' + SURVEY_DEFAULT_QUESTIONS.length + ' ข้อ) สำหรับ ' + label + ' ปีการศึกษา ' + year + ' หรือไม่?')) return;
   const base = Date.now();
   const objs = SURVEY_DEFAULT_QUESTIONS.map((q, i) => ({
     type: 'survey_question', q_id: 'Q' + base + '_' + i, academic_year: year,
-    section: q.section, q_order: (i + 1) * 10, question_text: q.question_text, q_type: q.q_type, active: '1'
+    section: q.section, q_order: (i + 1) * 10, question_text: q.question_text, q_type: q.q_type, roles: role || '', active: '1'
   }));
   showToast('กำลังสร้างชุดคำถาม...', 'loading');
   const res = await GSheetDB.createMany(objs);
@@ -8543,20 +8570,23 @@ async function surveyCreateDefaultQuestions(year) {
 }
 
 function surveyQuestionsTabHTML(year) {
-  const roleFilter = norm(APP.filters._surveyQRoleFilter || '');
-  const allQs = surveyQuestionsForYear(year, false);
-  const qs = roleFilter ? allQs.filter(q => surveyQuestionAppliesTo(q, roleFilter)) : allQs;
-  let h = `<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+  const role = surveyActiveManageRole();
+  const roleName = SURVEY_ROLE_LABEL[role] || role;
+  const qs = surveyQuestionsForRole(year, role, false);
+  let h = `<div class="flex flex-wrap items-center justify-between gap-2 mb-2">
     <div class="flex items-center gap-2 flex-wrap">
-      <p class="text-sm text-gray-600">คำถาม ${qs.length}${roleFilter ? ' / ' + allQs.length : ''} ข้อ</p>
-      <select onchange="APP.filters._surveyQRoleFilter=this.value;renderCurrentPage()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
-        <option value="">— แสดงทุกคำถาม —</option>
-        ${SURVEY_EVAL_ROLES.map(r => `<option value="${r}" ${roleFilter === r ? 'selected' : ''}>ดูชุดคำถามของ: ${SURVEY_ROLE_LABEL[r] || r}</option>`).join('')}
+      <label class="text-sm font-medium text-gray-700">ชุดคำถามของบทบาท:</label>
+      <select onchange="APP.filters._surveyManageRole=this.value;renderCurrentPage()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+        ${SURVEY_EVAL_ROLES.map(r => `<option value="${r}" ${role === r ? 'selected' : ''}>${SURVEY_ROLE_LABEL[r] || r}</option>`).join('')}
       </select>
+      <span class="text-sm text-gray-500">${qs.length} ข้อ</span>
     </div>
-    <button onclick="surveyAddQuestionModal('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มคำถาม</button></div>`;
-  if (!allQs.length) return h + `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-500">ยังไม่มีคำถามสำหรับปีนี้ — ไปที่แท็บ "ตั้งค่าแบบประเมิน" เพื่อกด "สร้างชุดคำถามเริ่มต้น" ได้</div>`;
-  if (!qs.length) return h + `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-500">ไม่มีคำถามที่กำหนดให้บทบาทนี้เห็น</div>`;
+    <button onclick="surveyAddQuestionModal('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มคำถาม</button></div>
+  <p class="text-xs text-gray-400 mb-3">การแก้ไข/ลบ/เปิด-ปิด จะมีผลเฉพาะบทบาท <b>"${roleName}"</b> เท่านั้น · ข้อที่ยัง "ใช้ร่วมทุกบทบาท" เมื่อแก้จะถูกแยกเป็นชุดเฉพาะบทบาทนี้ให้อัตโนมัติ (บทบาทอื่นไม่เปลี่ยน)</p>`;
+  if (!qs.length) {
+    return h + `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-500">ยังไม่มีคำถามสำหรับบทบาท "${roleName}"
+      <div class="mt-3"><button onclick="surveyCreateDefaultQuestions('${year}','${role}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้นสำหรับบทบาทนี้</button></div></div>`;
+  }
 
   const sections = [];
   qs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
@@ -8564,15 +8594,16 @@ function surveyQuestionsTabHTML(year) {
     h += `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-3"><h4 class="font-bold text-gray-700 mb-2 text-sm">${surveyEsc(sec)}</h4><div class="space-y-2">`;
     qs.filter(q => q.section === sec).forEach(q => {
       const active = surveyIsActive(q);
+      const shared = !surveyIsExclusiveTo(q, role);
       h += `<div class="flex items-start gap-2 p-2 rounded-lg ${active ? '' : 'opacity-50'} hover:bg-gray-50">
         <span class="text-xs text-gray-400 mt-1 w-8">#${surveyEsc(q.q_order)}</span>
         <div class="flex-1 min-w-0"><p class="text-sm text-gray-800">${surveyEsc(q.question_text)}</p>
           <span class="text-xs ${q.q_type === 'text' ? 'text-purple-500' : (q.q_type === 'choice' ? 'text-indigo-500' : 'text-blue-500')}">${surveyTypeLabel(q)}${active ? '' : ' · ปิดใช้งาน'}</span>
-          <span class="text-xs ${surveyParseRoles(q.roles).length ? 'text-teal-600' : 'text-gray-400'}"> · ${surveyRolesLabel(q)}</span>
+          ${shared ? `<span class="text-xs text-amber-600"> · ใช้ร่วมทุกบทบาท</span>` : `<span class="text-xs text-teal-600"> · เฉพาะบทบาทนี้</span>`}
           ${q.q_type === 'choice' ? `<span class="text-xs text-gray-400 block truncate">ตัวเลือก: ${surveyEsc(surveyParseOptions(q.options).join(' / '))}</span>` : ''}</div>
         <button onclick="surveyToggleQuestionActive('${q.q_id}')" title="${active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}" class="p-1.5 rounded hover:bg-gray-100 text-gray-500"><i data-lucide="${active ? 'eye' : 'eye-off'}" class="w-4 h-4"></i></button>
         <button onclick="surveyEditQuestionModal('${q.q_id}')" class="p-1.5 rounded hover:bg-blue-50 text-blue-600"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-        <button onclick="surveyDeleteQuestion('${q.q_id}')" class="p-1.5 rounded hover:bg-red-50 text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        <button onclick="surveyDeleteQuestion('${q.q_id}')" class="p-1.5 rounded hover:bg-red-50 text-red-500" title="${shared ? 'นำออกจากบทบาทนี้' : 'ลบ'}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>`;
     });
     h += `</div></div>`;
@@ -8580,8 +8611,11 @@ function surveyQuestionsTabHTML(year) {
   return h;
 }
 
-function surveyQuestionFormHTML(year, q) {
+function surveyQuestionFormHTML(year, q, role) {
+  const roleName = SURVEY_ROLE_LABEL[role] || role;
+  const willSplit = q && !surveyIsExclusiveTo(q, role);
   return `<div class="space-y-3">
+    <div class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-800">คำถามนี้สำหรับบทบาท: <b>${roleName}</b>${willSplit ? ' · เดิมใช้ร่วมหลายบทบาท — เมื่อบันทึกจะถูกแยกเป็นชุดเฉพาะบทบาทนี้ (บทบาทอื่นไม่เปลี่ยน)' : ''}</div>
     <div><label class="text-sm font-medium text-gray-700">หมวด (section)</label>
       <input id="surveyQSection" value="${surveyEsc(q ? q.section : '')}" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm mt-1" placeholder="เช่น ด้านความง่ายในการใช้งาน"></div>
     <div><label class="text-sm font-medium text-gray-700">ข้อคำถาม</label>
@@ -8599,23 +8633,19 @@ function surveyQuestionFormHTML(year, q) {
       <label class="text-sm font-medium text-gray-700">ตัวเลือก <span class="text-xs text-gray-400">(หนึ่งบรรทัดต่อหนึ่งตัวเลือก — ใช้กับชนิด "ตัวเลือก" เท่านั้น)</span></label>
       <textarea id="surveyQOptions" rows="4" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm mt-1" placeholder="เช่น&#10;พึงพอใจมาก&#10;พึงพอใจ&#10;ควรปรับปรุง">${q ? surveyEsc(surveyParseOptions(q.options).join('\n')) : ''}</textarea>
     </div>
-    <div>
-      <label class="text-sm font-medium text-gray-700">บทบาทที่เห็นคำถามนี้ <span class="text-xs text-gray-400">(ไม่เลือกเลย = ทุกบทบาท)</span></label>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1 p-2 bg-gray-50 rounded-xl">
-        ${SURVEY_EVAL_ROLES.map(r => { const checked = q ? (surveyParseRoles(q.roles).indexOf(r) !== -1) : false; return `<label class="flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" class="survey-q-role accent-primary" value="${r}" ${checked ? 'checked' : ''}> ${SURVEY_ROLE_LABEL[r] || r}</label>`; }).join('')}
-      </div>
-    </div>
     <label class="flex items-center gap-2 text-sm text-gray-700"><input id="surveyQActive" type="checkbox" ${!q || surveyIsActive(q) ? 'checked' : ''} class="accent-primary">เปิดใช้งานคำถามนี้</label>
   </div>`;
 }
 
 function surveyAddQuestionModal(year) {
-  showModal('เพิ่มคำถาม — ปีการศึกษา ' + year, surveyQuestionFormHTML(year, null), () => surveySaveQuestion(year, null), 'max-w-xl');
+  const role = surveyActiveManageRole();
+  showModal('เพิ่มคำถาม (' + (SURVEY_ROLE_LABEL[role] || role) + ') — ปีการศึกษา ' + year, surveyQuestionFormHTML(year, null, role), () => surveySaveQuestion(year, null), 'max-w-xl');
 }
 function surveyEditQuestionModal(qid) {
   const q = surveyQuestionsAll().find(x => x.q_id === qid);
   if (!q) { showToast('ไม่พบคำถาม', 'error'); return; }
-  showModal('แก้ไขคำถาม', surveyQuestionFormHTML(q.academic_year, q), () => surveySaveQuestion(q.academic_year, q), 'max-w-xl');
+  const role = surveyActiveManageRole();
+  showModal('แก้ไขคำถาม (' + (SURVEY_ROLE_LABEL[role] || role) + ')', surveyQuestionFormHTML(q.academic_year, q, role), () => surveySaveQuestion(q.academic_year, q), 'max-w-xl');
 }
 async function surveySaveQuestion(year, q) {
   const gv = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -8626,27 +8656,32 @@ async function surveySaveQuestion(year, q) {
   const active = (document.getElementById('surveyQActive') || {}).checked ? '1' : '0';
   const optList = surveyParseOptions(gv('surveyQOptions'));
   const options = qtype === 'choice' ? optList.join('|') : '';
-  const roleList = Array.prototype.map.call(document.querySelectorAll('.survey-q-role:checked'), el => el.value);
-  const roles = (roleList.length === 0 || roleList.length === SURVEY_EVAL_ROLES.length) ? '' : roleList.join(',');
+  const role = surveyActiveManageRole();
   if (!text) { showToast('กรุณากรอกข้อคำถาม', 'error'); return; }
   if (qtype === 'choice' && optList.length < 2) { showToast('คำถามชนิดตัวเลือกต้องมีอย่างน้อย 2 ตัวเลือก', 'error'); return; }
   let res;
-  if (q) res = await GSheetDB.update({ ...q, section, question_text: text, q_type: qtype, options, roles, q_order: order, active });
-  else res = await GSheetDB.create({ type: 'survey_question', q_id: 'Q' + Date.now(), academic_year: year, section, question_text: text, q_type: qtype, options, roles, q_order: order, active });
+  if (q) res = await surveyApplyToRole(q, role, { section, question_text: text, q_type: qtype, options, q_order: order, active });
+  else res = await GSheetDB.create({ type: 'survey_question', q_id: 'Q' + Date.now(), academic_year: year, section, question_text: text, q_type: qtype, options, roles: role, q_order: order, active });
   if (res && res.isOk) { closeModal(); showToast('บันทึกคำถามแล้ว', 'success'); renderCurrentPage(); }
   else showToast((res && res.error) || 'บันทึกไม่สำเร็จ', 'error');
 }
 async function surveyToggleQuestionActive(qid) {
   const q = surveyQuestionsAll().find(x => x.q_id === qid); if (!q) return;
-  const res = await GSheetDB.update({ ...q, active: surveyIsActive(q) ? '0' : '1' });
+  const role = surveyActiveManageRole();
+  const res = await surveyApplyToRole(q, role, { active: surveyIsActive(q) ? '0' : '1' });
   if (res && res.isOk) { showToast('อัปเดตแล้ว', 'success'); renderCurrentPage(); }
   else showToast((res && res.error) || 'อัปเดตไม่สำเร็จ', 'error');
 }
 async function surveyDeleteQuestion(qid) {
   const q = surveyQuestionsAll().find(x => x.q_id === qid); if (!q) return;
-  if (!confirm('ลบคำถามนี้?\n\n' + (q.question_text || ''))) return;
-  const res = await GSheetDB.delete(q);
-  if (res && res.isOk) { showToast('ลบคำถามแล้ว', 'success'); renderCurrentPage(); }
+  const role = surveyActiveManageRole();
+  const shared = !surveyIsExclusiveTo(q, role);
+  const msg = shared
+    ? ('นำคำถามนี้ออกจากบทบาท "' + (SURVEY_ROLE_LABEL[role] || role) + '"?\n(บทบาทอื่นยังคงเห็นคำถามนี้)\n\n')
+    : ('ลบคำถามนี้?\n\n');
+  if (!confirm(msg + (q.question_text || ''))) return;
+  const res = await surveyApplyToRole(q, role, null);
+  if (res && res.isOk) { showToast(shared ? 'นำออกจากบทบาทนี้แล้ว' : 'ลบคำถามแล้ว', 'success'); renderCurrentPage(); }
   else showToast((res && res.error) || 'ลบไม่สำเร็จ', 'error');
 }
 
