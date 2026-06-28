@@ -930,13 +930,13 @@ function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
   // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว (เฉพาะส่วนประกาศ — ส่วนใบลาจะอัปเดตอัตโนมัติเมื่ออนุมัติ)
-  const seenCount = getDataByType('announcement').length;
+  const seenCount = visibleAnnouncements().length;
   try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  const ann = getDataByType('announcement').slice(-10).reverse();
+  const ann = visibleAnnouncements().slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
   const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
@@ -991,7 +991,7 @@ function renderNotifications() {
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
-  const annTotal = getDataByType('announcement').length;
+  const annTotal = visibleAnnouncements().length;
   let seenAnn = 0;
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
@@ -1208,7 +1208,7 @@ function dashboardPage() {
   // นับเฉพาะ "นักศึกษาที่กำลังศึกษา" ซึ่งสอบผ่าน (ให้ตรงกับหน้าผลสอบ — ไม่นับรหัสที่ไม่มีในรายชื่อ/จบ/พัก/ลาออก)
   const engPassIdSet = new Set(engPassRecords.map(e => norm(e.student_id)));
   const engPassStudentIds = activeStudents(students).filter(s => engPassIdSet.has(norm(s.student_id))).map(s => s.student_id);
-  const announcements = getDataByType('announcement').slice(-5).reverse();
+  const announcements = visibleAnnouncements().slice(-5).reverse();
   const r = APP.currentRole;
 
   let stats = '';
@@ -5470,7 +5470,7 @@ function servicesPage() {
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
       <div class="flex items-center justify-between mb-4"><h3 class="font-bold">ข่าวสาร/แจ้งเตือน</h3><button onclick="showAddAnnouncementModal()" class="text-primary hover:underline text-sm">+ เพิ่มประกาศ</button></div>
       ${announcements.length ? announcements.map(a => `<div class="p-3 bg-surface rounded-xl mb-2 flex justify-between items-start">
-        <div><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500">${a.announcement_date || ''} · ${a.event_type || 'ทั่วไป'}</p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content || '').substring(0, 80)}</p></div>
+        <div><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500">${a.announcement_date || ''} · ${a.event_type || 'ทั่วไป'} · <span class="${annParseRoles(a.roles).length ? 'text-teal-600' : 'text-gray-400'}">${annParseRoles(a.roles).length ? annParseRoles(a.roles).map(r => ANN_ROLE_LABEL[r] || r).join('/') : 'ทุกบทบาท'}</span></p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content || '').substring(0, 80)}</p></div>
         <div class="flex gap-1 ml-2"><button onclick="showEditAnnouncementModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
       </div>`).join('') : '<p class="text-gray-400 text-center py-6 text-sm">ไม่มีประกาศ</p>'}
     </div>
@@ -5490,6 +5490,27 @@ function servicesPage() {
   </div>`;
 }
 
+// ======================== ANNOUNCEMENT ROLE TARGETING ========================
+const ANN_ROLES = ['admin', 'academic', 'registrar', 'deptHead', 'executive', 'teacher', 'classTeacher', 'student'];
+const ANN_ROLE_LABEL = { admin: 'ผู้ดูแลระบบ', academic: 'งานวิชาการ', registrar: 'งานทะเบียน', deptHead: 'ประธานสาขา', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
+function annParseRoles(s) { return String(s == null ? '' : s).split(/[,|]/).map(x => x.trim()).filter(Boolean); }
+// ประกาศนี้ผู้ใช้บทบาท role เห็นไหม — ว่าง = ทุกบทบาท
+function annVisibleTo(a, role) { const rs = annParseRoles(a && a.roles); return rs.length === 0 || rs.indexOf(role) !== -1; }
+// ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge)
+function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => annVisibleTo(a, role)); }
+// ช่องเลือกบทบาทผู้รับในฟอร์มประกาศ (ไม่ติ๊กเลย = ทุกบทบาท)
+function annRolesFieldHTML(selected) {
+  const sel = annParseRoles(selected);
+  return `<div><label class="block text-xs text-gray-600 mb-1">แจ้งให้บทบาท <span class="text-gray-400">(ไม่เลือกเลย = ทุกบทบาท)</span></label>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-2 bg-gray-50 rounded-xl">
+      ${ANN_ROLES.map(r => `<label class="flex items-center gap-1.5 text-sm text-gray-700"><input type="checkbox" class="ann-role-cb accent-primary" value="${r}" ${sel.indexOf(r) !== -1 ? 'checked' : ''}> ${ANN_ROLE_LABEL[r]}</label>`).join('')}
+    </div></div>`;
+}
+function annCollectRoles() {
+  const arr = Array.prototype.map.call(document.querySelectorAll('.ann-role-cb:checked'), el => el.value);
+  return (arr.length === 0 || arr.length === ANN_ROLES.length) ? '' : arr.join(',');
+}
+
 function showAddAnnouncementModal() {
   showModal('เพิ่มประกาศ/แจ้งเตือน', `
     <form id="addAnnForm" class="space-y-3">
@@ -5499,6 +5520,7 @@ function showAddAnnouncementModal() {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทั่วไป</option><option>สอบ</option><option>วันหยุด</option><option>กิจกรรม</option></select></div>
       </div>
+      ${annRolesFieldHTML('')}
       <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4"><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
@@ -5508,6 +5530,7 @@ function showAddAnnouncementModal() {
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       const obj = { type: 'announcement', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
+      obj.roles = annCollectRoles();
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มประกาศสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -8059,11 +8082,12 @@ function showEditAnnouncementModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" value="${a.announcement_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${a.event_type === 'ทั่วไป' ? 'selected' : ''}>ทั่วไป</option><option ${a.event_type === 'สอบ' ? 'selected' : ''}>สอบ</option><option ${a.event_type === 'วันหยุด' ? 'selected' : ''}>วันหยุด</option><option ${a.event_type === 'กิจกรรม' ? 'selected' : ''}>กิจกรรม</option></select></div>
       </div>
+      ${annRolesFieldHTML(a.roles || '')}
       <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4" ${['✓', '✔', 'true', 'yes', 'y', '1', 'ส่ง', 'แจ้ง'].includes(String(a.line_notify || '').trim().toLowerCase()) ? 'checked' : ''}><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
-  document.getElementById('editAnnForm').onsubmit = (e) => { e.preventDefault(); a.line_notify = e.target.querySelector('[name="line_notify"]').checked ? '✓' : ''; editRecord(id, 'editAnnForm') };
+  document.getElementById('editAnnForm').onsubmit = (e) => { e.preventDefault(); a.line_notify = e.target.querySelector('[name="line_notify"]').checked ? '✓' : ''; a.roles = annCollectRoles(); editRecord(id, 'editAnnForm') };
 }
 
 function showEditTrackingModal(id) {
