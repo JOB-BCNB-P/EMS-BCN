@@ -3895,7 +3895,9 @@ function specialTeachersPage() {
   const all = getDataByType('special_teacher');
   const years = [...new Set(all.map(t => norm(t.academic_year)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
   const selYear = APP.filters._specialTeacherYear || '';
+  const kw = norm(APP.filters._specialTeacherSearch || '').toLowerCase();
   let data = selYear ? all.filter(t => norm(t.academic_year) === selYear) : all.slice();
+  if (kw) data = data.filter(t => [t.name, t.academic_position, t.agency, t.subjects, t.edu_level].map(v => norm(v).toLowerCase()).join(' ').includes(kw));
   data.sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''));
   const total = data.length;
   const paged = paginate(data);
@@ -3912,7 +3914,12 @@ function specialTeachersPage() {
         ${years.map(y => `<option value="${y}" ${selYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
       ${selYear ? `<span class="text-xs text-gray-500">แสดงปีการศึกษา ${selYear}</span>` : ''}
+      <div class="relative flex-1 min-w-[200px] max-w-xs ml-auto">
+        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+        <input type="text" value="${(APP.filters._specialTeacherSearch || '').replace(/"/g, '&quot;')}" placeholder="ค้นหาชื่อ / หน่วยงาน / รายวิชา..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._specialTeacherSearchTimer);window._specialTeacherSearchTimer=setTimeout(()=>{APP.filters._specialTeacherSearch=this.value;APP.pagination.page=1;renderCurrentPage()},300)">
+      </div>
     </div>
+    ${kw ? `<p class="text-xs text-gray-500 mt-2">พบ ${total} รายการจากคำค้น "${kw.replace(/</g, '&lt;')}"</p>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
