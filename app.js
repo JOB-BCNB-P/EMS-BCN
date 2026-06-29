@@ -3942,9 +3942,9 @@ function specialTeacherRegFormBody(t) {
     <div>
       <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอน</label>
       <input type="hidden" name="subjects" id="specialSubjectsValue" value="${((t.subjects || t.edu_level) || '').replace(/"/g, '&quot;')}">
-      <div class="flex gap-2">
-        <select id="specialSubjectSelect" class="flex-1 border rounded-xl px-3 py-2 text-sm">${specialSubjectDropdownOptionsHTML(year)}</select>
-        <button type="button" onclick="addSpecialSubject()" class="px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap"><i data-lucide="plus" class="w-4 h-4 inline"></i> เพิ่ม</button>
+      <div class="flex gap-2 items-stretch">
+        <select id="specialSubjectSelect" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm">${specialSubjectDropdownOptionsHTML(year)}</select>
+        <button type="button" onclick="addSpecialSubject()" class="shrink-0 px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
       </div>
       <p class="text-[11px] text-gray-400 mt-1">รายวิชาดึงจาก "รายวิชาที่เปิดสอน" ตามปีการศึกษาที่กรอก หรือพิมพ์เองในช่องด้านล่างแล้วกด Enter</p>
       <div id="specialSubjectChips" class="flex flex-wrap gap-1.5 mt-2"></div>
