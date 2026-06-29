@@ -1523,14 +1523,6 @@ function studentInfoPage() {
 
 function infoRow(l, v) { return `<div><p class="text-xs text-gray-500">${l}</p><p class="font-medium">${v || '-'}</p></div>` }
 
-// ปิดบังเลขบัตรประชาชน (แสดง 4 หลักท้าย) เพื่อความเป็นส่วนตัวในการ์ดข้อมูล
-function maskNationalId(v) {
-  const d = String(v || '').replace(/\D/g, '');
-  if (!d) return '';
-  if (d.length <= 4) return d;
-  return 'x'.repeat(d.length - 4) + d.slice(-4);
-}
-
 // Helper: show "รหัส ชื่อวิชา" or just "ชื่อวิชา" if no code
 function subjectLabel(code, name) { return code ? `${code} ${name || ''}` : name || '' }
 
@@ -4547,7 +4539,7 @@ function addMultiSubjectInput(name) {
 
 // Export to PDF via print
 function exportTeacherDirectoryPDF() {
-  let data = getDataByType('teacher_directory');
+  let data = directoryRecords();
   const activeTab = APP._directoryTab || 'all';
   const selectedYear = APP.filters._directoryYear || '';
   if (selectedYear) data = data.filter(d => (d.academic_year || '') === selectedYear);
@@ -4635,6 +4627,32 @@ function exportTeacherDirectoryPDF() {
   showToast('เปิดหน้าต่างพิมพ์ PDF แล้ว — กรุณาเลือก "Save as PDF"');
 }
 
+// รวมข้อมูลทำเนียบอาจารย์ + อาจารย์พิเศษจากระบบทะเบียน (special_teacher)
+// ที่ยังไม่มีในทำเนียบ (เทียบด้วยชื่อ + ปีการศึกษา) — เพื่อให้อาจารย์พิเศษที่ลงทะเบียนไว้แสดงในทำเนียบด้วย
+function directoryRecords() {
+  const dir = getDataByType('teacher_directory');
+  const nameKey = v => norm(v).toLowerCase().replace(/\s+/g, '');
+  const existing = new Set(dir
+    .filter(d => norm(d.teacher_category) === 'อาจารย์พิเศษ')
+    .map(d => nameKey(d.name) + '|' + norm(d.academic_year)));
+  const reg = getDataByType('special_teacher')
+    .filter(t => norm(t.name) && !existing.has(nameKey(t.name) + '|' + norm(t.academic_year)))
+    .map(t => ({
+      __backendId: t.__backendId,
+      __fromRegistry: true,
+      type: 'teacher_directory',
+      name: t.name,
+      academic_position: t.academic_position,
+      agency: t.agency,
+      academic_year: t.academic_year,
+      teacher_category: 'อาจารย์พิเศษ',
+      subjects_taught: norm(t.subjects || t.edu_level).split(/[,;/]/).map(s => s.trim()).filter(Boolean).join('||'),
+      edu_level: '',
+      nursing_branch: ''
+    }));
+  return dir.concat(reg);
+}
+
 function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
   // Stat cards: ทั้งหมด + 5 ประเภท
   let html = '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">';
@@ -4657,9 +4675,11 @@ function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
   if (paged.length) {
     paged.forEach(t => {
       const special = isSpecialTeacher(t);
-      const editFn = special ? 'showEditSpecialTeacherModal' : 'showEditTeacherDirectoryModal';
+      const fromReg = !!t.__fromRegistry;
+      const editFn = fromReg ? 'showEditSpecialTeacherRegModal' : (special ? 'showEditSpecialTeacherModal' : 'showEditTeacherDirectoryModal');
+      const regBadge = fromReg ? ' <span class="ml-1 px-1.5 py-0.5 rounded-md text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100" title="ดึงจากระบบทะเบียนอาจารย์พิเศษ">ทะเบียน</span>' : '';
       html += '<tr class="border-t hover:bg-gray-50">';
-      html += '<td class="px-4 py-3 font-medium">' + (t.name || '') + '</td>';
+      html += '<td class="px-4 py-3 font-medium">' + (t.name || '') + regBadge + '</td>';
       html += '<td class="px-4 py-3">' + (t.academic_position || '-') + '</td>';
       if (isSpecialTab) {
         html += '<td class="px-4 py-3">' + (t.agency || '-') + '</td>';
@@ -4670,8 +4690,8 @@ function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
       html += '<td class="px-4 py-3"><div class="flex gap-1">';
       html += '<button onclick="showTeacherDirectoryDetail(\'' + t.__backendId + '\')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>';
       if (isAdmin) {
-        html += '<button onclick="' + editFn + '(\'' + t.__backendId + '\')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button>';
-        html += '<button onclick="deleteRecord(\'' + t.__backendId + '\')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>';
+        html += '<button onclick="' + editFn + '(\'' + t.__backendId + '\')" class="text-blue-400 hover:text-blue-600" title="' + (fromReg ? 'แก้ไขที่ระบบทะเบียนอาจารย์พิเศษ' : 'แก้ไข') + '"><i data-lucide="pencil" class="w-4 h-4"></i></button>';
+        if (!fromReg) html += '<button onclick="deleteRecord(\'' + t.__backendId + '\')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>';
       }
       html += '</div></td></tr>';
     });
@@ -4685,7 +4705,7 @@ function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
 
 function teacherDirectoryPage() {
   const isAdmin = isAdminRole();
-  let allData = applyFilters(getDataByType('teacher_directory'));
+  let allData = applyFilters(directoryRecords());
   // ประธานสาขาวิชา: เห็นเฉพาะอาจารย์ในสาขาเดียวกัน (จับคู่ด้วย nursing_branch)
   if (APP.currentRole === 'deptHead') { const _d = currentDept(); allData = allData.filter(x => deptEq(norm(x.nursing_branch), _d)); }
 
@@ -4762,11 +4782,13 @@ function showTeacherDirectoryDetail(id) {
     return '<ul class="list-disc list-inside text-sm space-y-1">' + items.map(v => `<li>${v}</li>`).join('') + '</ul>';
   }
 
-  // อาจารย์พิเศษ — รายละเอียดแบบย่อ
-  if (isSpecialTeacher(t)) {
+  // อาจารย์พิเศษ — รายละเอียดแบบย่อ (รองรับทั้งทำเนียบ และที่ดึงมาจากระบบทะเบียน special_teacher)
+  if (isSpecialTeacher(t) || t.type === 'special_teacher') {
+    const cat = t.teacher_category || 'อาจารย์พิเศษ';
+    const subj = t.subjects_taught || norm(t.subjects || '').split(/[,;/]/).map(s => s.trim()).filter(Boolean).join('||');
     showModal('ข้อมูลอาจารย์พิเศษ', `
     <div class="space-y-3">
-      <div class="flex items-center gap-3 mb-2"><div class="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center"><i data-lucide="user" class="w-6 h-6 text-white"></i></div><div><p class="font-bold text-lg">${t.name || '-'}</p><span class="px-2 py-1 rounded-full text-xs ${catColor}">${t.teacher_category || '-'}</span></div></div>
+      <div class="flex items-center gap-3 mb-2"><div class="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center"><i data-lucide="user" class="w-6 h-6 text-white"></i></div><div><p class="font-bold text-lg">${t.name || '-'}</p><span class="px-2 py-1 rounded-full text-xs ${catBadge(cat)}">${cat}</span></div></div>
       <div class="grid grid-cols-2 gap-3">
         ${infoRow('ตำแหน่ง', t.academic_position)}
         ${infoRow('หน่วยงาน', t.agency)}
@@ -4774,7 +4796,7 @@ function showTeacherDirectoryDetail(id) {
         ${infoRow('ระดับวุฒิ', t.edu_level)}
         ${infoRow('ปีการศึกษา', t.academic_year)}
       </div>
-      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">รายวิชาที่สอน</p>${detailList(t.subjects_taught)}</div>
+      <div class="bg-surface rounded-xl p-3"><p class="text-xs text-gray-500 mb-1 font-semibold">รายวิชาที่สอน</p>${detailList(subj)}</div>
     </div>
   `);
     return;
