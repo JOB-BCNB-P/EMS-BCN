@@ -1523,6 +1523,14 @@ function studentInfoPage() {
 
 function infoRow(l, v) { return `<div><p class="text-xs text-gray-500">${l}</p><p class="font-medium">${v || '-'}</p></div>` }
 
+// ปิดบังเลขบัตรประชาชน (แสดง 4 หลักท้าย) เพื่อความเป็นส่วนตัวในการ์ดข้อมูล
+function maskNationalId(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.length <= 4) return d;
+  return 'x'.repeat(d.length - 4) + d.slice(-4);
+}
+
 // Helper: show "รหัส ชื่อวิชา" or just "ชื่อวิชา" if no code
 function subjectLabel(code, name) { return code ? `${code} ${name || ''}` : name || '' }
 
@@ -1587,9 +1595,9 @@ function showStudentDetail(id) {
   const s = APP.allData.find(d => d.__backendId === id);
   if (!s) return;
   showModal('ข้อมูลนักศึกษา', `<div class="grid grid-cols-2 gap-3">
-    ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('รุ่นที่', s.batch)}${infoRow('สถานภาพ', s.status)}
-    ${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}
-    ${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
+    ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('เลขบัตรประชาชน', maskNationalId(s.national_id))}${infoRow('รุ่นที่', s.batch)}
+    ${infoRow('สถานภาพ', s.status)}${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('โทร', s.phone)}
+    ${infoRow('E-mail', s.email)}${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
   </div>`);
 }
 
@@ -3923,14 +3931,86 @@ function specialTeachersPage() {
 
 function specialTeacherRegFormBody(t) {
   t = t || {};
+  const year = norm(t.academic_year) || currentAcademicYearBE();
   return `
-    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" required value="${String(t.academic_year || currentAcademicYearBE()).replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" id="specialAcademicYear" required value="${String(t.academic_year || currentAcademicYearBE()).replace(/"/g, '&quot;')}" oninput="refreshSpecialSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
     ${titlePrefixField(t.name || '')}
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
       <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
     </div>
-    <div><label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอน</label><input name="subjects" value="${((t.subjects || t.edu_level) || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, กายวิภาคศาสตร์"></div>`;
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอน</label>
+      <input type="hidden" name="subjects" id="specialSubjectsValue" value="${((t.subjects || t.edu_level) || '').replace(/"/g, '&quot;')}">
+      <div class="flex gap-2">
+        <select id="specialSubjectSelect" class="flex-1 border rounded-xl px-3 py-2 text-sm">${specialSubjectDropdownOptionsHTML(year)}</select>
+        <button type="button" onclick="addSpecialSubject()" class="px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap"><i data-lucide="plus" class="w-4 h-4 inline"></i> เพิ่ม</button>
+      </div>
+      <p class="text-[11px] text-gray-400 mt-1">รายวิชาดึงจาก "รายวิชาที่เปิดสอน" ตามปีการศึกษาที่กรอก หรือพิมพ์เองในช่องด้านล่างแล้วกด Enter</p>
+      <div id="specialSubjectChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+      <input id="specialSubjectManual" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="หรือพิมพ์รายวิชาเอง แล้วกด Enter เพื่อเพิ่ม" onkeydown="if(event.key==='Enter'){event.preventDefault();addSpecialSubjectManual();}">
+    </div>`;
+}
+
+// สร้างตัวเลือกรายวิชา (จากชีต subject) กรองตามปีการศึกษา — ไม่ซ้ำชื่อวิชา
+function specialSubjectOptionsForYear(year) {
+  const y = norm(year);
+  let subs = getDataByType('subject');
+  if (y) subs = subs.filter(s => norm(s.academic_year) === y);
+  const seen = new Set(); const out = [];
+  subs.forEach(s => {
+    const name = norm(s.subject_name); if (!name || seen.has(name)) return;
+    seen.add(name);
+    out.push({ name, label: s.subject_code ? `${norm(s.subject_code)} ${name}` : name });
+  });
+  out.sort((a, b) => a.label.localeCompare(b.label, 'th'));
+  return out;
+}
+
+function specialSubjectDropdownOptionsHTML(year) {
+  const opts = specialSubjectOptionsForYear(year);
+  if (!opts.length) return '<option value="">— ไม่มีรายวิชาในปีนี้ —</option>';
+  return '<option value="">— เลือกรายวิชา —</option>' + opts.map(o => `<option value="${o.name.replace(/"/g, '&quot;')}">${o.label.replace(/</g, '&lt;')}</option>`).join('');
+}
+
+function refreshSpecialSubjectOptions() {
+  const yearEl = document.getElementById('specialAcademicYear');
+  const sel = document.getElementById('specialSubjectSelect');
+  if (!yearEl || !sel) return;
+  sel.innerHTML = specialSubjectDropdownOptionsHTML(yearEl.value);
+}
+
+function getSpecialSubjectsArr() {
+  const v = ((document.getElementById('specialSubjectsValue') || {}).value || '');
+  return v.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function setSpecialSubjectsArr(arr) {
+  const uniq = [...new Set(arr.map(s => s.trim()).filter(Boolean))];
+  const hid = document.getElementById('specialSubjectsValue'); if (hid) hid.value = uniq.join(', ');
+  renderSpecialSubjectChips();
+}
+
+function renderSpecialSubjectChips() {
+  const box = document.getElementById('specialSubjectChips'); if (!box) return;
+  const arr = getSpecialSubjectsArr();
+  box.innerHTML = arr.length
+    ? arr.map((s, i) => `<span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg px-2 py-1 text-xs">${String(s).replace(/</g, '&lt;')}<button type="button" onclick="removeSpecialSubject(${i})" class="text-blue-400 hover:text-red-500 font-bold leading-none">×</button></span>`).join('')
+    : '<span class="text-xs text-gray-400">ยังไม่ได้เลือกรายวิชา</span>';
+}
+
+function addSpecialSubject() {
+  const sel = document.getElementById('specialSubjectSelect'); if (!sel || !sel.value) return;
+  const arr = getSpecialSubjectsArr(); arr.push(sel.value); setSpecialSubjectsArr(arr); sel.value = '';
+}
+
+function addSpecialSubjectManual() {
+  const el = document.getElementById('specialSubjectManual'); if (!el || !el.value.trim()) return;
+  const arr = getSpecialSubjectsArr(); arr.push(el.value.trim()); setSpecialSubjectsArr(arr); el.value = '';
+}
+
+function removeSpecialSubject(i) {
+  const arr = getSpecialSubjectsArr(); arr.splice(i, 1); setSpecialSubjectsArr(arr);
 }
 
 function collectSpecialTeacherReg(form, obj) {
@@ -3949,6 +4029,7 @@ function showAddSpecialTeacherRegModal() {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  renderSpecialSubjectChips();
   document.getElementById('addSpecialTeacherRegForm').onsubmit = async (e) => {
     e.preventDefault();
     await withLoading(e.target, async () => {
@@ -3967,6 +4048,7 @@ function showEditSpecialTeacherRegModal(id) {
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
+  renderSpecialSubjectChips();
   document.getElementById('editSpecialTeacherRegForm').onsubmit = async (e) => {
     e.preventDefault();
     await withLoading(e.target, async () => {
