@@ -3916,17 +3916,47 @@ function specialTeachersPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">รายวิชาที่สอน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชาที่สอน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${t.academic_year || ''}</td>
-        <td class="px-4 py-3 font-medium">${t.name || ''}</td>
-        <td class="px-4 py-3">${t.academic_position || ''}</td>
-        <td class="px-4 py-3">${t.agency || ''}</td>
-        <td class="px-4 py-3">${t.subjects || t.edu_level || ''}</td>
-        ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        <td class="px-4 py-3 align-top">${t.academic_year || ''}</td>
+        <td class="px-4 py-3 font-medium align-top">${t.name || ''}</td>
+        <td class="px-4 py-3 align-top">${t.academic_position || ''}</td>
+        <td class="px-4 py-3 align-top">${t.agency || ''}</td>
+        ${specialSubjectCells(t)}
+        ${isAdmin ? `<td class="px-4 py-3 align-top"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 7 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+}
+
+// แยกรายการรายวิชา 1 รายการ → { code, name } โดยเทียบกับชีต subject (ตามชื่อ + ปีการศึกษา)
+function splitSubjectEntry(entry, academicYear) {
+  const e = norm(entry);
+  if (!e) return { code: '', name: '' };
+  const subs = getDataByType('subject');
+  const y = norm(academicYear);
+  // 1) ตรงชื่อวิชา (เลือกปีเดียวกันก่อน)
+  let m = subs.find(s => norm(s.subject_name) === e && (!y || norm(s.academic_year) === y))
+       || subs.find(s => norm(s.subject_name) === e);
+  if (m) return { code: norm(m.subject_code), name: norm(m.subject_name) };
+  // 2) ตรงรูปแบบ "รหัส ชื่อวิชา"
+  m = subs.find(s => norm(s.subject_code) && norm(norm(s.subject_code) + ' ' + norm(s.subject_name)) === e);
+  if (m) return { code: norm(m.subject_code), name: norm(m.subject_name) };
+  // 3) ขึ้นต้นด้วยรหัสวิชาที่รู้จัก → ตัดรหัสออกจากชื่อ
+  m = subs.find(s => norm(s.subject_code) && e.indexOf(norm(s.subject_code)) === 0);
+  if (m) { const code = norm(m.subject_code); return { code, name: e.slice(code.length).trim() }; }
+  // 4) ไม่พบ → ใส่ทั้งหมดในช่องชื่อวิชา
+  return { code: '', name: e };
+}
+
+// สร้าง 2 เซลล์ (รหัสวิชา | รายวิชาที่สอน) สำหรับตารางอาจารย์พิเศษ
+function specialSubjectCells(t) {
+  const raw = norm(t.subjects || t.edu_level);
+  if (!raw) return '<td class="px-4 py-3 text-gray-400 align-top">-</td><td class="px-4 py-3 text-gray-400 align-top">-</td>';
+  const items = raw.split(',').map(s => s.trim()).filter(Boolean).map(s => splitSubjectEntry(s, t.academic_year));
+  const codeHtml = items.map(it => `<div class="py-0.5">${(it.code || '-').replace(/</g, '&lt;')}</div>`).join('');
+  const nameHtml = items.map(it => `<div class="py-0.5">${(it.name || '-').replace(/</g, '&lt;')}</div>`).join('');
+  return `<td class="px-4 py-3 whitespace-nowrap align-top font-mono text-xs text-gray-600">${codeHtml}</td><td class="px-4 py-3 align-top">${nameHtml}</td>`;
 }
 
 function specialTeacherRegFormBody(t) {
