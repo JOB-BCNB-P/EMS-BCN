@@ -2022,7 +2022,7 @@ function schedulePage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ปฏิทินการศึกษา</h2>
     ${canManage ? `<div class="flex gap-2">
       <button onclick="showAddScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายการ</button>
-      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_type,room,year_level')}
+      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_time_end,schedule_type,room,year_level,exam_round,proctor')}
     </div>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 p-5">
@@ -2032,8 +2032,8 @@ function schedulePage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">เวลา</th><th class="px-4 py-3 font-semibold">รายวิชา/กิจกรรม</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ห้อง</th>${canManage ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${toBuddhistDate(s.schedule_date) || s.schedule_date || ''}</td><td class="px-4 py-3">${s.schedule_time || ''}</td>
-        <td class="px-4 py-3">${s.subject_name || ''}</td>
+        <td class="px-4 py-3">${toBuddhistDate(s.schedule_date) || s.schedule_date || ''}</td><td class="px-4 py-3 whitespace-nowrap">${s.schedule_time || ''}${s.schedule_time_end ? ' - ' + s.schedule_time_end : ''}</td>
+        <td class="px-4 py-3">${(s.subject_name || '').replace(/,\s*/g, '<br>')}${s.exam_round ? ` <span class="text-xs text-gray-400">(ครั้งที่ ${s.exam_round})</span>` : ''}${s.proctor ? `<div class="text-xs text-gray-400">ผู้คุมสอบ: ${s.proctor}</div>` : ''}</td>
         <td class="px-4 py-3">${scheduleTypeBadge(s.schedule_type)}</td>
         <td class="px-4 py-3">${s.room || ''}</td>
         ${canManage ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditScheduleModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}
@@ -2048,29 +2048,130 @@ function scheduleTypeInput(name, selectedValue) {
   const defaults = ['สอบกลางภาค', 'สอบปลายภาค', 'สอบย่อย', 'กิจกรรม', 'วันหยุด'];
   const allTypes = [...new Set([...defaults, ...existing])];
   const listId = 'scheduleTypeList_' + Date.now();
-  return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอบกลางภาค, กิจกรรม">
+  return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" oninput="if(window.onScheduleTypeChange)onScheduleTypeChange(this)" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอบกลางภาค, กิจกรรม">
     <datalist id="${listId}">${allTypes.map(t => `<option value="${t}">`).join('')}</datalist>`;
+}
+
+// ---- ปฏิทินการศึกษา: ฟอร์ม + ฟิลด์การสอบแบบไดนามิก + เลือกหลายวิชา ----
+// ตัวเลือกรายวิชา (จากชีต subject) กรองตามชั้นปีที่เลือก — ไม่ซ้ำชื่อวิชา
+function schedSubjectOptionsHTML(yearLevel) {
+  let subs = getDataByType('subject');
+  const y = norm(yearLevel);
+  if (y) subs = subs.filter(s => norm(s.year_level) === y);
+  const seen = new Set(); const out = [];
+  subs.forEach(s => {
+    const name = norm(s.subject_name); if (!name || seen.has(name)) return;
+    seen.add(name);
+    out.push({ name, label: s.subject_code ? `${norm(s.subject_code)} ${name}` : name });
+  });
+  out.sort((a, b) => a.label.localeCompare(b.label, 'th'));
+  if (!out.length) return '<option value="">— ไม่มีรายวิชา —</option>';
+  return '<option value="">— เลือกรายวิชา —</option>' + out.map(o => `<option value="${o.name.replace(/"/g, '&quot;')}">${o.label.replace(/</g, '&lt;')}</option>`).join('');
+}
+
+// datalist ชื่ออาจารย์ (จากชีต teacher + ทำเนียบ) สำหรับช่องผู้คุมสอบ
+function proctorDatalistHTML() {
+  const names = [...new Set([...getDataByType('teacher').map(t => norm(t.name)), ...getDataByType('teacher_directory').map(t => norm(t.name))].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  return `<datalist id="proctorList">${names.map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('')}</datalist>`;
+}
+
+function refreshSchedSubjectOptions() {
+  const yEl = document.getElementById('schedYearLevel');
+  const sel = document.getElementById('schedSubjectSelect');
+  if (!yEl || !sel) return;
+  sel.innerHTML = schedSubjectOptionsHTML(yEl.value);
+}
+function getSchedSubjectsArr() {
+  const v = ((document.getElementById('schedSubjectMultiValue') || {}).value || '');
+  return v.split(',').map(s => s.trim()).filter(Boolean);
+}
+function setSchedSubjectsArr(arr) {
+  const u = [...new Set(arr.map(s => s.trim()).filter(Boolean))];
+  const h = document.getElementById('schedSubjectMultiValue'); if (h) h.value = u.join(', ');
+  renderSchedSubjectChips();
+}
+function renderSchedSubjectChips() {
+  const box = document.getElementById('schedSubjectChips'); if (!box) return;
+  const arr = getSchedSubjectsArr();
+  box.innerHTML = arr.length
+    ? arr.map((s, i) => `<span class="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-100 rounded-lg px-2 py-1 text-xs">${String(s).replace(/</g, '&lt;')}<button type="button" onclick="removeSchedSubject(${i})" class="text-red-400 hover:text-red-600 font-bold leading-none">×</button></span>`).join('')
+    : '<span class="text-xs text-gray-400">ยังไม่ได้เลือกรายวิชา</span>';
+}
+function addSchedSubject() {
+  const sel = document.getElementById('schedSubjectSelect'); if (!sel || !sel.value) return;
+  const a = getSchedSubjectsArr(); a.push(sel.value); setSchedSubjectsArr(a); sel.value = '';
+}
+function removeSchedSubject(i) {
+  const a = getSchedSubjectsArr(); a.splice(i, 1); setSchedSubjectsArr(a);
+}
+// สลับการแสดงฟิลด์เมื่อประเภทเป็น/ไม่เป็น "การสอบ"
+function onScheduleTypeChange(el) {
+  const isExam = ((el && el.value) || '').includes('สอบ');
+  const ex = document.getElementById('schedExamFields');
+  const sw = document.getElementById('schedSubjectSingleWrap');
+  const mw = document.getElementById('schedSubjectMultiWrap');
+  const si = document.getElementById('schedSubjectSingle');
+  const mv = document.getElementById('schedSubjectMultiValue');
+  const er = document.getElementById('schedExamRound');
+  const pr = document.getElementById('schedProctor');
+  if (ex) ex.classList.toggle('hidden', !isExam);
+  if (sw) sw.classList.toggle('hidden', isExam);
+  if (mw) mw.classList.toggle('hidden', !isExam);
+  if (si) si.disabled = isExam;
+  if (mv) mv.disabled = !isExam;
+  if (er) er.disabled = !isExam;
+  if (pr) pr.disabled = !isExam;
+  if (isExam) { renderSchedSubjectChips(); if (window.lucide) lucide.createIcons(); }
+}
+
+function scheduleFormBody(s) {
+  s = s || {};
+  const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
+  const isExam = norm(s.schedule_type).includes('สอบ');
+  const subjVal = v('subject_name');
+  return `
+    <div id="schedSubjectSingleWrap" class="${isExam ? 'hidden' : ''}">
+      <label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม *</label>
+      <input name="subject_name" id="schedSubjectSingle" value="${subjVal}" ${isExam ? 'disabled' : ''} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อรายวิชาหรือกิจกรรม">
+    </div>
+    <div id="schedSubjectMultiWrap" class="${isExam ? '' : 'hidden'}">
+      <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอบ * <span class="font-normal text-gray-400">(เลือกได้หลายวิชา)</span></label>
+      <input type="hidden" name="subject_name" id="schedSubjectMultiValue" value="${subjVal}" ${isExam ? '' : 'disabled'}>
+      <div class="flex gap-2 items-stretch">
+        <select id="schedSubjectSelect" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm">${schedSubjectOptionsHTML(s.year_level)}</select>
+        <button type="button" onclick="addSchedSubject()" class="shrink-0 px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
+      </div>
+      <div id="schedSubjectChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="block text-xs text-gray-600 mb-1">วันที่ *</label><input name="schedule_date" type="date" required value="${v('schedule_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ประเภท *</label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">เวลา (เริ่ม)</label><input name="schedule_time" type="time" value="${v('schedule_time')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ถึงเวลา</label><input name="schedule_time_end" type="time" value="${v('schedule_time_end')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" id="schedYearLevel" onchange="refreshSchedSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${norm(s.year_level) === y ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
+    </div>
+    <div id="schedExamFields" class="${isExam ? '' : 'hidden'} grid grid-cols-2 gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+      <div class="col-span-2 text-xs font-semibold text-red-700"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 inline"></i> ข้อมูลการสอบ</div>
+      <div><label class="block text-xs text-gray-600 mb-1">ครั้งที่</label><input name="exam_round" id="schedExamRound" value="${v('exam_round')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ</label><input name="proctor" id="schedProctor" value="${v('proctor')}" ${isExam ? '' : 'disabled'} list="proctorList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่ออาจารย์ผู้คุมสอบ">${proctorDatalistHTML()}</div>
+    </div>`;
 }
 
 function showAddScheduleModal() {
   showModal('เพิ่มรายการปฏิทินการศึกษา', `
     <form id="addScheduleForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม *</label><input name="subject_name" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อรายวิชาหรือกิจกรรม"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่ *</label><input name="schedule_date" type="date" required class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">เวลา</label><input name="schedule_time" type="time" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ประเภท *</label>${scheduleTypeInput('schedule_type', '')}</div>
-        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-      </div>
+      ${scheduleFormBody({})}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
+  renderSchedSubjectChips();
   document.getElementById('addScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       if (!(fd.get('schedule_type') || '').trim()) { showToast('กรุณาระบุประเภท', 'error'); return; }
+      if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
       const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มรายการสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
@@ -7819,18 +7920,34 @@ function renderCalendar(containerId) {
 
   let h = `<div class="text-center font-bold mb-3">${monthNames[month]} ${year + 543}</div>`;
   h += '<div class="grid grid-cols-7 gap-px text-center text-xs">';
-  ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].forEach(d => h += `<div class="py-1 font-semibold text-gray-500">${d}</div>`);
+  ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].forEach((d, idx) => { const c = idx === 0 ? 'text-red-500' : idx === 6 ? 'text-indigo-500' : 'text-gray-500'; h += `<div class="py-1 font-semibold ${c}">${d}</div>`; });
   for (let i = 0; i < firstDay; i++)h += '<div></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const dayEvents = events.filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr));
     const isToday = d === now.getDate();
-    h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${isToday ? 'bg-primary text-white' : ''}">
-      <div class="text-xs ${isToday ? 'font-bold' : ''}">${d}</div>
-      ${dayEvents.slice(0, 2).map(e => { const st = (e.schedule_type || e.event_type || '').trim(); const cls = st.includes('สอบ') ? 'bg-red-200 text-red-800' : st === 'วันหยุด' ? 'bg-green-200 text-green-800' : st === 'กิจกรรม' ? 'bg-purple-200 text-purple-800' : 'bg-blue-200 text-blue-800'; return `<div class="cal-event ${cls}" title="${st}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`; }).join('')}
+    const dow = new Date(year, month, d).getDay();
+    const isHoliday = dayEvents.some(e => (e.schedule_type || e.event_type || '').includes('วันหยุด'));
+    const cellCls = isToday ? 'bg-primary text-white'
+      : isHoliday ? 'bg-green-100 ring-1 ring-green-300'
+      : dow === 0 ? 'bg-red-50'
+      : dow === 6 ? 'bg-indigo-50' : '';
+    const numCls = isToday ? 'font-bold'
+      : isHoliday ? 'text-green-700 font-semibold'
+      : dow === 0 ? 'text-red-500 font-medium'
+      : dow === 6 ? 'text-indigo-500 font-medium' : '';
+    h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${cellCls}">
+      <div class="text-xs ${numCls}">${d}</div>
+      ${dayEvents.slice(0, 2).map(e => { const st = (e.schedule_type || e.event_type || '').trim(); const cls = st.includes('สอบ') ? 'bg-red-200 text-red-800' : st.includes('วันหยุด') ? 'bg-green-200 text-green-800' : st === 'กิจกรรม' ? 'bg-purple-200 text-purple-800' : 'bg-blue-200 text-blue-800'; return `<div class="cal-event ${cls}" title="${st}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`; }).join('')}
     </div>`;
   }
   h += '</div>';
+  h += '<div class="flex flex-wrap items-center justify-center gap-3 mt-3 text-xs text-gray-500">'
+    + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-50 border border-red-200"></span>อาทิตย์</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-indigo-50 border border-indigo-200"></span>เสาร์</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-100 border border-green-300"></span>วันหยุด</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-primary"></span>วันนี้</span>'
+    + '</div>';
   el.innerHTML = h;
 }
 
@@ -8063,18 +8180,17 @@ function showEditScheduleModal(id) {
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
   showModal('แก้ไขรายการปฏิทินการศึกษา', `
     <form id="editScheduleForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม</label><input name="subject_name" value="${s.subject_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="schedule_date" type="date" value="${s.schedule_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">เวลา</label><input name="schedule_time" type="time" value="${s.schedule_time || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
-        <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${s.room || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option><option ${norm(s.year_level) === '1' ? 'selected' : ''}>1</option><option ${norm(s.year_level) === '2' ? 'selected' : ''}>2</option><option ${norm(s.year_level) === '3' ? 'selected' : ''}>3</option><option ${norm(s.year_level) === '4' ? 'selected' : ''}>4</option></select></div>
-      </div>
+      ${scheduleFormBody(s)}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
-  document.getElementById('editScheduleForm').onsubmit = (e) => { e.preventDefault(); editRecord(id, 'editScheduleForm') };
+  renderSchedSubjectChips();
+  document.getElementById('editScheduleForm').onsubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
+    editRecord(id, 'editScheduleForm');
+  };
 }
 
 function showEditGradeModal(id) {
