@@ -401,7 +401,7 @@ function buildSidebar() {
   if (p.dashboard) items.push({ id: 'dashboard', icon: 'layout-dashboard', label: 'หน้าหลัก' });
 
   // Registration dropdown — permission-driven for all roles
-  // ระบบทะเบียน: 1.ข้อมูลนักศึกษา 2.ข้อมูลอาจารย์ 3.ปฏิทินการศึกษา (+ รายวิชาที่เปิดสอน)
+  // ระบบทะเบียน: 1.ข้อมูลนักศึกษา 2.ข้อมูลอาจารย์ 3.ปฏิทินกิจกรรมวิชาการ (+ รายวิชาที่เปิดสอน)
   let regSub = [];
   if (r === 'student') {
     if (p.students) regSub.push({ id: 'studentInfo', label: 'ข้อมูลนักศึกษา' });
@@ -412,9 +412,11 @@ function buildSidebar() {
   if (p.advisors) regSub.push({ id: 'advisorInfo', label: 'ข้อมูลอาจารย์ที่ปรึกษา' });
   if (p.specialTeachers) regSub.push({ id: 'specialTeachers', label: 'ข้อมูลอาจารย์พิเศษ' });
   if (p.alumni) regSub.push({ id: 'alumni', label: 'ข้อมูลศิษย์เก่า' });
-  if (p.schedule) regSub.push({ id: 'schedule', label: 'ปฏิทินการศึกษา' });
   if (p.subjects) regSub.push({ id: 'subjects', label: 'รายวิชาที่เปิดสอน' });
   if (regSub.length) items.push({ id: 'registration', icon: 'book-open', label: 'ระบบทะเบียน', sub: regSub });
+
+  // ปฏิทินกิจกรรมวิชาการ — แยกเป็นเมนูหลัก ต่อจากระบบทะเบียน
+  if (p.schedule) items.push({ id: 'schedule', icon: 'calendar', label: 'ปฏิทินกิจกรรมวิชาการ' });
 
   // ผลการศึกษา: 1.ผลการเรียน 2.ผลสอบภาษาอังกฤษ
   let eduSub = [];
@@ -1339,7 +1341,7 @@ function dashboardPage() {
   ${stats}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
-      <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="calendar" class="w-5 h-5 text-primary"></i>ปฏิทินการศึกษา</h3>
+      <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="calendar" class="w-5 h-5 text-primary"></i>ปฏิทินกิจกรรมวิชาการ</h3>
       <div id="dashCalendar"></div>
     </div>
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
@@ -2003,7 +2005,7 @@ async function runImportGradesFromSubject(subjectId) {
   }
 }
 
-// ======================== SCHEDULE (ปฏิทินการศึกษา) ========================
+// ======================== SCHEDULE (ปฏิทินกิจกรรมวิชาการ) ========================
 function scheduleTypeBadge(type) {
   const t = (type || '').trim();
   if (!t) return '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">ไม่ระบุ</span>';
@@ -2019,10 +2021,10 @@ function schedulePage() {
   const total = allSchedule.length; const paged = paginate(allSchedule);
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ปฏิทินการศึกษา</h2>
+    <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ปฏิทินกิจกรรมวิชาการ</h2>
     ${canManage ? `<div class="flex gap-2">
       <button onclick="showAddScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายการ</button>
-      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_time_end,schedule_type,room,year_level,exam_round,proctor')}
+      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_time_end,schedule_type,room,year_level,exam_round,proctor,proctor_change_date')}
     </div>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 p-5">
@@ -2052,7 +2054,7 @@ function scheduleTypeInput(name, selectedValue) {
     <datalist id="${listId}">${allTypes.map(t => `<option value="${t}">`).join('')}</datalist>`;
 }
 
-// ---- ปฏิทินการศึกษา: ฟอร์ม + ฟิลด์การสอบแบบไดนามิก + เลือกหลายวิชา ----
+// ---- ปฏิทินกิจกรรมวิชาการ: ฟอร์ม + ฟิลด์การสอบแบบไดนามิก + เลือกหลายวิชา ----
 // ตัวเลือกรายวิชา (จากชีต subject) กรองตามชั้นปีที่เลือก — ไม่ซ้ำชื่อวิชา
 function schedSubjectOptionsHTML(yearLevel) {
   let subs = getDataByType('subject');
@@ -2138,6 +2140,7 @@ function onScheduleTypeChange(el) {
   const mv = document.getElementById('schedSubjectMultiValue');
   const er = document.getElementById('schedExamRound');
   const pv = document.getElementById('schedProctorValue');
+  const pcd = document.getElementById('schedProctorChangeDate');
   if (ex) ex.classList.toggle('hidden', !isExam);
   if (sw) sw.classList.toggle('hidden', isExam);
   if (mw) mw.classList.toggle('hidden', !isExam);
@@ -2145,6 +2148,7 @@ function onScheduleTypeChange(el) {
   if (mv) mv.disabled = !isExam;
   if (er) er.disabled = !isExam;
   if (pv) pv.disabled = !isExam;
+  if (pcd) pcd.disabled = !isExam;
   if (isExam) { renderSchedSubjectChips(); renderSchedProctorChips(); if (window.lucide) lucide.createIcons(); }
   // เมื่อเพิ่งเปลี่ยนประเภทเป็น "การสอบ" → เปิดแจ้งเตือน + เลือกบทบาทเริ่มต้นให้ (ผู้ใช้ปรับเองได้)
   const wasExam = window._schedWasExam === true;
@@ -2203,6 +2207,7 @@ function scheduleFormBody(s, isNew) {
         ${proctorDatalistHTML()}
         <div id="schedProctorChips" class="flex flex-wrap gap-1.5 mt-2"></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">วันที่เปลี่ยนผู้คุมสอบ <span class="font-normal text-gray-400">(กรอกเมื่อมีการขอเปลี่ยน)</span></label><input name="proctor_change_date" id="schedProctorChangeDate" type="date" value="${v('proctor_change_date')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm"></div>
     </div>
     <div class="p-3 bg-green-50 rounded-xl border border-green-100 space-y-2">
       <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="schedNotify" ${notifyDefault ? 'checked' : ''} onchange="toggleSchedNotify()" class="w-4 h-4"><span class="text-sm font-medium text-green-800">🔔 สร้างประกาศแจ้งเตือนจากรายการนี้</span></label>
@@ -2238,7 +2243,7 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
   if (isExam && proctors) lines.push('อาจารย์ผู้คุมสอบ: ' + proctors);
   const obj = {
     type: 'announcement',
-    announcement_title: (isExam ? '📝 แจ้งกำหนดสอบ' : '📅 แจ้งเตือนปฏิทินการศึกษา') + (yr ? ' — ชั้นปีที่ ' + yr : '') + (subjects ? ' (' + subjects + ')' : ''),
+    announcement_title: (isExam ? '📝 แจ้งกำหนดสอบ' : '📅 แจ้งเตือนปฏิทินกิจกรรมวิชาการ') + (yr ? ' — ชั้นปีที่ ' + yr : '') + (subjects ? ' (' + subjects + ')' : ''),
     announcement_content: lines.join('\n'),
     announcement_date: norm(s.schedule_date) || new Date().toISOString().slice(0, 10),
     event_type: isExam ? 'สอบ' : (type || 'ทั่วไป'),
@@ -2250,7 +2255,7 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
 }
 
 function showAddScheduleModal() {
-  showModal('เพิ่มรายการปฏิทินการศึกษา', `
+  showModal('เพิ่มรายการปฏิทินกิจกรรมวิชาการ', `
     <form id="addScheduleForm" class="space-y-3">
       ${scheduleFormBody({}, true)}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -7457,7 +7462,7 @@ function userGuidePage() {
     <p><b>ข้อมูลอาจารย์</b> — เลือกสาขาวิชาเพื่อดูรายชื่อ ผู้ดูแลเพิ่ม/แก้ไข/ลบได้</p>
     <p><b>ข้อมูลอาจารย์พิเศษ</b> — บันทึกอาจารย์พิเศษ (ปีการศึกษา, คำนำหน้า, ชื่อ, ตำแหน่ง, หน่วยงาน, ระดับวุฒิ) กรองตามปีการศึกษาได้ และทำเนียบอาจารย์สามารถดึงข้อมูลจากที่นี่ไปใช้ได้</p>
     <p><b>ข้อมูลศิษย์เก่า</b> — รายชื่อผู้สำเร็จการศึกษา (คำนำหน้า, ชื่อ, รุ่น, สถานภาพ, สถานที่ปฏิบัติงาน, วันเข้า/จบการศึกษา, วันที่บันทึก) กรองตามรุ่นได้ ระบบจะเพิ่มให้อัตโนมัติเมื่อเลื่อนชั้นปี 4 เป็นสำเร็จการศึกษา</p>
-    <p><b>ปฏิทินการศึกษา</b> — รายการกิจกรรม/กำหนดการของวิทยาลัย</p>
+    <p><b>ปฏิทินกิจกรรมวิชาการ</b> — รายการกิจกรรม/กำหนดการของวิทยาลัย</p>
     <p><b>รายวิชาที่เปิดสอน</b> — เลือกปีการศึกษาเพื่อดูรายวิชา แสดงรหัสหน่วยกิตแบบ น(ท-ป-อ) (ดูข้อ 6) ผู้ดูแลเพิ่ม/แก้ไข/นำเข้า CSV และ "นำเข้ารายชื่อสร้างผลการเรียน" ได้</p>`)}
 
   ${sec('graduation-cap', '5. การเลื่อนชั้นปี และผู้สำเร็จการศึกษา', `
@@ -7613,7 +7618,7 @@ function passwordLogSection() {
 function settingsPage() {
   const roles = ['admin', 'academic', 'registrar', 'deptHead', 'executive', 'teacher', 'classTeacher', 'student'];
   const modules = ['dashboard', 'students', 'teachers', 'advisors', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave', 'survey'];
-  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', advisors: 'ข้อมูลอาจารย์ที่ปรึกษา', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินการศึกษา', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา', survey: 'แบบประเมินความพึงพอใจ' };
+  const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', advisors: 'ข้อมูลอาจารย์ที่ปรึกษา', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินกิจกรรมวิชาการ', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา', survey: 'แบบประเมินความพึงพอใจ' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', registrar: 'งานทะเบียน', deptHead: 'ประธานสาขา', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
   const users = applyFilters(getDataByType('user'));
@@ -8039,9 +8044,11 @@ function renderCalendar(containerId) {
       : isHoliday ? 'text-green-700 font-semibold'
       : dow === 0 ? 'text-red-500 font-medium'
       : dow === 6 ? 'text-indigo-500 font-medium' : '';
-    h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${cellCls}">
+    const clickable = dayEvents.length ? `onclick="showCalendarDayModal('${dateStr}')" style="cursor:pointer"` : '';
+    h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${cellCls}" ${clickable}>
       <div class="text-xs ${numCls}">${d}</div>
       ${dayEvents.slice(0, 2).map(e => { const st = (e.schedule_type || e.event_type || '').trim(); const cls = st.includes('สอบ') ? 'bg-red-200 text-red-800' : st.includes('วันหยุด') ? 'bg-green-200 text-green-800' : st === 'กิจกรรม' ? 'bg-purple-200 text-purple-800' : 'bg-blue-200 text-blue-800'; return `<div class="cal-event ${cls}" title="${st}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`; }).join('')}
+      ${dayEvents.length > 2 ? `<div class="text-[10px] text-gray-500 mt-0.5">+${dayEvents.length - 2} เพิ่มเติม</div>` : ''}
     </div>`;
   }
   h += '</div>';
@@ -8052,6 +8059,48 @@ function renderCalendar(containerId) {
     + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-primary"></span>วันนี้</span>'
     + '</div>';
   el.innerHTML = h;
+}
+
+// ป็อปอัพแสดงรายการปฏิทินทั้งหมดของวันที่เลือก พร้อมรายละเอียดเต็ม
+function showCalendarDayModal(dateStr) {
+  const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
+  const events = [...getDataByType('schedule'), ...getDataByType('announcement')]
+    .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr));
+  const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(dateStr)) || dateStr;
+  if (!events.length) { showModal('รายการวันที่ ' + dateTh, '<p class="text-center text-gray-400 py-6">ไม่มีรายการในวันนี้</p>'); return; }
+  const body = events.map(e => {
+    const isAnn = !norm(e.schedule_date) && norm(e.announcement_date);
+    if (isAnn) {
+      return `<div class="border border-blue-100 rounded-xl p-3 bg-blue-50">
+        <div class="font-semibold text-sm">📢 ${e.announcement_title || '(ประกาศ)'}</div>
+        ${e.announcement_content ? `<div class="text-xs text-gray-600 mt-1 whitespace-pre-line">${e.announcement_content}</div>` : ''}
+      </div>`;
+    }
+    const type = norm(e.schedule_type);
+    const isExam = type.includes('สอบ');
+    const timeRange = norm(e.schedule_time) + (norm(e.schedule_time_end) ? ' - ' + norm(e.schedule_time_end) : '');
+    const subjects = norm(e.subject_name).replace(/,\s*/g, ', ');
+    const pcd = norm(e.proctor_change_date);
+    return `<div class="border border-gray-100 rounded-xl p-3 bg-surface">
+      <div class="flex items-start justify-between gap-2">
+        <div class="font-semibold text-sm">${(subjects || '-').replace(/,\s*/g, '<br>')}</div>
+        <span class="shrink-0">${scheduleTypeBadge(e.schedule_type)}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        ${infoRow('เวลา', timeRange)}
+        ${infoRow('ห้อง', e.room)}
+        ${infoRow('ชั้นปี', norm(e.year_level) ? 'ชั้นปีที่ ' + norm(e.year_level) : 'ทุกชั้นปี')}
+        ${isExam ? infoRow('ครั้งที่', e.exam_round) : ''}
+        ${isExam ? infoRow('อาจารย์ผู้คุมสอบ', norm(e.proctor).replace(/,\s*/g, ', ')) : ''}
+        ${isExam && pcd ? infoRow('วันที่เปลี่ยนผู้คุมสอบ', (typeof toBuddhistDate === 'function' && toBuddhistDate(pcd)) || pcd) : ''}
+      </div>
+      ${canManage ? `<div class="flex justify-end gap-2 mt-2">
+        <button onclick="showEditScheduleModal('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"><i data-lucide="pencil" class="w-3.5 h-3.5 inline"></i> แก้ไข</button>
+        <button onclick="deleteRecord('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i> ลบ</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  showModal('รายการวันที่ ' + dateTh + ' (' + events.length + ' รายการ)', `<div class="space-y-3">${body}</div>`);
 }
 
 // ======================== LEAVE APPROVAL ========================
@@ -8281,7 +8330,7 @@ function showEditSubjectModal(id) {
 
 function showEditScheduleModal(id) {
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
-  showModal('แก้ไขรายการปฏิทินการศึกษา', `
+  showModal('แก้ไขรายการปฏิทินกิจกรรมวิชาการ', `
     <form id="editScheduleForm" class="space-y-3">
       ${scheduleFormBody(s, false)}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
