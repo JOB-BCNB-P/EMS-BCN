@@ -2104,6 +2104,30 @@ function addSchedSubject() {
 function removeSchedSubject(i) {
   const a = getSchedSubjectsArr(); a.splice(i, 1); setSchedSubjectsArr(a);
 }
+// อาจารย์ผู้คุมสอบ — เลือกได้หลายคน (เก็บใน proctor คั่นด้วย ,)
+function getSchedProctorArr() {
+  const v = ((document.getElementById('schedProctorValue') || {}).value || '');
+  return v.split(',').map(s => s.trim()).filter(Boolean);
+}
+function setSchedProctorArr(arr) {
+  const u = [...new Set(arr.map(s => s.trim()).filter(Boolean))];
+  const h = document.getElementById('schedProctorValue'); if (h) h.value = u.join(', ');
+  renderSchedProctorChips();
+}
+function renderSchedProctorChips() {
+  const box = document.getElementById('schedProctorChips'); if (!box) return;
+  const arr = getSchedProctorArr();
+  box.innerHTML = arr.length
+    ? arr.map((s, i) => `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg px-2 py-1 text-xs">${String(s).replace(/</g, '&lt;')}<button type="button" onclick="removeSchedProctor(${i})" class="text-amber-400 hover:text-red-600 font-bold leading-none">×</button></span>`).join('')
+    : '<span class="text-xs text-gray-400">ยังไม่ได้เลือกผู้คุมสอบ</span>';
+}
+function addSchedProctor() {
+  const el = document.getElementById('schedProctorSelect'); if (!el || !el.value.trim()) return;
+  const a = getSchedProctorArr(); a.push(el.value.trim()); setSchedProctorArr(a); el.value = '';
+}
+function removeSchedProctor(i) {
+  const a = getSchedProctorArr(); a.splice(i, 1); setSchedProctorArr(a);
+}
 // สลับการแสดงฟิลด์เมื่อประเภทเป็น/ไม่เป็น "การสอบ"
 function onScheduleTypeChange(el) {
   const isExam = ((el && el.value) || '').includes('สอบ');
@@ -2113,22 +2137,37 @@ function onScheduleTypeChange(el) {
   const si = document.getElementById('schedSubjectSingle');
   const mv = document.getElementById('schedSubjectMultiValue');
   const er = document.getElementById('schedExamRound');
-  const pr = document.getElementById('schedProctor');
+  const pv = document.getElementById('schedProctorValue');
   if (ex) ex.classList.toggle('hidden', !isExam);
   if (sw) sw.classList.toggle('hidden', isExam);
   if (mw) mw.classList.toggle('hidden', !isExam);
   if (si) si.disabled = isExam;
   if (mv) mv.disabled = !isExam;
   if (er) er.disabled = !isExam;
-  if (pr) pr.disabled = !isExam;
-  if (isExam) { renderSchedSubjectChips(); if (window.lucide) lucide.createIcons(); }
+  if (pv) pv.disabled = !isExam;
+  if (isExam) { renderSchedSubjectChips(); renderSchedProctorChips(); if (window.lucide) lucide.createIcons(); }
+  // เมื่อเพิ่งเปลี่ยนประเภทเป็น "การสอบ" → เปิดแจ้งเตือน + เลือกบทบาทเริ่มต้นให้ (ผู้ใช้ปรับเองได้)
+  const wasExam = window._schedWasExam === true;
+  window._schedWasExam = isExam;
+  if (isExam && !wasExam) {
+    const nt = document.getElementById('schedNotify');
+    if (nt && !nt.checked) {
+      nt.checked = true;
+      const cbs = document.querySelectorAll('.ann-role-cb');
+      const anyChecked = Array.prototype.some.call(cbs, c => c.checked);
+      if (!anyChecked) ['student', 'teacher', 'classTeacher'].forEach(r => { const c = document.querySelector('.ann-role-cb[value="' + r + '"]'); if (c) c.checked = true; });
+      toggleSchedNotify();
+    }
+  }
 }
 
-function scheduleFormBody(s) {
+function scheduleFormBody(s, isNew) {
   s = s || {};
   const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
   const isExam = norm(s.schedule_type).includes('สอบ');
   const subjVal = v('subject_name');
+  const notifyDefault = !!(isNew && isExam);
+  const notifyRolesDefault = isExam ? 'student,teacher,classTeacher' : '';
   return `
     <div id="schedSubjectSingleWrap" class="${isExam ? 'hidden' : ''}">
       <label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม *</label>
@@ -2151,30 +2190,94 @@ function scheduleFormBody(s) {
       <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" id="schedYearLevel" onchange="refreshSchedSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${norm(s.year_level) === y ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
     </div>
-    <div id="schedExamFields" class="${isExam ? '' : 'hidden'} grid grid-cols-2 gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-      <div class="col-span-2 text-xs font-semibold text-red-700"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 inline"></i> ข้อมูลการสอบ</div>
+    <div id="schedExamFields" class="${isExam ? '' : 'hidden'} space-y-3 p-3 bg-red-50 rounded-xl border border-red-100">
+      <div class="text-xs font-semibold text-red-700"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 inline"></i> ข้อมูลการสอบ</div>
       <div><label class="block text-xs text-gray-600 mb-1">ครั้งที่</label><input name="exam_round" id="schedExamRound" value="${v('exam_round')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ</label><input name="proctor" id="schedProctor" value="${v('proctor')}" ${isExam ? '' : 'disabled'} list="proctorList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่ออาจารย์ผู้คุมสอบ">${proctorDatalistHTML()}</div>
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ <span class="font-normal text-gray-400">(เลือกได้หลายคน)</span></label>
+        <input type="hidden" name="proctor" id="schedProctorValue" value="${v('proctor')}" ${isExam ? '' : 'disabled'}>
+        <div class="flex gap-2 items-stretch">
+          <input id="schedProctorSelect" list="proctorList" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์หรือเลือกชื่ออาจารย์" onkeydown="if(event.key==='Enter'){event.preventDefault();addSchedProctor();}">
+          <button type="button" onclick="addSchedProctor()" class="shrink-0 px-3 py-2 bg-amber-600 text-white rounded-xl text-sm hover:bg-amber-700 whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
+        </div>
+        ${proctorDatalistHTML()}
+        <div id="schedProctorChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+      </div>
+    </div>
+    <div class="p-3 bg-green-50 rounded-xl border border-green-100 space-y-2">
+      <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="schedNotify" ${notifyDefault ? 'checked' : ''} onchange="toggleSchedNotify()" class="w-4 h-4"><span class="text-sm font-medium text-green-800">🔔 สร้างประกาศแจ้งเตือนจากรายการนี้</span></label>
+      <div id="schedNotifyOptions" class="${notifyDefault ? '' : 'hidden'} space-y-2">
+        ${annRolesFieldHTML(notifyRolesDefault)}
+        <label class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 cursor-pointer border border-green-100"><input type="checkbox" id="schedNotifyLine" checked class="w-4 h-4"><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
+      </div>
     </div>`;
+}
+function toggleSchedNotify() {
+  const c = document.getElementById('schedNotify');
+  const o = document.getElementById('schedNotifyOptions');
+  if (o) o.classList.toggle('hidden', !(c && c.checked));
+}
+
+// สร้างประกาศแจ้งเตือนจากรายการปฏิทิน — เลือกบทบาทผู้รับ (roles) และเลือกส่ง LINE ได้
+async function createScheduleAnnouncement(s, roles, sendLine) {
+  const subjects = norm(s.subject_name).replace(/,\s*/g, ', ');
+  const yr = norm(s.year_level);
+  const type = norm(s.schedule_type);
+  const isExam = type.includes('สอบ');
+  const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(s.schedule_date)) || s.schedule_date || '';
+  const timeRange = norm(s.schedule_time) + (norm(s.schedule_time_end) ? ' - ' + norm(s.schedule_time_end) : '');
+  const proctors = norm(s.proctor).replace(/,\s*/g, ', ');
+  const lines = [];
+  lines.push((isExam ? 'รายวิชาที่สอบ: ' : 'รายการ: ') + (subjects || '-'));
+  if (type) lines.push('ประเภท: ' + type);
+  if (isExam && norm(s.exam_round)) lines.push('ครั้งที่: ' + norm(s.exam_round));
+  lines.push('ชั้นปี: ' + (yr ? ('ชั้นปีที่ ' + yr) : 'ทุกชั้นปี'));
+  if (dateTh) lines.push('วันที่: ' + dateTh);
+  if (timeRange.trim()) lines.push('เวลา: ' + timeRange);
+  if (norm(s.room)) lines.push('ห้อง: ' + norm(s.room));
+  if (isExam && proctors) lines.push('อาจารย์ผู้คุมสอบ: ' + proctors);
+  const obj = {
+    type: 'announcement',
+    announcement_title: (isExam ? '📝 แจ้งกำหนดสอบ' : '📅 แจ้งเตือนปฏิทินการศึกษา') + (yr ? ' — ชั้นปีที่ ' + yr : '') + (subjects ? ' (' + subjects + ')' : ''),
+    announcement_content: lines.join('\n'),
+    announcement_date: norm(s.schedule_date) || new Date().toISOString().slice(0, 10),
+    event_type: isExam ? 'สอบ' : (type || 'ทั่วไป'),
+    roles: roles || '',
+    line_notify: sendLine ? '✓' : '',
+    created_at: new Date().toISOString()
+  };
+  try { return await GSheetDB.create(obj); } catch (_) { return { isOk: false }; }
 }
 
 function showAddScheduleModal() {
   showModal('เพิ่มรายการปฏิทินการศึกษา', `
     <form id="addScheduleForm" class="space-y-3">
-      ${scheduleFormBody({})}
+      ${scheduleFormBody({}, true)}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
   renderSchedSubjectChips();
+  renderSchedProctorChips();
+  window._schedWasExam = false;
   document.getElementById('addScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
+    // อ่านค่าการแจ้งเตือนก่อน (เพราะ modal จะถูกปิดหลังบันทึก)
+    const notifyEl = document.getElementById('schedNotify');
+    const doNotify = !!(notifyEl && notifyEl.checked);
+    const roles = doNotify ? annCollectRoles() : '';
+    const lineEl = document.getElementById('schedNotifyLine');
+    const sendLine = !!(lineEl && lineEl.checked);
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       if (!(fd.get('schedule_type') || '').trim()) { showToast('กรุณาระบุประเภท', 'error'); return; }
       if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
       const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
       const r = await GSheetDB.create(obj);
-      if (r.isOk) { showToast('เพิ่มรายการสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+      if (r.isOk) {
+        if (doNotify) { await createScheduleAnnouncement(obj, roles, sendLine); showToast('เพิ่มรายการและสร้างประกาศแจ้งเตือนแล้ว'); }
+        else showToast('เพิ่มรายการสำเร็จ');
+        closeModal();
+      } else showToast('เกิดข้อผิดพลาด', 'error');
     });
   };
 }
@@ -8180,16 +8283,28 @@ function showEditScheduleModal(id) {
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
   showModal('แก้ไขรายการปฏิทินการศึกษา', `
     <form id="editScheduleForm" class="space-y-3">
-      ${scheduleFormBody(s)}
+      ${scheduleFormBody(s, false)}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
   `);
   renderSchedSubjectChips();
-  document.getElementById('editScheduleForm').onsubmit = (e) => {
+  renderSchedProctorChips();
+  window._schedWasExam = norm(s.schedule_type).includes('สอบ');
+  document.getElementById('editScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
-    editRecord(id, 'editScheduleForm');
+    // อ่านค่าการแจ้งเตือนก่อนปิด modal
+    const notifyEl = document.getElementById('schedNotify');
+    const doNotify = !!(notifyEl && notifyEl.checked);
+    const roles = doNotify ? annCollectRoles() : '';
+    const lineEl = document.getElementById('schedNotifyLine');
+    const sendLine = !!(lineEl && lineEl.checked);
+    await editRecord(id, 'editScheduleForm');
+    if (doNotify) {
+      const rec = APP.allData.find(d => d.__backendId === id);
+      if (rec) { await createScheduleAnnouncement(rec, roles, sendLine); showToast('บันทึกและสร้างประกาศแจ้งเตือนแล้ว'); }
+    }
   };
 }
 
