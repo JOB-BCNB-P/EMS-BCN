@@ -2024,7 +2024,7 @@ function schedulePage() {
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="calendar" class="w-6 h-6 inline mr-2"></i>ปฏิทินกิจกรรมวิชาการ</h2>
     ${canManage ? `<div class="flex gap-2">
       <button onclick="showAddScheduleModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มรายการ</button>
-      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_time_end,schedule_type,room,year_level,exam_round,proctor,proctor_change_date')}
+      ${csvUploadBtn('schedule', 'subject_name,schedule_date,schedule_time,schedule_time_end,schedule_type,room,year_level,exam_round,student_count,proctor,proctor_change_date,exam_split,room2,student_count2,proctor2')}
     </div>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 p-5">
@@ -2106,29 +2106,55 @@ function addSchedSubject() {
 function removeSchedSubject(i) {
   const a = getSchedSubjectsArr(); a.splice(i, 1); setSchedSubjectsArr(a);
 }
-// อาจารย์ผู้คุมสอบ — เลือกได้หลายคน (เก็บใน proctor คั่นด้วย ,)
-function getSchedProctorArr() {
-  const v = ((document.getElementById('schedProctorValue') || {}).value || '');
+// อาจารย์ผู้คุมสอบ — เลือกได้หลายคน ต่อชุด/ห้อง (idx 1 = ห้องสอบ 1 → proctor, idx 2 = ห้องสอบ 2 → proctor2)
+function getSchedProctorArr(idx) {
+  const v = ((document.getElementById('schedProctorValue' + idx) || {}).value || '');
   return v.split(',').map(s => s.trim()).filter(Boolean);
 }
-function setSchedProctorArr(arr) {
+function setSchedProctorArr(idx, arr) {
   const u = [...new Set(arr.map(s => s.trim()).filter(Boolean))];
-  const h = document.getElementById('schedProctorValue'); if (h) h.value = u.join(', ');
-  renderSchedProctorChips();
+  const h = document.getElementById('schedProctorValue' + idx); if (h) h.value = u.join(', ');
+  renderSchedProctorChips(idx);
 }
-function renderSchedProctorChips() {
-  const box = document.getElementById('schedProctorChips'); if (!box) return;
-  const arr = getSchedProctorArr();
+function renderSchedProctorChips(idx) {
+  const box = document.getElementById('schedProctorChips' + idx); if (!box) return;
+  const arr = getSchedProctorArr(idx);
   box.innerHTML = arr.length
-    ? arr.map((s, i) => `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg px-2 py-1 text-xs">${String(s).replace(/</g, '&lt;')}<button type="button" onclick="removeSchedProctor(${i})" class="text-amber-400 hover:text-red-600 font-bold leading-none">×</button></span>`).join('')
+    ? arr.map((s, i) => `<span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg px-2 py-1 text-xs">${String(s).replace(/</g, '&lt;')}<button type="button" onclick="removeSchedProctor(${idx},${i})" class="text-amber-400 hover:text-red-600 font-bold leading-none">×</button></span>`).join('')
     : '<span class="text-xs text-gray-400">ยังไม่ได้เลือกผู้คุมสอบ</span>';
 }
-function addSchedProctor() {
-  const el = document.getElementById('schedProctorSelect'); if (!el || !el.value.trim()) return;
-  const a = getSchedProctorArr(); a.push(el.value.trim()); setSchedProctorArr(a); el.value = '';
+function addSchedProctor(idx) {
+  const el = document.getElementById('schedProctorSelect' + idx); if (!el || !el.value.trim()) return;
+  const a = getSchedProctorArr(idx); a.push(el.value.trim()); setSchedProctorArr(idx, a); el.value = '';
 }
-function removeSchedProctor(i) {
-  const a = getSchedProctorArr(); a.splice(i, 1); setSchedProctorArr(a);
+function removeSchedProctor(idx, i) {
+  const a = getSchedProctorArr(idx); a.splice(i, 1); setSchedProctorArr(idx, a);
+}
+// HTML ตัวเลือกผู้คุมสอบ 1 ชุด (idx, ชื่อฟิลด์, ค่าเดิม, เปิดใช้งานไหม)
+function schedProctorPickerHTML(idx, name, value, enabled) {
+  return `<input type="hidden" name="${name}" id="schedProctorValue${idx}" value="${value}" ${enabled ? '' : 'disabled'}>
+    <div class="flex gap-2 items-stretch">
+      <input id="schedProctorSelect${idx}" list="proctorList" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์หรือเลือกชื่ออาจารย์" onkeydown="if(event.key==='Enter'){event.preventDefault();addSchedProctor(${idx});}">
+      <button type="button" onclick="addSchedProctor(${idx})" class="shrink-0 px-3 py-2 bg-amber-600 text-white rounded-xl text-sm hover:bg-amber-700 whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
+    </div>
+    <div id="schedProctorChips${idx}" class="flex flex-wrap gap-1.5 mt-2"></div>`;
+}
+function schedIsExam() {
+  const el = document.querySelector('[name="schedule_type"]');
+  return ((el && el.value) || '').includes('สอบ');
+}
+// สลับสถานะห้องสอบที่ 2 ตามการติ๊ก "แบ่งห้องสอบเป็น 2 ห้อง"
+function updateSchedSplitState() {
+  const isExam = schedIsExam();
+  const sp = document.getElementById('schedExamSplit');
+  const on = isExam && sp && sp.checked;
+  const blk = document.getElementById('schedRoom2Block');
+  if (blk) blk.classList.toggle('hidden', !on);
+  const hv = document.getElementById('schedExamSplitValue'); if (hv) { hv.value = on ? '✓' : ''; hv.disabled = !isExam; }
+  const r2 = document.querySelector('[name="room2"]'); if (r2) r2.disabled = !on;
+  const sc2 = document.querySelector('[name="student_count2"]'); if (sc2) sc2.disabled = !on;
+  const pv2 = document.getElementById('schedProctorValue2'); if (pv2) pv2.disabled = !on;
+  if (on) renderSchedProctorChips(2);
 }
 // สลับการแสดงฟิลด์เมื่อประเภทเป็น/ไม่เป็น "การสอบ"
 function onScheduleTypeChange(el) {
@@ -2139,8 +2165,10 @@ function onScheduleTypeChange(el) {
   const si = document.getElementById('schedSubjectSingle');
   const mv = document.getElementById('schedSubjectMultiValue');
   const er = document.getElementById('schedExamRound');
-  const pv = document.getElementById('schedProctorValue');
+  const pv = document.getElementById('schedProctorValue1');
   const pcd = document.getElementById('schedProctorChangeDate');
+  const sc1 = document.querySelector('[name="student_count"]');
+  const sp = document.getElementById('schedExamSplit');
   if (ex) ex.classList.toggle('hidden', !isExam);
   if (sw) sw.classList.toggle('hidden', isExam);
   if (mw) mw.classList.toggle('hidden', !isExam);
@@ -2149,7 +2177,11 @@ function onScheduleTypeChange(el) {
   if (er) er.disabled = !isExam;
   if (pv) pv.disabled = !isExam;
   if (pcd) pcd.disabled = !isExam;
-  if (isExam) { renderSchedSubjectChips(); renderSchedProctorChips(); if (window.lucide) lucide.createIcons(); }
+  if (sc1) sc1.disabled = !isExam;
+  if (sp) sp.disabled = !isExam;
+  const rh = document.getElementById('schedRoomHint'); if (rh) rh.textContent = isExam ? '(ห้องสอบที่ 1)' : '';
+  updateSchedSplitState();
+  if (isExam) { renderSchedSubjectChips(); renderSchedProctorChips(1); if (window.lucide) lucide.createIcons(); }
   // เมื่อเพิ่งเปลี่ยนประเภทเป็น "การสอบ" → เปิดแจ้งเตือน + เลือกบทบาทเริ่มต้นให้ (ผู้ใช้ปรับเองได้)
   const wasExam = window._schedWasExam === true;
   window._schedWasExam = isExam;
@@ -2170,6 +2202,7 @@ function scheduleFormBody(s, isNew) {
   const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
   const isExam = norm(s.schedule_type).includes('สอบ');
   const subjVal = v('subject_name');
+  const split = norm(s.exam_split) !== '';
   const notifyDefault = !!(isNew && isExam);
   const notifyRolesDefault = isExam ? 'student,teacher,classTeacher' : '';
   return `
@@ -2191,23 +2224,34 @@ function scheduleFormBody(s, isNew) {
       <div><label class="block text-xs text-gray-600 mb-1">ประเภท *</label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
       <div><label class="block text-xs text-gray-600 mb-1">เวลา (เริ่ม)</label><input name="schedule_time" type="time" value="${v('schedule_time')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ถึงเวลา</label><input name="schedule_time_end" type="time" value="${v('schedule_time_end')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">ห้อง</label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ห้อง <span class="font-normal text-gray-400" id="schedRoomHint">${isExam ? '(ห้องสอบที่ 1)' : ''}</span></label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" id="schedYearLevel" onchange="refreshSchedSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${norm(s.year_level) === y ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
     </div>
+    ${proctorDatalistHTML()}
     <div id="schedExamFields" class="${isExam ? '' : 'hidden'} space-y-3 p-3 bg-red-50 rounded-xl border border-red-100">
       <div class="text-xs font-semibold text-red-700"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 inline"></i> ข้อมูลการสอบ</div>
-      <div><label class="block text-xs text-gray-600 mb-1">ครั้งที่</label><input name="exam_round" id="schedExamRound" value="${v('exam_round')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-gray-600 mb-1">ครั้งที่</label><input name="exam_round" id="schedExamRound" value="${v('exam_round')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">จำนวนนักศึกษา (ห้องสอบ 1)</label><input name="student_count" type="number" min="0" value="${v('student_count')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 40"></div>
+      </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ <span class="font-normal text-gray-400">(เลือกได้หลายคน)</span></label>
-        <input type="hidden" name="proctor" id="schedProctorValue" value="${v('proctor')}" ${isExam ? '' : 'disabled'}>
-        <div class="flex gap-2 items-stretch">
-          <input id="schedProctorSelect" list="proctorList" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์หรือเลือกชื่ออาจารย์" onkeydown="if(event.key==='Enter'){event.preventDefault();addSchedProctor();}">
-          <button type="button" onclick="addSchedProctor()" class="shrink-0 px-3 py-2 bg-amber-600 text-white rounded-xl text-sm hover:bg-amber-700 whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
-        </div>
-        ${proctorDatalistHTML()}
-        <div id="schedProctorChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+        <label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ (ห้องสอบ 1) <span class="font-normal text-gray-400">(เลือกได้หลายคน)</span></label>
+        ${schedProctorPickerHTML(1, 'proctor', v('proctor'), isExam)}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">วันที่เปลี่ยนผู้คุมสอบ <span class="font-normal text-gray-400">(กรอกเมื่อมีการขอเปลี่ยน)</span></label><input name="proctor_change_date" id="schedProctorChangeDate" type="date" value="${v('proctor_change_date')}" ${isExam ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <label class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 cursor-pointer border border-red-100"><input type="checkbox" id="schedExamSplit" ${split ? 'checked' : ''} ${isExam ? '' : 'disabled'} onchange="updateSchedSplitState()" class="w-4 h-4"><span class="text-sm text-red-700">🏫 แบ่งห้องสอบเป็น 2 ห้อง (ผู้คุมสอบ 2 ชุด)</span></label>
+      <input type="hidden" name="exam_split" id="schedExamSplitValue" value="${split ? '✓' : ''}" ${isExam ? '' : 'disabled'}>
+      <div id="schedRoom2Block" class="${isExam && split ? '' : 'hidden'} space-y-3 p-3 bg-white rounded-xl border border-red-100">
+        <div class="text-xs font-semibold text-red-700">ห้องสอบที่ 2</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs text-gray-600 mb-1">ห้องสอบที่ 2</label><input name="room2" value="${v('room2')}" ${isExam && split ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น ห้อง 202"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">จำนวนนักศึกษา (ห้องสอบ 2)</label><input name="student_count2" type="number" min="0" value="${v('student_count2')}" ${isExam && split ? '' : 'disabled'} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 40"></div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-600 mb-1">อาจารย์ผู้คุมสอบ (ห้องสอบ 2) <span class="font-normal text-gray-400">(เลือกได้หลายคน)</span></label>
+          ${schedProctorPickerHTML(2, 'proctor2', v('proctor2'), isExam && split)}
+        </div>
+      </div>
     </div>
     <div class="p-3 bg-green-50 rounded-xl border border-green-100 space-y-2">
       <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="schedNotify" ${notifyDefault ? 'checked' : ''} onchange="toggleSchedNotify()" class="w-4 h-4"><span class="text-sm font-medium text-green-800">🔔 สร้างประกาศแจ้งเตือนจากรายการนี้</span></label>
@@ -2239,8 +2283,18 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
   lines.push('ชั้นปี: ' + (yr ? ('ชั้นปีที่ ' + yr) : 'ทุกชั้นปี'));
   if (dateTh) lines.push('วันที่: ' + dateTh);
   if (timeRange.trim()) lines.push('เวลา: ' + timeRange);
-  if (norm(s.room)) lines.push('ห้อง: ' + norm(s.room));
-  if (isExam && proctors) lines.push('อาจารย์ผู้คุมสอบ: ' + proctors);
+  const isSplit = isExam && norm(s.exam_split) !== '';
+  if (isSplit) {
+    lines.push('ห้องสอบที่ 1: ' + (norm(s.room) || '-') + (norm(s.student_count) ? ' (' + norm(s.student_count) + ' คน)' : ''));
+    if (proctors) lines.push('ผู้คุมสอบ ห้อง 1: ' + proctors);
+    lines.push('ห้องสอบที่ 2: ' + (norm(s.room2) || '-') + (norm(s.student_count2) ? ' (' + norm(s.student_count2) + ' คน)' : ''));
+    const proctors2 = norm(s.proctor2).replace(/,\s*/g, ', ');
+    if (proctors2) lines.push('ผู้คุมสอบ ห้อง 2: ' + proctors2);
+  } else {
+    if (norm(s.room)) lines.push('ห้อง: ' + norm(s.room));
+    if (isExam && norm(s.student_count)) lines.push('จำนวนนักศึกษา: ' + norm(s.student_count) + ' คน');
+    if (isExam && proctors) lines.push('อาจารย์ผู้คุมสอบ: ' + proctors);
+  }
   const obj = {
     type: 'announcement',
     announcement_title: (isExam ? '📝 แจ้งกำหนดสอบ' : '📅 แจ้งเตือนปฏิทินกิจกรรมวิชาการ') + (yr ? ' — ชั้นปีที่ ' + yr : '') + (subjects ? ' (' + subjects + ')' : ''),
@@ -2262,7 +2316,8 @@ function showAddScheduleModal() {
     </form>
   `);
   renderSchedSubjectChips();
-  renderSchedProctorChips();
+  renderSchedProctorChips(1);
+  updateSchedSplitState();
   window._schedWasExam = false;
   document.getElementById('addScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -8081,6 +8136,10 @@ function showCalendarDayModal(dateStr) {
     const timeRange = norm(e.schedule_time) + (norm(e.schedule_time_end) ? ' - ' + norm(e.schedule_time_end) : '');
     const subjects = norm(e.subject_name).replace(/,\s*/g, ', ');
     const pcd = norm(e.proctor_change_date);
+    const isSplit = norm(e.exam_split) !== '';
+    const room1Label = isExam && isSplit ? 'ห้องสอบที่ 1' : 'ห้อง';
+    const proc1 = norm(e.proctor).replace(/,\s*/g, ', ');
+    const proc2 = norm(e.proctor2).replace(/,\s*/g, ', ');
     return `<div class="border border-gray-100 rounded-xl p-3 bg-surface">
       <div class="flex items-start justify-between gap-2">
         <div class="font-semibold text-sm">${(subjects || '-').replace(/,\s*/g, '<br>')}</div>
@@ -8088,10 +8147,14 @@ function showCalendarDayModal(dateStr) {
       </div>
       <div class="grid grid-cols-2 gap-2 mt-2">
         ${infoRow('เวลา', timeRange)}
-        ${infoRow('ห้อง', e.room)}
+        ${infoRow(room1Label, e.room)}
         ${infoRow('ชั้นปี', norm(e.year_level) ? 'ชั้นปีที่ ' + norm(e.year_level) : 'ทุกชั้นปี')}
         ${isExam ? infoRow('ครั้งที่', e.exam_round) : ''}
-        ${isExam ? infoRow('อาจารย์ผู้คุมสอบ', norm(e.proctor).replace(/,\s*/g, ', ')) : ''}
+        ${isExam ? infoRow('จำนวนนักศึกษา' + (isSplit ? ' (ห้อง 1)' : ''), e.student_count) : ''}
+        ${isExam ? infoRow('อาจารย์ผู้คุมสอบ' + (isSplit ? ' (ห้อง 1)' : ''), proc1) : ''}
+        ${isExam && isSplit ? infoRow('ห้องสอบที่ 2', e.room2) : ''}
+        ${isExam && isSplit ? infoRow('จำนวนนักศึกษา (ห้อง 2)', e.student_count2) : ''}
+        ${isExam && isSplit ? infoRow('อาจารย์ผู้คุมสอบ (ห้อง 2)', proc2) : ''}
         ${isExam && pcd ? infoRow('วันที่เปลี่ยนผู้คุมสอบ', (typeof toBuddhistDate === 'function' && toBuddhistDate(pcd)) || pcd) : ''}
       </div>
       ${canManage ? `<div class="flex justify-end gap-2 mt-2">
@@ -8337,7 +8400,9 @@ function showEditScheduleModal(id) {
     </form>
   `);
   renderSchedSubjectChips();
-  renderSchedProctorChips();
+  renderSchedProctorChips(1);
+  renderSchedProctorChips(2);
+  updateSchedSplitState();
   window._schedWasExam = norm(s.schedule_type).includes('สอบ');
   document.getElementById('editScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
