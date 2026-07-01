@@ -8086,6 +8086,13 @@ function schedTimeRange(e) {
   return st + (et ? ' - ' + et : '');
 }
 
+// ประกาศที่ระบบสร้างอัตโนมัติจากรายการปฏิทิน — ไม่ต้องโชว์ซ้ำบนปฏิทิน (มีรายการปฏิทินอยู่แล้ว)
+function isAutoScheduleAnnouncement(e) {
+  if (norm(e.schedule_date)) return false;
+  const t = norm(e.announcement_title);
+  return t.indexOf('แจ้งกำหนดสอบ') !== -1 || t.indexOf('แจ้งเตือนปฏิทิน') !== -1;
+}
+
 // สีจุดตามประเภทกิจกรรม (บนปฏิทิน)
 function calEventDot(e) {
   const st = (e.schedule_type || e.event_type || '').trim();
@@ -8121,7 +8128,7 @@ function renderCalendar(containerId) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-  const events = [...getDataByType('announcement'), ...getDataByType('schedule')];
+  const events = [...getDataByType('announcement'), ...getDataByType('schedule')].filter(e => !isAutoScheduleAnnouncement(e));
   const isThisMonth = (year === now.getFullYear() && month === now.getMonth());
 
   let h = `<div class="flex items-center justify-between mb-3">
@@ -8215,7 +8222,8 @@ function showCalendarDayModal(dateStr, idx) {
   idx = idx || 0;
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
   const events = [...getDataByType('schedule'), ...getDataByType('announcement')]
-    .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr));
+    .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr))
+    .filter(e => !isAutoScheduleAnnouncement(e));
   const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(dateStr)) || dateStr;
   if (!events.length) { showModal('รายการวันที่ ' + dateTh, '<p class="text-center text-gray-400 py-6">ไม่มีรายการในวันนี้</p>'); return; }
   if (idx < 0) idx = 0; if (idx >= events.length) idx = events.length - 1;
@@ -8384,8 +8392,25 @@ async function deleteRecord(id) {
   showModal('ยืนยันการลบ', '<p class="text-center text-gray-600">คุณต้องการลบรายการนี้หรือไม่?</p>', async () => {
     showToast('กำลังลบข้อมูล...', 'loading');
     const r = await GSheetDB.delete(rec);
+    // ลบรายการปฏิทิน → ลบประกาศแจ้งเตือนที่ระบบสร้างให้ด้วย (ถ้ามี)
+    if (r.isOk && rec.type === 'schedule') {
+      const linked = findLinkedScheduleAnnouncements(rec).sort((a, b) => (b.__rowIndex || 0) - (a.__rowIndex || 0));
+      for (const a of linked) { try { await GSheetDB.delete(a); } catch (_) {} }
+    }
     hideLoadingToast();
     if (r.isOk) { showToast('ลบสำเร็จ'); closeModal(); renderCurrentPage() } else { showToast('เกิดข้อผิดพลาด', 'error'); closeModal() }
+  });
+}
+
+// หาประกาศแจ้งเตือนที่ระบบสร้างจากรายการปฏิทิน (จับคู่ด้วยวันที่ + ชื่อวิชา)
+function findLinkedScheduleAnnouncements(rec) {
+  const date = norm(rec.schedule_date);
+  const subj = norm(rec.subject_name);
+  return getDataByType('announcement').filter(a => {
+    if (!isAutoScheduleAnnouncement(a)) return false;
+    if (date && norm(a.announcement_date) !== date) return false;
+    if (subj) { const hay = norm(a.announcement_title) + ' ' + norm(a.announcement_content); return subj.split(/,\s*/).some(x => x.trim() && hay.indexOf(x.trim()) !== -1); }
+    return true;
   });
 }
 
