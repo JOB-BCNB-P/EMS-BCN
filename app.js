@@ -905,18 +905,22 @@ function getPendingTrackingsForCurrentRole() {
     { type: 'grade_tracking', page: 'gradeTracking', label: 'เกรด', step1: 'coordinator_check', step2: 'academic_check', step3: 'deputy_sign' },
     { type: 'file_tracking', page: 'fileTracking', label: 'แฟ้มรายวิชา', step1: 'coordinator_check', step2: 'academic_check', step3: 'deputy_sign' },
   ];
+  const DONE = 'เสร็จสิ้น';
+  const needAct = v => { const x = norm(v); return (!x || x === 'รอ' || x === 'ส่งกลับแก้ไข'); };
   const isPendingForRole = (rec, t) => {
-    const s1 = rec[t.step1], s2 = rec[t.step2], s3 = rec[t.step3];
+    const s1 = norm(rec[t.step1]), s2 = norm(rec[t.step2]), s3 = norm(rec[t.step3]);
     // ลงนามครบ (ขั้นสุดท้ายเสร็จสิ้น) = จบกระบวนการแล้ว ไม่ต้องแจ้งเตือนใครอีก
-    if (norm(s3) === 'เสร็จสิ้น') return false;
+    if (s3 === DONE) return false;
     if (role === 'classTeacher') {
-      return (!s1 || s1 === 'รอ' || s1 === 'ส่งกลับแก้ไข');
+      // ถ้าขั้นถัดไปดำเนินการแล้ว = ผ่านขั้นนี้ไปแล้ว ไม่ต้องแจ้ง
+      if (s2 === DONE) return false;
+      return needAct(s1);
     }
     if (role === 'admin' || role === 'academic') {
-      return s1 === 'เสร็จสิ้น' && (!s2 || s2 === 'รอ' || s2 === 'ส่งกลับแก้ไข');
+      return s1 === DONE && needAct(s2);
     }
     if (role === 'executive') {
-      return s2 === 'เสร็จสิ้น' && (!s3 || s3 === 'รอ' || s3 === 'ส่งกลับแก้ไข');
+      return s2 === DONE && needAct(s3);
     }
     return false;
   };
@@ -3613,6 +3617,7 @@ function showCreateEvalFormModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'eval_form', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      applyTrackingBackfill(obj);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('สร้างแบบประเมินสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -6084,6 +6089,21 @@ function trackingPage() {
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}` : noYearSelectedMsg('ติดตามการส่งรายละเอียดรายวิชา')}`;
 }
 
+// ตัวเลือก "ลงข้อมูลย้อนหลัง" ในฟอร์มเพิ่มข้อมูลติดตาม — ติ๊กแล้วบันทึกเป็นเสร็จสิ้นครบทุกขั้น จึงไม่ไปสร้างแจ้งเตือน
+function trackingBackfillCheckboxHTML() {
+  return `<label class="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" id="trackingBackfill" class="w-4 h-4"><span class="text-sm text-amber-800">🕘 ลงข้อมูลย้อนหลัง (เสร็จเรียบร้อยแล้ว — ไม่ต้องแจ้งเตือน)</span></label>`;
+}
+function applyTrackingBackfill(obj) {
+  const cb = document.getElementById('trackingBackfill');
+  if (!(cb && cb.checked)) return obj;
+  const steps = (obj.type === 'grade_tracking' || obj.type === 'file_tracking')
+    ? ['coordinator_check', 'academic_check', 'deputy_sign']
+    : ['class_teacher_check', 'academic_propose', 'deputy_sign'];
+  steps.forEach(k => obj[k] = 'เสร็จสิ้น');
+  if (!obj.approved_date) obj.approved_date = new Date().toISOString().split('T')[0];
+  return obj;
+}
+
 function showAddTrackingModal() {
   const subjects = getDataByType('subject');
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
@@ -6116,6 +6136,7 @@ function showAddTrackingModal() {
         <input type="text" id="trackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
         <input type="hidden" name="coordinator" id="trackingCoordHidden">
       </div>
+      ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -6146,6 +6167,7 @@ function showAddTrackingModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      applyTrackingBackfill(obj);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -6368,6 +6390,7 @@ function showAddResultTrackingModal() {
         <input type="hidden" name="coordinator" id="resultTrackingCoordHidden">
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -6396,6 +6419,7 @@ function showAddResultTrackingModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'result_tracking', class_teacher_check: 'รอ', academic_propose: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      applyTrackingBackfill(obj);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -6546,6 +6570,7 @@ function showAddGradeTrackingModal() {
         <input type="hidden" name="coordinator" id="gradeTrackingCoordHidden">
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -6574,6 +6599,7 @@ function showAddGradeTrackingModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'grade_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      applyTrackingBackfill(obj);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -6725,6 +6751,7 @@ function showAddFileTrackingModal() {
         <input type="hidden" name="coordinator" id="fileTrackingCoordHidden">
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
     </form>
   `);
@@ -6753,6 +6780,7 @@ function showAddFileTrackingModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'file_tracking', coordinator_check: 'รอ', academic_check: 'รอ', deputy_sign: 'รอ', approved_date: '', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
+      applyTrackingBackfill(obj);
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
