@@ -907,6 +907,8 @@ function getPendingTrackingsForCurrentRole() {
   ];
   const isPendingForRole = (rec, t) => {
     const s1 = rec[t.step1], s2 = rec[t.step2], s3 = rec[t.step3];
+    // ลงนามครบ (ขั้นสุดท้ายเสร็จสิ้น) = จบกระบวนการแล้ว ไม่ต้องแจ้งเตือนใครอีก
+    if (norm(s3) === 'เสร็จสิ้น') return false;
     if (role === 'classTeacher') {
       return (!s1 || s1 === 'รอ' || s1 === 'ส่งกลับแก้ไข');
     }
