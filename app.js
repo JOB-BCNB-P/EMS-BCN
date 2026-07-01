@@ -934,6 +934,50 @@ function getPendingTrackingsForCurrentRole() {
   return pendings;
 }
 
+// รายการติดตามที่ "ยังไม่ได้ดำเนินการเลย" ทุกขั้น (ข้อมูลย้อนหลัง/ค้าง) — สำหรับปุ่มปิดแจ้งเตือนย้อนหลัง
+function getUnstartedTrackings() {
+  const types = [
+    { type: 'tracking', steps: ['class_teacher_check', 'academic_propose', 'deputy_sign'] },
+    { type: 'result_tracking', steps: ['class_teacher_check', 'academic_propose', 'deputy_sign'] },
+    { type: 'grade_tracking', steps: ['coordinator_check', 'academic_check', 'deputy_sign'] },
+    { type: 'file_tracking', steps: ['coordinator_check', 'academic_check', 'deputy_sign'] },
+  ];
+  const out = [];
+  types.forEach(t => {
+    getDataByType(t.type).filter(r => r.subject_name && r.subject_name.trim()).forEach(r => {
+      const anyDone = t.steps.some(k => norm(r[k]) === 'เสร็จสิ้น');
+      if (!anyDone) out.push({ rec: r, steps: t.steps });
+    });
+  });
+  return out;
+}
+
+// ปิดแจ้งเตือนย้อนหลัง: บันทึกรายการที่ยังไม่ได้ดำเนินการเป็นเสร็จสิ้นครบทุกขั้น
+async function clearTrackingBacklog() {
+  const backlog = getUnstartedTrackings();
+  if (!backlog.length) { showToast('ไม่มีรายการค้าง', 'error'); return; }
+  showModal('ยืนยันปิดแจ้งเตือนย้อนหลัง', `<div class="text-center text-gray-600 text-sm space-y-2"><p>บันทึก <b>${backlog.length}</b> รายการติดตามที่ยังไม่ได้ดำเนินการ ให้เป็น "เสร็จสิ้น" ทุกขั้น และปิดแจ้งเตือน?</p><p class="text-xs text-amber-600">⚠️ ใช้สำหรับข้อมูลย้อนหลังที่ดำเนินการเสร็จแล้ว — รายการเหล่านี้จะถูกทำเครื่องหมายว่าเสร็จสิ้นทันที</p></div>`, async () => {
+    closeModal();
+    showToast('กำลังบันทึก...', 'loading');
+    const today = new Date().toISOString().split('T')[0];
+    const nowIso = new Date().toISOString();
+    const by = (APP.currentUser && APP.currentUser.name) || APP.currentRole || '';
+    const toUpdate = [];
+    backlog.forEach(b => {
+      const rec = b.rec;
+      b.steps.forEach(k => { rec[k] = 'เสร็จสิ้น'; rec[k + '_at'] = nowIso; rec[k + '_by'] = by; });
+      if (!rec.approved_date) rec.approved_date = today;
+      toUpdate.push(rec);
+    });
+    const r = await GSheetDB.updateMany(toUpdate);
+    hideLoadingToast();
+    showToast((r && r.ok ? r.ok : toUpdate.length) + ' รายการถูกปิดแจ้งเตือนแล้ว');
+    closeNotifications();
+    updateNotifBadge();
+    renderCurrentPage();
+  });
+}
+
 function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
@@ -948,6 +992,16 @@ function renderNotifications() {
   const pendingLeaves = getPendingLeavesForCurrentRole();
   const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
+  // === ปุ่มปิดแจ้งเตือนย้อนหลัง (ผู้ดูแล/งานวิชาการ) ===
+  if (APP.currentRole === 'admin' || APP.currentRole === 'academic') {
+    const backlog = getUnstartedTrackings();
+    if (backlog.length) {
+      html += `<div class="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+        <p class="text-xs text-orange-800 mb-2"><i data-lucide="history" class="w-3 h-3 inline mr-0.5"></i>มีรายการติดตามที่ยังไม่ได้ดำเนินการ ${backlog.length} รายการ (ข้อมูลย้อนหลัง)</p>
+        <button onclick="clearTrackingBacklog()" class="w-full text-sm bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg flex items-center justify-center gap-1"><i data-lucide="check-check" class="w-4 h-4"></i>ปิดแจ้งเตือนย้อนหลังทั้งหมด</button>
+      </div>`;
+    }
+  }
   // === ส่วน "ใบลารออนุมัติ" ===
   if (pendingLeaves.length) {
     html += `<div class="mb-3">
