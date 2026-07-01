@@ -246,7 +246,9 @@ const GSheetDB = (() => {
     async function remove(obj) {
         const sheet = obj.type; const rowIndex = obj.__rowIndex;
         if (!sheet || !rowIndex) return { isOk: false, error: 'Missing type/__rowIndex' };
-        return _callScript({ action: 'delete', sheet, rowIndex });
+        const r = await _callScript({ action: 'delete', sheet, rowIndex });
+        if (r && r.isOk && sheet) await refreshTab(sheet);
+        return r;
     }
 
     // ---------- Init ----------
