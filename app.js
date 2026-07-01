@@ -2362,6 +2362,7 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
     announcement_date: norm(s.schedule_date) || new Date().toISOString().slice(0, 10),
     event_type: isExam ? 'สอบ' : (type || 'ทั่วไป'),
     roles: roles || '',
+    target_names: (isExam && [norm(s.proctor), norm(s.proctor2)].filter(Boolean).join(', ')) || '',
     line_notify: sendLine ? '✓' : '',
     created_at: new Date().toISOString()
   };
@@ -5961,7 +5962,31 @@ const ANN_ROLES = ['admin', 'academic', 'registrar', 'deptHead', 'executive', 't
 const ANN_ROLE_LABEL = { admin: 'ผู้ดูแลระบบ', academic: 'งานวิชาการ', registrar: 'งานทะเบียน', deptHead: 'ประธานสาขา', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 function annParseRoles(s) { return String(s == null ? '' : s).split(/[,|]/).map(x => x.trim()).filter(Boolean); }
 // ประกาศนี้ผู้ใช้บทบาท role เห็นไหม — ว่าง = ทุกบทบาท
-function annVisibleTo(a, role) { const rs = annParseRoles(a && a.roles); return rs.length === 0 || rs.indexOf(role) !== -1; }
+// แยกรายชื่อผู้รับเจาะจง (target_names) และทำ key เทียบชื่อ (ตัดช่องว่าง/คำนำหน้า)
+function annParseNames(v) { return String(v == null ? '' : v).split(/[,;|]/).map(x => x.trim()).filter(Boolean); }
+function annNameKey(name) {
+  let n = norm(name).toLowerCase().replace(/\s+/g, '');
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const pr of TITLE_PREFIXES) {
+      const pk = String(pr).toLowerCase().replace(/\s+/g, '');
+      if (pk && n.startsWith(pk)) { n = n.slice(pk.length); changed = true; break; }
+    }
+  }
+  return n;
+}
+function annVisibleTo(a, role) {
+  // ประกาศที่เจาะจงรายบุคคล (เช่น แจ้งผู้คุมสอบ) — เห็นเฉพาะคนที่มีชื่อ + ผู้ดูแล/งานวิชาการ
+  const targets = annParseNames(a && a.target_names);
+  if (targets.length) {
+    if (role === 'admin' || role === 'academic') return true;
+    const myKey = annNameKey((APP.currentUser && APP.currentUser.name) || '');
+    return !!myKey && targets.some(n => annNameKey(n) === myKey);
+  }
+  const rs = annParseRoles(a && a.roles);
+  return rs.length === 0 || rs.indexOf(role) !== -1;
+}
 // ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge)
 function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => annVisibleTo(a, role)); }
 // ช่องเลือกบทบาทผู้รับในฟอร์มประกาศ (ไม่ติ๊กเลย = ทุกบทบาท)
