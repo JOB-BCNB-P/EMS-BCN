@@ -2034,7 +2034,7 @@ function schedulePage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">เวลา</th><th class="px-4 py-3 font-semibold">รายวิชา/กิจกรรม</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ห้อง</th>${canManage ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${toBuddhistDate(s.schedule_date) || s.schedule_date || ''}</td><td class="px-4 py-3 whitespace-nowrap">${s.schedule_time || ''}${s.schedule_time_end ? ' - ' + s.schedule_time_end : ''}</td>
+        <td class="px-4 py-3">${toBuddhistDate(s.schedule_date) || s.schedule_date || ''}</td><td class="px-4 py-3 whitespace-nowrap">${schedTimeRange(s)}</td>
         <td class="px-4 py-3">${(s.subject_name || '').replace(/,\s*/g, '<br>')}${s.exam_round ? ` <span class="text-xs text-gray-400">(ครั้งที่ ${s.exam_round})</span>` : ''}${s.proctor ? `<div class="text-xs text-gray-400">ผู้คุมสอบ: ${s.proctor}</div>` : ''}</td>
         <td class="px-4 py-3">${scheduleTypeBadge(s.schedule_type)}</td>
         <td class="px-4 py-3">${s.room || ''}</td>
@@ -2222,8 +2222,8 @@ function scheduleFormBody(s, isNew) {
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-xs text-gray-600 mb-1">วันที่ *</label><input name="schedule_date" type="date" required value="${v('schedule_date')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ประเภท *</label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
-      <div><label class="block text-xs text-gray-600 mb-1">เวลา (เริ่ม)</label><input name="schedule_time" type="time" value="${v('schedule_time')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-      <div><label class="block text-xs text-gray-600 mb-1">ถึงเวลา</label><input name="schedule_time_end" type="time" value="${v('schedule_time_end')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">เวลา (เริ่ม)</label><input name="schedule_time" type="time" value="${fmtSchedTime(s.schedule_time)}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+      <div><label class="block text-xs text-gray-600 mb-1">ถึงเวลา</label><input name="schedule_time_end" type="time" value="${fmtSchedTime(s.schedule_time_end)}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ห้อง <span class="font-normal text-gray-400" id="schedRoomHint">${isExam ? '(ห้องสอบที่ 1)' : ''}</span></label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" id="schedYearLevel" onchange="refreshSchedSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${norm(s.year_level) === y ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
     </div>
@@ -2274,7 +2274,7 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
   const type = norm(s.schedule_type);
   const isExam = type.includes('สอบ');
   const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(s.schedule_date)) || s.schedule_date || '';
-  const timeRange = norm(s.schedule_time) + (norm(s.schedule_time_end) ? ' - ' + norm(s.schedule_time_end) : '');
+  const timeRange = schedTimeRange(s);
   const proctors = norm(s.proctor).replace(/,\s*/g, ', ');
   const lines = [];
   lines.push((isExam ? 'รายวิชาที่สอบ: ' : 'รายการ: ') + (subjects || '-'));
@@ -8071,24 +8071,71 @@ function initPageScripts(page) {
 }
 
 // ======================== CALENDAR ========================
+// แปลงค่าเวลาให้เป็น HH:MM (กัน Google Sheet แปลงเป็น serial date เช่น 1899-12-30T..)
+function fmtSchedTime(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  let m = s.match(/^(\d{1,2}):(\d{2})/); if (m) return m[1].padStart(2, '0') + ':' + m[2];
+  m = s.match(/T(\d{2}):(\d{2})/); if (m) return m[1] + ':' + m[2];
+  m = s.match(/\b(\d{1,2}):(\d{2}):\d{2}\b/); if (m) return m[1].padStart(2, '0') + ':' + m[2];
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return '';
+  return s;
+}
+function schedTimeRange(e) {
+  const st = fmtSchedTime(e.schedule_time), et = fmtSchedTime(e.schedule_time_end);
+  return st + (et ? ' - ' + et : '');
+}
+
+// สีจุดตามประเภทกิจกรรม (บนปฏิทิน)
+function calEventDot(e) {
+  const st = (e.schedule_type || e.event_type || '').trim();
+  if (st.includes('สอบ')) return 'bg-red-500';
+  if (st.includes('วันหยุด')) return 'bg-green-500';
+  if (st === 'กิจกรรม') return 'bg-purple-500';
+  return 'bg-blue-500';
+}
+function calEventTitle(e) {
+  const st = (e.schedule_type || e.event_type || '').trim();
+  const name = e.subject_name || e.announcement_title || '';
+  return (st ? '[' + st + '] ' : '') + String(name).replace(/"/g, '');
+}
+function calChangeMonth(delta, containerId) {
+  const now = new Date();
+  if (APP._calYear == null) { APP._calYear = now.getFullYear(); APP._calMonth = now.getMonth(); }
+  let m = APP._calMonth + delta, y = APP._calYear;
+  if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+  APP._calMonth = m; APP._calYear = y;
+  renderCalendar(containerId || 'scheduleCalendar');
+}
+function calToday(containerId) {
+  const now = new Date();
+  APP._calYear = now.getFullYear(); APP._calMonth = now.getMonth();
+  renderCalendar(containerId || 'scheduleCalendar');
+}
+
 function renderCalendar(containerId) {
   const el = document.getElementById(containerId); if (!el) return;
   const now = new Date();
-  const year = now.getFullYear(); const month = now.getMonth();
+  if (APP._calYear == null || APP._calMonth == null) { APP._calYear = now.getFullYear(); APP._calMonth = now.getMonth(); }
+  const year = APP._calYear, month = APP._calMonth;
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-
   const events = [...getDataByType('announcement'), ...getDataByType('schedule')];
+  const isThisMonth = (year === now.getFullYear() && month === now.getMonth());
 
-  let h = `<div class="text-center font-bold mb-3">${monthNames[month]} ${year + 543}</div>`;
+  let h = `<div class="flex items-center justify-between mb-3">
+      <button onclick="calChangeMonth(-1,'${containerId}')" class="p-1.5 rounded-lg border hover:bg-surface" title="เดือนก่อนหน้า"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+      <div class="flex items-center gap-2"><span class="font-bold">${monthNames[month]} ${year + 543}</span>${!isThisMonth ? `<button onclick="calToday('${containerId}')" class="text-xs px-2 py-0.5 rounded-lg border text-primary hover:bg-surface">วันนี้</button>` : ''}</div>
+      <button onclick="calChangeMonth(1,'${containerId}')" class="p-1.5 rounded-lg border hover:bg-surface" title="เดือนถัดไป"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+    </div>`;
   h += '<div class="grid grid-cols-7 gap-px text-center text-xs">';
   ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].forEach((d, idx) => { const c = idx === 0 ? 'text-red-500' : idx === 6 ? 'text-indigo-500' : 'text-gray-500'; h += `<div class="py-1 font-semibold ${c}">${d}</div>`; });
   for (let i = 0; i < firstDay; i++)h += '<div></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const dayEvents = events.filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr));
-    const isToday = d === now.getDate();
+    const isToday = isThisMonth && d === now.getDate();
     const dow = new Date(year, month, d).getDay();
     const isHoliday = dayEvents.some(e => (e.schedule_type || e.event_type || '').includes('วันหยุด'));
     const cellCls = isToday ? 'bg-primary text-white'
@@ -8100,70 +8147,85 @@ function renderCalendar(containerId) {
       : dow === 0 ? 'text-red-500 font-medium'
       : dow === 6 ? 'text-indigo-500 font-medium' : '';
     const clickable = dayEvents.length ? `onclick="showCalendarDayModal('${dateStr}')" style="cursor:pointer"` : '';
-    h += `<div class="cal-day p-1 min-h-[40px] rounded-lg ${cellCls}" ${clickable}>
+    const dots = dayEvents.slice(0, 8).map(e => `<span class="inline-block w-2 h-2 rounded-full ${calEventDot(e)}" title="${calEventTitle(e)}"></span>`).join('');
+    h += `<div class="cal-day p-1 min-h-[44px] rounded-lg ${cellCls}" ${clickable}>
       <div class="text-xs ${numCls}">${d}</div>
-      ${dayEvents.slice(0, 2).map(e => { const st = (e.schedule_type || e.event_type || '').trim(); const cls = st.includes('สอบ') ? 'bg-red-200 text-red-800' : st.includes('วันหยุด') ? 'bg-green-200 text-green-800' : st === 'กิจกรรม' ? 'bg-purple-200 text-purple-800' : 'bg-blue-200 text-blue-800'; return `<div class="cal-event ${cls}" title="${st}">${(e.subject_name || e.announcement_title || '').substring(0, 6)}</div>`; }).join('')}
-      ${dayEvents.length > 2 ? `<div class="text-[10px] text-gray-500 mt-0.5">+${dayEvents.length - 2} เพิ่มเติม</div>` : ''}
+      ${dayEvents.length ? `<div class="flex flex-wrap gap-0.5 justify-center mt-1">${dots}${dayEvents.length > 8 ? `<span class="text-[9px] text-gray-400 leading-none">+${dayEvents.length - 8}</span>` : ''}</div>` : ''}
     </div>`;
   }
   h += '</div>';
-  h += '<div class="flex flex-wrap items-center justify-center gap-3 mt-3 text-xs text-gray-500">'
+  h += '<div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-3 text-xs text-gray-500">'
+    + '<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>สอบ</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-500"></span>กิจกรรม</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>วันหยุด</span>'
+    + '<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>ประกาศ/อื่นๆ</span>'
+    + '<span class="mx-1 text-gray-300">|</span>'
     + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-50 border border-red-200"></span>อาทิตย์</span>'
     + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-indigo-50 border border-indigo-200"></span>เสาร์</span>'
-    + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-100 border border-green-300"></span>วันหยุด</span>'
     + '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-primary"></span>วันนี้</span>'
     + '</div>';
   el.innerHTML = h;
+  if (window.lucide) lucide.createIcons();
 }
 
-// ป็อปอัพแสดงรายการปฏิทินทั้งหมดของวันที่เลือก พร้อมรายละเอียดเต็ม
-function showCalendarDayModal(dateStr) {
+// การ์ดรายละเอียด 1 กิจกรรม (ใช้ในป็อปอัพวันที่)
+function scheduleEventCardHTML(e, canManage) {
+  const isAnn = !norm(e.schedule_date) && norm(e.announcement_date);
+  if (isAnn) {
+    return `<div class="border border-blue-100 rounded-xl p-3 bg-blue-50">
+      <div class="font-semibold text-sm">📢 ${e.announcement_title || '(ประกาศ)'}</div>
+      ${e.announcement_content ? `<div class="text-xs text-gray-600 mt-1 whitespace-pre-line">${e.announcement_content}</div>` : ''}
+    </div>`;
+  }
+  const type = norm(e.schedule_type);
+  const isExam = type.includes('สอบ');
+  const timeRange = schedTimeRange(e);
+  const subjects = norm(e.subject_name).replace(/,\s*/g, ', ');
+  const pcd = norm(e.proctor_change_date);
+  const isSplit = norm(e.exam_split) !== '';
+  const room1Label = isExam && isSplit ? 'ห้องสอบที่ 1' : 'ห้อง';
+  const proc1 = norm(e.proctor).replace(/,\s*/g, ', ');
+  const proc2 = norm(e.proctor2).replace(/,\s*/g, ', ');
+  return `<div class="border border-gray-100 rounded-xl p-3 bg-surface">
+    <div class="flex items-start justify-between gap-2">
+      <div class="font-semibold text-sm">${(subjects || '-').replace(/,\s*/g, '<br>')}</div>
+      <span class="shrink-0">${scheduleTypeBadge(e.schedule_type)}</span>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mt-2">
+      ${infoRow('เวลา', timeRange)}
+      ${infoRow(room1Label, e.room)}
+      ${infoRow('ชั้นปี', norm(e.year_level) ? 'ชั้นปีที่ ' + norm(e.year_level) : 'ทุกชั้นปี')}
+      ${isExam ? infoRow('ครั้งที่', e.exam_round) : ''}
+      ${isExam ? infoRow('จำนวนนักศึกษา' + (isSplit ? ' (ห้อง 1)' : ''), e.student_count) : ''}
+      ${isExam ? infoRow('อาจารย์ผู้คุมสอบ' + (isSplit ? ' (ห้อง 1)' : ''), proc1) : ''}
+      ${isExam && isSplit ? infoRow('ห้องสอบที่ 2', e.room2) : ''}
+      ${isExam && isSplit ? infoRow('จำนวนนักศึกษา (ห้อง 2)', e.student_count2) : ''}
+      ${isExam && isSplit ? infoRow('อาจารย์ผู้คุมสอบ (ห้อง 2)', proc2) : ''}
+      ${isExam && pcd ? infoRow('วันที่เปลี่ยนผู้คุมสอบ', (typeof toBuddhistDate === 'function' && toBuddhistDate(pcd)) || pcd) : ''}
+    </div>
+    ${canManage ? `<div class="flex justify-end gap-2 mt-2">
+      <button onclick="showEditScheduleModal('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"><i data-lucide="pencil" class="w-3.5 h-3.5 inline"></i> แก้ไข</button>
+      <button onclick="deleteRecord('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i> ลบ</button>
+    </div>` : ''}
+  </div>`;
+}
+
+// ป็อปอัพแสดงกิจกรรมของวันที่เลือก — ถ้าหลายรายการ มีปุ่มเลื่อนหน้า
+function showCalendarDayModal(dateStr, idx) {
+  idx = idx || 0;
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
   const events = [...getDataByType('schedule'), ...getDataByType('announcement')]
     .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr));
   const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(dateStr)) || dateStr;
   if (!events.length) { showModal('รายการวันที่ ' + dateTh, '<p class="text-center text-gray-400 py-6">ไม่มีรายการในวันนี้</p>'); return; }
-  const body = events.map(e => {
-    const isAnn = !norm(e.schedule_date) && norm(e.announcement_date);
-    if (isAnn) {
-      return `<div class="border border-blue-100 rounded-xl p-3 bg-blue-50">
-        <div class="font-semibold text-sm">📢 ${e.announcement_title || '(ประกาศ)'}</div>
-        ${e.announcement_content ? `<div class="text-xs text-gray-600 mt-1 whitespace-pre-line">${e.announcement_content}</div>` : ''}
-      </div>`;
-    }
-    const type = norm(e.schedule_type);
-    const isExam = type.includes('สอบ');
-    const timeRange = norm(e.schedule_time) + (norm(e.schedule_time_end) ? ' - ' + norm(e.schedule_time_end) : '');
-    const subjects = norm(e.subject_name).replace(/,\s*/g, ', ');
-    const pcd = norm(e.proctor_change_date);
-    const isSplit = norm(e.exam_split) !== '';
-    const room1Label = isExam && isSplit ? 'ห้องสอบที่ 1' : 'ห้อง';
-    const proc1 = norm(e.proctor).replace(/,\s*/g, ', ');
-    const proc2 = norm(e.proctor2).replace(/,\s*/g, ', ');
-    return `<div class="border border-gray-100 rounded-xl p-3 bg-surface">
-      <div class="flex items-start justify-between gap-2">
-        <div class="font-semibold text-sm">${(subjects || '-').replace(/,\s*/g, '<br>')}</div>
-        <span class="shrink-0">${scheduleTypeBadge(e.schedule_type)}</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 mt-2">
-        ${infoRow('เวลา', timeRange)}
-        ${infoRow(room1Label, e.room)}
-        ${infoRow('ชั้นปี', norm(e.year_level) ? 'ชั้นปีที่ ' + norm(e.year_level) : 'ทุกชั้นปี')}
-        ${isExam ? infoRow('ครั้งที่', e.exam_round) : ''}
-        ${isExam ? infoRow('จำนวนนักศึกษา' + (isSplit ? ' (ห้อง 1)' : ''), e.student_count) : ''}
-        ${isExam ? infoRow('อาจารย์ผู้คุมสอบ' + (isSplit ? ' (ห้อง 1)' : ''), proc1) : ''}
-        ${isExam && isSplit ? infoRow('ห้องสอบที่ 2', e.room2) : ''}
-        ${isExam && isSplit ? infoRow('จำนวนนักศึกษา (ห้อง 2)', e.student_count2) : ''}
-        ${isExam && isSplit ? infoRow('อาจารย์ผู้คุมสอบ (ห้อง 2)', proc2) : ''}
-        ${isExam && pcd ? infoRow('วันที่เปลี่ยนผู้คุมสอบ', (typeof toBuddhistDate === 'function' && toBuddhistDate(pcd)) || pcd) : ''}
-      </div>
-      ${canManage ? `<div class="flex justify-end gap-2 mt-2">
-        <button onclick="showEditScheduleModal('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"><i data-lucide="pencil" class="w-3.5 h-3.5 inline"></i> แก้ไข</button>
-        <button onclick="deleteRecord('${e.__backendId}')" class="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i> ลบ</button>
-      </div>` : ''}
-    </div>`;
-  }).join('');
-  showModal('รายการวันที่ ' + dateTh + ' (' + events.length + ' รายการ)', `<div class="space-y-3">${body}</div>`);
+  if (idx < 0) idx = 0; if (idx >= events.length) idx = events.length - 1;
+  const card = scheduleEventCardHTML(events[idx], canManage);
+  const nav = events.length > 1 ? `<div class="flex items-center justify-between mt-3">
+      <button ${idx === 0 ? 'disabled' : ''} onclick="showCalendarDayModal('${dateStr}',${idx - 1})" class="px-3 py-1.5 rounded-lg border text-sm ${idx === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-surface'}"><i data-lucide="chevron-left" class="w-4 h-4 inline"></i> ก่อนหน้า</button>
+      <span class="text-xs text-gray-500">${idx + 1} / ${events.length}</span>
+      <button ${idx === events.length - 1 ? 'disabled' : ''} onclick="showCalendarDayModal('${dateStr}',${idx + 1})" class="px-3 py-1.5 rounded-lg border text-sm ${idx === events.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-surface'}">ถัดไป <i data-lucide="chevron-right" class="w-4 h-4 inline"></i></button>
+    </div>` : '';
+  showModal('รายการวันที่ ' + dateTh + (events.length > 1 ? ' (' + events.length + ' รายการ)' : ''), card + nav);
 }
 
 // ======================== LEAVE APPROVAL ========================
