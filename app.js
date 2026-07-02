@@ -2079,7 +2079,10 @@ function scheduleTypeBadge(type) {
 
 function schedulePage() {
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
-  const allSchedule = filterScheduleForStudent(getDataByType('schedule')).sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || ''));
+  const _todayISO = new Date().toISOString().slice(0, 10);
+  const allSchedule = filterScheduleForStudent(getDataByType('schedule'))
+    .filter(s => { const d = norm(s.schedule_date); return !d || d >= _todayISO; })
+    .sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || ''));
   const total = allSchedule.length; const paged = paginate(allSchedule);
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -2259,6 +2262,31 @@ function onScheduleTypeChange(el) {
   }
 }
 
+// จัดสอบหลายวัน — เพิ่มวันที่หลายวันในฟอร์มเพิ่มรายการ
+function getSchedExtraDatesArr() {
+  const v = ((document.getElementById('schedExtraDates') || {}).value || '');
+  return v.split(',').map(x => x.trim()).filter(Boolean);
+}
+function setSchedExtraDatesArr(arr) {
+  const u = [...new Set(arr.filter(Boolean))];
+  const h = document.getElementById('schedExtraDates'); if (h) h.value = u.join(',');
+  renderSchedExtraDateChips();
+}
+function renderSchedExtraDateChips() {
+  const box = document.getElementById('schedExtraDateChips'); if (!box) return;
+  const arr = getSchedExtraDatesArr();
+  box.innerHTML = arr.length
+    ? arr.map((d, i) => `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 border border-blue-200 rounded-lg px-2 py-1 text-xs">${(typeof toBuddhistDate === 'function' && toBuddhistDate(d)) || d}<button type="button" onclick="removeSchedExtraDate(${i})" class="text-blue-400 hover:text-red-600 font-bold leading-none">×</button></span>`).join('')
+    : '<span class="text-xs text-gray-400">ยังไม่ได้เพิ่มวันเพิ่มเติม</span>';
+}
+function addSchedExtraDate() {
+  const el = document.getElementById('schedExtraDateInput'); if (!el || !el.value) return;
+  const a = getSchedExtraDatesArr(); a.push(el.value); setSchedExtraDatesArr(a); el.value = '';
+}
+function removeSchedExtraDate(i) {
+  const a = getSchedExtraDatesArr(); a.splice(i, 1); setSchedExtraDatesArr(a);
+}
+
 function scheduleFormBody(s, isNew) {
   s = s || {};
   const v = k => String(s[k] == null ? '' : s[k]).replace(/"/g, '&quot;');
@@ -2289,6 +2317,15 @@ function scheduleFormBody(s, isNew) {
       <div><label class="block text-xs text-gray-600 mb-1">ถึงเวลา</label><input name="schedule_time_end" type="time" value="${fmtSchedTime(s.schedule_time_end)}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       <div class="col-span-2"><label class="block text-xs text-gray-600 mb-1">ห้อง <span class="font-normal text-gray-400" id="schedRoomHint">${isExam ? '(ห้องสอบที่ 1)' : ''}</span></label><input name="room" value="${v('room')}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
     </div>
+    ${isNew ? `<div class="p-3 bg-blue-50 rounded-xl border border-blue-100">
+      <label class="block text-xs text-gray-600 mb-1">จัดหลายวัน (ถ้ามี) <span class="font-normal text-gray-400">— สร้างรายการเหมือนกันในทุกวันที่เพิ่ม</span></label>
+      <div class="flex gap-2 items-stretch">
+        <input type="date" id="schedExtraDateInput" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm">
+        <button type="button" onclick="addSchedExtraDate()" class="shrink-0 px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มวันที่</button>
+      </div>
+      <input type="hidden" id="schedExtraDates" value="">
+      <div id="schedExtraDateChips" class="flex flex-wrap gap-1.5 mt-2"></div>
+    </div>` : ''}
     ${proctorDatalistHTML()}
     <div id="schedExamFields" class="${isExam ? '' : 'hidden'} space-y-3 p-3 bg-red-50 rounded-xl border border-red-100">
       <div class="text-xs font-semibold text-red-700"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 inline"></i> ข้อมูลการสอบ</div>
@@ -2380,6 +2417,7 @@ function showAddScheduleModal() {
   `);
   renderSchedSubjectChips();
   renderSchedProctorChips(1);
+  renderSchedExtraDateChips();
   updateSchedSplitState();
   window._schedWasExam = false;
   document.getElementById('addScheduleForm').onsubmit = async (e) => {
@@ -2394,11 +2432,17 @@ function showAddScheduleModal() {
       const fd = new FormData(e.target);
       if (!(fd.get('schedule_type') || '').trim()) { showToast('กรุณาระบุประเภท', 'error'); return; }
       if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
-      const obj = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => obj[k] = v);
-      const r = await GSheetDB.create(obj);
-      if (r.isOk) {
-        if (doNotify) { await createScheduleAnnouncement(obj, roles, sendLine); showToast('เพิ่มรายการและสร้างประกาศแจ้งเตือนแล้ว'); }
-        else showToast('เพิ่มรายการสำเร็จ');
+      const base = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => base[k] = v);
+      // รวมวันที่: วันหลัก + วันที่เพิ่มเติม (จัดหลายวัน)
+      const dates = [];
+      if (norm(base.schedule_date)) dates.push(norm(base.schedule_date));
+      getSchedExtraDatesArr().forEach(d => { d = norm(d); if (d && dates.indexOf(d) === -1) dates.push(d); });
+      if (!dates.length) { showToast('กรุณาระบุวันที่', 'error'); return; }
+      const objs = dates.map(d => Object.assign({}, base, { schedule_date: d }));
+      const r = await GSheetDB.createMany(objs);
+      if (r.isOk || r.ok) {
+        if (doNotify) { for (const o of objs) { await createScheduleAnnouncement(o, roles, sendLine); } }
+        showToast('เพิ่มรายการสำเร็จ ' + (r.ok || objs.length) + ' วัน' + (doNotify ? ' + สร้างประกาศแจ้งเตือน' : ''));
         closeModal();
       } else showToast('เกิดข้อผิดพลาด', 'error');
     });
