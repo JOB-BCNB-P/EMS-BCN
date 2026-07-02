@@ -1243,11 +1243,12 @@ function yearLevelCardsHTML(students, engPassRecords, canEdit) {
     const yrStudents = activeStudents(students).filter(s => norm(s.year_level) === String(yr));
     const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
     const homeroom = _hr[String(yr)] || '';
-    return `<div class="bg-white rounded-2xl p-4 border border-blue-100">
-      <p class="text-sm text-gray-500">ชั้นปี ${yr}</p>
-      <div class="flex gap-3 mt-2">
-        <div><p class="text-2xl font-bold text-primary">${yrStudents.length}</p><p class="text-xs text-gray-500">นักศึกษา</p></div>
-        <div><p class="text-2xl font-bold text-green-500">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500">ผ่าน ENG</p></div>
+    return `<div class="bg-white rounded-2xl p-5 border border-blue-100">
+      <p class="text-sm font-medium text-gray-500 mb-3">ชั้นปี ${yr}</p>
+      <div class="flex items-center gap-4">
+        <div class="flex-1"><p class="text-3xl font-bold text-primary leading-none">${yrStudents.length}</p><p class="text-xs text-gray-500 mt-1.5">นักศึกษา</p></div>
+        <div class="w-px self-stretch bg-gray-100"></div>
+        <div class="flex-1"><p class="text-3xl font-bold text-green-500 leading-none">${yrEngPassUnique.length}</p><p class="text-xs text-gray-500 mt-1.5">ผ่าน ENG</p></div>
       </div>
       <div class="mt-3 pt-3 border-t border-gray-100 flex items-start justify-between gap-2">
         <div class="flex items-start gap-2 min-w-0">
