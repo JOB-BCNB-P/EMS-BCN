@@ -981,9 +981,11 @@ async function clearTrackingBacklog() {
 function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
-  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว (เฉพาะส่วนประกาศ — ส่วนใบลาจะอัปเดตอัตโนมัติเมื่ออนุมัติ)
-  const seenCount = visibleAnnouncements().length;
-  try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
+  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว (ประกาศ + ใบลา + ติดตาม) — เห็นแล้วให้หายจากกระดิ่ง
+  try {
+    localStorage.setItem('notifSeenCount', String(visibleAnnouncements().length));
+    localStorage.setItem('notifSeenIds', JSON.stringify(getCurrentNotifIds()));
+  } catch (e) { }
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
@@ -1050,6 +1052,16 @@ function renderNotifications() {
   document.getElementById('notifList').innerHTML = html || '<p class="text-gray-400 text-center text-sm">ไม่มีการแจ้งเตือน</p>';
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
+// รหัสรายการแจ้งเตือนปัจจุบัน (ใบลา + ติดตาม) สำหรับจำว่า "เห็นแล้ว"
+function getCurrentNotifIds() {
+  const ids = [];
+  getPendingLeavesForCurrentRole().forEach(l => ids.push('L:' + l.__backendId));
+  getPendingTrackingsForCurrentRole().forEach(p => ids.push('T:' + (p.rec && p.rec.__backendId)));
+  return ids;
+}
+function getSeenNotifIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('notifSeenIds') || '[]')); } catch (e) { return new Set(); }
+}
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
@@ -1057,8 +1069,9 @@ function updateNotifBadge() {
   let seenAnn = 0;
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
-  const pendingLeaves = getPendingLeavesForCurrentRole().length;
-  const pendingTracks = getPendingTrackingsForCurrentRole().length;
+  const seenIds = getSeenNotifIds();
+  const pendingLeaves = getPendingLeavesForCurrentRole().filter(l => !seenIds.has('L:' + l.__backendId)).length;
+  const pendingTracks = getPendingTrackingsForCurrentRole().filter(p => !seenIds.has('T:' + (p.rec && p.rec.__backendId))).length;
   const total = unseenAnn + pendingLeaves + pendingTracks;
   if (total > 0) { b.textContent = total > 99 ? '99+' : total; b.classList.remove('hidden'); } else b.classList.add('hidden');
 }
