@@ -2108,7 +2108,7 @@ function schedulePage() {
 
 function scheduleTypeInput(name, selectedValue) {
   const existing = [...new Set(getDataByType('schedule').map(s => (s.schedule_type || '').trim()).filter(Boolean))];
-  const defaults = ['สอบกลางภาค', 'สอบปลายภาค', 'สอบย่อย', 'กิจกรรม', 'วันหยุด'];
+  const defaults = ['สอบกลางภาค', 'สอบซ่อมกลางภาค', 'สอบปลายภาค', 'สอบซ่อมปลายภาค', 'สอบย่อย', 'สอบภาษาอังกฤษสบช.', 'สอบ OSCE', 'สอบรวบยอด', 'สอบซ่อมรวบยอด', 'กิจกรรม', 'วันหยุด'];
   const allTypes = [...new Set([...defaults, ...existing])];
   const listId = 'scheduleTypeList_' + Date.now();
   return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" oninput="if(window.onScheduleTypeChange)onScheduleTypeChange(this)" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอบกลางภาค, กิจกรรม">
