@@ -981,11 +981,9 @@ async function clearTrackingBacklog() {
 function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
-  // เคลียร์การแจ้งเตือนสีแดงเมื่อผู้ใช้เปิดดูแล้ว (ประกาศ + ใบลา + ติดตาม) — เห็นแล้วให้หายจากกระดิ่ง
-  try {
-    localStorage.setItem('notifSeenCount', String(visibleAnnouncements().length));
-    localStorage.setItem('notifSeenIds', JSON.stringify(getCurrentNotifIds()));
-  } catch (e) { }
+  // เคลียร์เฉพาะส่วน "ประกาศ" เมื่อเปิดดู — ส่วนใบลา/ติดตามจะค้างไว้จนกว่าจะอนุมัติจริง
+  const seenCount = visibleAnnouncements().length;
+  try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
@@ -1052,16 +1050,6 @@ function renderNotifications() {
   document.getElementById('notifList').innerHTML = html || '<p class="text-gray-400 text-center text-sm">ไม่มีการแจ้งเตือน</p>';
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
-// รหัสรายการแจ้งเตือนปัจจุบัน (ใบลา + ติดตาม) สำหรับจำว่า "เห็นแล้ว"
-function getCurrentNotifIds() {
-  const ids = [];
-  getPendingLeavesForCurrentRole().forEach(l => ids.push('L:' + l.__backendId));
-  getPendingTrackingsForCurrentRole().forEach(p => ids.push('T:' + (p.rec && p.rec.__backendId)));
-  return ids;
-}
-function getSeenNotifIds() {
-  try { return new Set(JSON.parse(localStorage.getItem('notifSeenIds') || '[]')); } catch (e) { return new Set(); }
-}
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
@@ -1069,9 +1057,9 @@ function updateNotifBadge() {
   let seenAnn = 0;
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
-  const seenIds = getSeenNotifIds();
-  const pendingLeaves = getPendingLeavesForCurrentRole().filter(l => !seenIds.has('L:' + l.__backendId)).length;
-  const pendingTracks = getPendingTrackingsForCurrentRole().filter(p => !seenIds.has('T:' + (p.rec && p.rec.__backendId))).length;
+  // ใบลา + ติดตาม: นับค้างไว้จนกว่าจะอนุมัติจริง (รายการที่เสร็จ/ลงย้อนหลังถูกกรองออกแล้วใน getPending*)
+  const pendingLeaves = getPendingLeavesForCurrentRole().length;
+  const pendingTracks = getPendingTrackingsForCurrentRole().length;
   const total = unseenAnn + pendingLeaves + pendingTracks;
   if (total > 0) { b.textContent = total > 99 ? '99+' : total; b.classList.remove('hidden'); } else b.classList.add('hidden');
 }
@@ -2091,7 +2079,7 @@ function scheduleTypeBadge(type) {
 
 function schedulePage() {
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
-  const allSchedule = getDataByType('schedule').sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || ''));
+  const allSchedule = filterScheduleForStudent(getDataByType('schedule')).sort((a, b) => (a.schedule_date || '').localeCompare(b.schedule_date || ''));
   const total = allSchedule.length; const paged = paginate(allSchedule);
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -8209,6 +8197,20 @@ function schedTimeRange(e) {
   return st + (et ? ' - ' + et : '');
 }
 
+// นักศึกษา: เห็นเฉพาะ "วันสอบ" ของชั้นปีตัวเอง (วันหยุด/กิจกรรม/ประกาศ เห็นทุกคน) — บทบาทอื่นเห็นทุกอย่าง
+function filterScheduleForStudent(records) {
+  if (APP.currentRole !== 'student') return records;
+  const yr = norm((APP.currentUser && APP.currentUser.data && APP.currentUser.data.year_level) || '');
+  return records.filter(e => {
+    if (!norm(e.schedule_date)) return true;               // ประกาศ (ไม่ใช่รายการปฏิทิน)
+    const isExam = norm(e.schedule_type).includes('สอบ');
+    if (!isExam) return true;                               // วันหยุด/กิจกรรม แสดงทุกคน
+    if (!yr) return true;                                   // ไม่ทราบชั้นปี → แสดงไว้ก่อน
+    const yl = norm(e.year_level);
+    return !yl || yl === yr;                                // สอบ: เฉพาะชั้นปีตัวเอง หรือ ทุกชั้นปี
+  });
+}
+
 // ประกาศที่ระบบสร้างอัตโนมัติจากรายการปฏิทิน — ไม่ต้องโชว์ซ้ำบนปฏิทิน (มีรายการปฏิทินอยู่แล้ว)
 function isAutoScheduleAnnouncement(e) {
   if (norm(e.schedule_date)) return false;
@@ -8251,7 +8253,7 @@ function renderCalendar(containerId) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-  const events = [...getDataByType('announcement'), ...getDataByType('schedule')].filter(e => !isAutoScheduleAnnouncement(e));
+  const events = filterScheduleForStudent([...getDataByType('announcement'), ...getDataByType('schedule')].filter(e => !isAutoScheduleAnnouncement(e)));
   const isThisMonth = (year === now.getFullYear() && month === now.getMonth());
 
   let h = `<div class="flex items-center justify-between mb-3">
@@ -8344,9 +8346,9 @@ function scheduleEventCardHTML(e, canManage) {
 function showCalendarDayModal(dateStr, idx) {
   idx = idx || 0;
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
-  const events = [...getDataByType('schedule'), ...getDataByType('announcement')]
+  const events = filterScheduleForStudent([...getDataByType('schedule'), ...getDataByType('announcement')]
     .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr))
-    .filter(e => !isAutoScheduleAnnouncement(e));
+    .filter(e => !isAutoScheduleAnnouncement(e)));
   const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(dateStr)) || dateStr;
   if (!events.length) { showModal('รายการวันที่ ' + dateTh, '<p class="text-center text-gray-400 py-6">ไม่มีรายการในวันนี้</p>'); return; }
   if (idx < 0) idx = 0; if (idx >= events.length) idx = events.length - 1;
