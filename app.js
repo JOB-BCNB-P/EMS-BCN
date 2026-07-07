@@ -8967,6 +8967,25 @@ function surveyTypeLabel(q) { return q && q.q_type === 'text' ? 'ข้อคว
 function surveyToggleOptionsField() { const t = (document.getElementById('surveyQType') || {}).value; const w = document.getElementById('surveyQOptionsWrap'); if (w) w.classList.toggle('hidden', t !== 'choice'); }
 // บทบาทผู้ตอบที่ผูกกับคำถามได้ (ไม่รวม admin ซึ่งเป็นผู้จัดการ)
 const SURVEY_EVAL_ROLES = ['academic', 'registrar', 'deptHead', 'executive', 'teacher', 'classTeacher', 'student'];
+
+// สีประจำแต่ละด้าน (section) ของแบบประเมิน — วนซ้ำตามลำดับด้าน
+const SURVEY_SECTION_COLORS = [
+  { border: 'border-blue-200', head: 'text-blue-700', dot: 'bg-blue-500' },
+  { border: 'border-emerald-200', head: 'text-emerald-700', dot: 'bg-emerald-500' },
+  { border: 'border-purple-200', head: 'text-purple-700', dot: 'bg-purple-500' },
+  { border: 'border-amber-200', head: 'text-amber-700', dot: 'bg-amber-500' },
+  { border: 'border-rose-200', head: 'text-rose-700', dot: 'bg-rose-500' },
+  { border: 'border-cyan-200', head: 'text-cyan-700', dot: 'bg-cyan-500' },
+  { border: 'border-indigo-200', head: 'text-indigo-700', dot: 'bg-indigo-500' },
+  { border: 'border-teal-200', head: 'text-teal-700', dot: 'bg-teal-500' }
+];
+function surveySectionColor(i) { return SURVEY_SECTION_COLORS[((i % SURVEY_SECTION_COLORS.length) + SURVEY_SECTION_COLORS.length) % SURVEY_SECTION_COLORS.length]; }
+
+// กลุ่มบทบาทสำหรับสรุปผล: บุคลากร vs นักศึกษา
+const SURVEY_ROLE_GROUPS = [
+  { key: 'staff', label: 'บุคลากร', full: 'บุคลากร (ผู้บริหาร · งานวิชาการ · งานทะเบียน · ประธานสาขา · อาจารย์ · อ.ประจำชั้น)', roles: ['executive', 'academic', 'registrar', 'deptHead', 'teacher', 'classTeacher'], color: 'bg-primary' },
+  { key: 'student', label: 'นักศึกษา', full: 'นักศึกษา', roles: ['student'], color: 'bg-emerald-500' }
+];
 function surveyParseRoles(s) { return String(s == null ? '' : s).split(/[,|]/).map(x => x.trim()).filter(Boolean); }
 // คำถามนี้ใช้กับบทบาทใดบ้าง — ว่าง = ทุกบทบาท
 function surveyQuestionAppliesTo(q, role) { const rs = surveyParseRoles(q && q.roles); return rs.length === 0 || rs.indexOf(role) !== -1; }
@@ -9129,10 +9148,11 @@ function surveyPage() {
   const sections = [];
   qs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
   let runningNo = 0;
-  sections.forEach(sec => {
+  sections.forEach((sec, secIdx) => {
     const secQs = qs.filter(q => q.section === sec);
-    h += `<div class="bg-white rounded-2xl p-5 border border-blue-100">
-      <h3 class="font-bold text-gray-800 mb-1">${surveyEsc(sec)}</h3><div class="space-y-4 mt-3">`;
+    const col = surveySectionColor(secIdx);
+    h += `<div class="bg-white rounded-2xl p-5 border-2 ${col.border}">
+      <h3 class="font-bold ${col.head} mb-1 flex items-center gap-2"><span class="w-3 h-3 rounded-full ${col.dot}"></span>${surveyEsc(sec)}</h3><div class="space-y-4 mt-3">`;
     secQs.forEach(q => {
       runningNo++;
       if (q.q_type === 'text') {
@@ -9336,9 +9356,10 @@ function surveyPreviewInner(year, role) {
   qs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
   let no = 0;
   h += '<fieldset disabled class="space-y-3">';
-  sections.forEach(sec => {
+  sections.forEach((sec, secIdx) => {
     const secQs = qs.filter(q => q.section === sec);
-    h += `<div class="bg-white rounded-xl p-4 border border-blue-100"><h3 class="font-bold text-gray-800 mb-2 text-sm">${surveyEsc(sec)}</h3><div class="space-y-3">`;
+    const col = surveySectionColor(secIdx);
+    h += `<div class="bg-white rounded-xl p-4 border-2 ${col.border}"><h3 class="font-bold ${col.head} mb-2 text-sm flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full ${col.dot}"></span>${surveyEsc(sec)}</h3><div class="space-y-3">`;
     secQs.forEach(q => {
       no++;
       if (q.q_type === 'text') {
@@ -9611,16 +9632,45 @@ function surveyResultsTabHTML(year) {
   const qs = surveyQuestionsForYear(year, false);
   if (!resps.length) return `<div class="bg-white rounded-2xl p-8 border border-blue-100 text-center text-gray-500">ยังไม่มีผู้ตอบแบบประเมินของปีการศึกษา ${year}</div>`;
 
-  // parse answers
+  const groups = SURVEY_ROLE_GROUPS.map(g => ({ ...g, resps: resps.filter(r => g.roles.indexOf(norm(r.role)) !== -1) }));
+  const other = resps.filter(r => !SURVEY_ROLE_GROUPS.some(g => g.roles.indexOf(norm(r.role)) !== -1));
+
+  let h = `<div class="flex justify-end mb-3"><button onclick="downloadSurveyResultsPDF('${year}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button></div>`;
+
+  // กราฟแท่งจำนวนผู้ตอบแยกตามกลุ่ม
+  const maxC = Math.max(1, ...groups.map(g => g.resps.length));
+  h += `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-5">
+    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>จำนวนผู้ตอบแบบประเมิน แยกตามกลุ่ม</h4>
+    <div class="space-y-3">${groups.map(g => {
+    const c = g.resps.length; const pct = (c / maxC * 100);
+    return `<div class="flex items-center gap-3 text-sm">
+        <span class="w-28 sm:w-36 shrink-0 text-gray-600">${g.label}</span>
+        <div class="flex-1 bg-gray-100 rounded-lg h-6 overflow-hidden"><div class="h-6 rounded-lg ${g.color} flex items-center justify-end pr-2 text-white text-xs font-bold" style="width:${Math.max(pct, c ? 8 : 0)}%">${c ? c : ''}</div></div>
+        <span class="w-10 text-right font-bold text-gray-800">${c}</span></div>`;
+  }).join('')}</div>
+    <p class="text-xs text-gray-400 mt-3">รวมผู้ตอบทั้งหมด ${resps.length} คน${other.length ? ' · อื่นๆ ' + other.length + ' คน' : ''}</p>
+  </div>`;
+
+  // สรุปผลแยกตามกลุ่มบทบาท
+  groups.forEach(g => {
+    h += `<div class="mb-2 mt-6"><h3 class="text-lg font-bold text-gray-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full ${g.color}"></span>สรุปผล — ${g.full} <span class="text-sm font-normal text-gray-400">(${g.resps.length} คน)</span></h3></div>`;
+    if (!g.resps.length) { h += `<div class="bg-white rounded-2xl p-6 border border-blue-100 text-center text-gray-400 mb-4 text-sm">ยังไม่มีผู้ตอบในกลุ่มนี้</div>`; return; }
+    h += surveyAnalysisHTML(g.resps, qs);
+  });
+
+  h += `<div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mt-4 text-xs text-blue-800">เกณฑ์แปลผล (AUN-QA): 4.51-5.00 มากที่สุด · 3.51-4.50 มาก · 2.51-3.50 ปานกลาง · 1.51-2.50 น้อย · 1.00-1.50 น้อยที่สุด &nbsp;|&nbsp; S.D. คำนวณแบบ n-1 (sample)</div>`;
+  return h;
+}
+
+// สรุปผลของชุดผู้ตอบชุดหนึ่ง (ใช้กับแต่ละกลุ่มบทบาท)
+function surveyAnalysisHTML(resps, qs) {
   const parsed = resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return { r, a }; });
 
-  // ค่าเฉลี่ยรวมทุกข้อ rating
   let allVals = [];
   parsed.forEach(p => Object.keys(p.a).forEach(k => { const v = Number(p.a[k]); if (!isNaN(v) && v >= 1 && v <= 5) allVals.push(v); }));
   const grand = surveyMeanSD(allVals);
   const grandInt = surveyInterpret(grand.mean);
 
-  // breakdown ผู้ตอบ
   const byRole = {}, byDevice = {}, byYear = {};
   resps.forEach(r => {
     const rl = r.role_label || SURVEY_ROLE_LABEL[r.role] || r.role || '-';
@@ -9630,8 +9680,7 @@ function surveyResultsTabHTML(year) {
   });
   const chip = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">${surveyEsc(k)} <b class="text-primary">${v}</b></span>`).join(' ');
 
-  let h = `<div class="flex justify-end mb-3"><button onclick="downloadSurveyResultsPDF('${year}')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="download" class="w-4 h-4"></i>ดาวน์โหลด PDF</button></div>
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+  let h = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
     ${statCard('users', 'จำนวนผู้ตอบ', resps.length, 'คน', 'bg-blue-500')}
     ${statCard('bar-chart-3', 'ค่าเฉลี่ยรวม (μ)', grand.mean.toFixed(2), '/ 5.00', 'bg-emerald-500')}
     <div class="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
@@ -9707,7 +9756,6 @@ function surveyResultsTabHTML(year) {
     h += `</div>`;
   }
 
-  h += `<div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mt-4 text-xs text-blue-800">เกณฑ์แปลผล (AUN-QA): 4.51-5.00 มากที่สุด · 3.51-4.50 มาก · 2.51-3.50 ปานกลาง · 1.51-2.50 น้อย · 1.00-1.50 น้อยที่สุด &nbsp;|&nbsp; S.D. คำนวณแบบ n-1 (sample)</div>`;
   return h;
 }
 
