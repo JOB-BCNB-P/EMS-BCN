@@ -9296,6 +9296,7 @@ function surveyConfigTabHTML(year) {
 
     <div class="flex flex-wrap gap-2">
       <button id="surveyCfgSaveBtn" onclick="surveySaveConfig('${year}','${status}')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200">บันทึกชื่อ/คำชี้แจง</button>
+      <button onclick="surveyPreview('${year}')" class="px-4 py-2 bg-white border border-primary text-primary rounded-xl text-sm hover:bg-primaryLight flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i>แสดงตัวอย่างแบบประเมิน</button>
       <button onclick="surveySaveOpenRoles('${year}')" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm hover:bg-green-700">บันทึกการเปิดรับ</button>
       ${qCount === 0 ? `<button onclick="surveyCreateDefaultQuestions('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้น (ใช้ร่วมทุกบทบาท)</button>` : ''}
     </div>
@@ -9304,6 +9305,56 @@ function surveyConfigTabHTML(year) {
 
 function surveyToggleAllRoles(on) {
   document.querySelectorAll('.survey-open-role').forEach(el => { el.checked = !!on; });
+}
+
+// ---------- ตัวอย่างแบบประเมิน (พรีวิว ก่อนเปิดรับ) ----------
+function surveyPreview(year) {
+  const role = SURVEY_EVAL_ROLES[0];
+  showModal('ตัวอย่างแบบประเมิน · ปีการศึกษา ' + year, `
+    <div class="mb-3">
+      <label class="text-xs text-gray-500">ดูตัวอย่างสำหรับบทบาท</label>
+      <select id="surveyPreviewRole" onchange="surveyPreviewSetRole('${year}')" class="w-full border rounded-xl px-3 py-2 text-sm mt-1">
+        ${SURVEY_EVAL_ROLES.map(r => `<option value="${r}" ${r === role ? 'selected' : ''}>${SURVEY_ROLE_LABEL[r] || r}</option>`).join('')}
+      </select>
+    </div>
+    <div id="surveyPreviewInner" class="max-h-[62vh] overflow-y-auto pr-1">${surveyPreviewInner(year, role)}</div>
+  `, null, 'max-w-2xl');
+}
+function surveyPreviewSetRole(year) {
+  const role = (document.getElementById('surveyPreviewRole') || {}).value || SURVEY_EVAL_ROLES[0];
+  const box = document.getElementById('surveyPreviewInner');
+  if (box) { box.innerHTML = surveyPreviewInner(year, role); if (window.lucide) lucide.createIcons(); }
+}
+function surveyPreviewInner(year, role) {
+  const cfg = surveyConfigForYear(year);
+  const qs = surveyQuestionsForRole(year, role, true);
+  let h = '';
+  if (cfg && norm(cfg.description)) h += `<div class="bg-primaryLight border border-blue-100 rounded-2xl p-3 mb-3 text-sm text-gray-700 whitespace-pre-line">${surveyEsc(cfg.description)}</div>`;
+  h += `<div class="bg-blue-50 border border-blue-100 rounded-xl p-2.5 mb-3 text-xs text-blue-800">เกณฑ์การให้คะแนน: 5 = มากที่สุด, 4 = มาก, 3 = ปานกลาง, 2 = น้อย, 1 = น้อยที่สุด</div>`;
+  if (!qs.length) return h + '<p class="text-center text-amber-600 py-6 text-sm">ยังไม่มีคำถามสำหรับบทบาทนี้</p>';
+  const sections = [];
+  qs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
+  let no = 0;
+  h += '<fieldset disabled class="space-y-3">';
+  sections.forEach(sec => {
+    const secQs = qs.filter(q => q.section === sec);
+    h += `<div class="bg-white rounded-xl p-4 border border-blue-100"><h3 class="font-bold text-gray-800 mb-2 text-sm">${surveyEsc(sec)}</h3><div class="space-y-3">`;
+    secQs.forEach(q => {
+      no++;
+      if (q.q_type === 'text') {
+        h += `<div><p class="text-sm text-gray-700">${no}. ${surveyEsc(q.question_text)}</p><textarea rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1 bg-gray-50" placeholder="ความคิดเห็น (ไม่บังคับ)"></textarea></div>`;
+      } else if (q.q_type === 'choice') {
+        const opts = surveyParseOptions(q.options);
+        h += `<div><p class="text-sm text-gray-700">${no}. ${surveyEsc(q.question_text)} <span class="text-red-500">*</span></p><div class="flex flex-col gap-1.5 mt-1">${opts.map(o => `<label class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm"><input type="radio" class="accent-primary"> ${surveyEsc(o)}</label>`).join('') || '<span class="text-xs text-amber-500">ยังไม่ได้กำหนดตัวเลือก</span>'}</div></div>`;
+      } else {
+        h += `<div><p class="text-sm text-gray-700">${no}. ${surveyEsc(q.question_text)} <span class="text-red-500">*</span></p><div class="flex flex-wrap gap-2 mt-1">${[5, 4, 3, 2, 1].map(v => `<label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm"><input type="radio" class="accent-primary"> ${v} <span class="text-gray-400 text-xs">(${SURVEY_RATING_LABELS[v]})</span></label>`).join('')}</div></div>`;
+      }
+    });
+    h += `</div></div>`;
+  });
+  h += '</fieldset>';
+  h += `<p class="text-xs text-gray-400 mt-2 text-center">ตัวอย่างเท่านั้น — ไม่บันทึกคำตอบ · มี ${qs.length} ข้อสำหรับบทบาทนี้</p>`;
+  return h;
 }
 
 async function surveySaveOpenRoles(year) {
