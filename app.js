@@ -9018,6 +9018,18 @@ function surveyMyResponseForYear(y) {
 function surveyOpenYears() {
   return surveyConfigs().filter(c => String(c.status).trim() === 'open').map(c => norm(c.academic_year)).filter(Boolean).sort().reverse();
 }
+// บทบาทที่เปิดรับของปีนั้น (ว่าง = เปิดทุกบทบาท) — ใช้เปิดแบบประเมินทีละบทบาท
+function surveyOpenRolesFor(year) {
+  const cfg = surveyConfigForYear(year);
+  return cfg ? surveyParseRoles(cfg.open_roles) : [];
+}
+// ปีนี้เปิดรับสำหรับบทบาทนี้ไหม
+function surveyIsOpenForRole(year, role) {
+  const cfg = surveyConfigForYear(year);
+  if (!cfg || String(cfg.status).trim() !== 'open') return false;
+  const rs = surveyParseRoles(cfg.open_roles);
+  return rs.length === 0 || rs.indexOf(role) !== -1;
+}
 function surveyAllYears() {
   const set = new Set();
   surveyConfigs().forEach(c => { if (norm(c.academic_year)) set.add(norm(c.academic_year)); });
@@ -9044,7 +9056,8 @@ function surveyInterpret(m) {
 
 // ======================== หน้าทำแบบประเมิน (ผู้ใช้ทั่วไป) ========================
 function surveyPage() {
-  const openYears = surveyOpenYears();
+  const _myRole = (APP.currentUser && APP.currentUser.role) || APP.currentRole;
+  const openYears = surveyOpenYears().filter(y => surveyIsOpenForRole(y, _myRole));
   let year = norm(APP.filters._surveyYear);
   if (!year && openYears.length) year = openYears[0];
 
@@ -9251,25 +9264,70 @@ function surveyConfigTabHTML(year) {
   const qCount = surveyQuestionsForYear(year, false).length;
   const respCount = surveyResponsesForYear(year).length;
 
+  const openRoles = surveyOpenRolesFor(year);           // [] = ทุกบทบาท (เมื่อเปิด)
+  const isRoleOpen = r => isOpen && (openRoles.length === 0 || openRoles.indexOf(r) !== -1);
+  const statusText = !isOpen ? '○ ปิดรับการประเมิน'
+    : (openRoles.length === 0 ? '● เปิดรับ (ทุกบทบาท)' : '● เปิดรับ: ' + openRoles.map(r => SURVEY_ROLE_LABEL[r] || r).join(', '));
+
   return `<div class="bg-white rounded-2xl p-5 border border-blue-100 max-w-2xl">
     <div class="flex items-center justify-between mb-4">
       <div><p class="text-sm text-gray-500">สถานะแบบประเมินปีการศึกษา ${year}</p>
-        <p class="font-bold text-lg ${isOpen ? 'text-green-600' : 'text-gray-500'}">${isOpen ? '● เปิดรับการประเมิน' : '○ ปิดรับการประเมิน'}</p></div>
+        <p class="font-bold text-lg ${isOpen ? 'text-green-600' : 'text-gray-500'}">${statusText}</p></div>
       <div class="text-right text-sm text-gray-500"><p>คำถาม: <b class="text-gray-800">${qCount}</b> ข้อ</p><p>ผู้ตอบแล้ว: <b class="text-gray-800">${respCount}</b> คน</p></div>
     </div>
     <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อแบบประเมิน (ไม่บังคับ)</label>
     <input id="surveyCfgTitle" value="${surveyEsc(cfg ? cfg.title : '')}" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm mb-3" placeholder="แบบประเมินความพึงพอใจการใช้งานระบบ EMS-BCNB">
     <label class="block text-sm font-medium text-gray-700 mb-1">คำชี้แจง (แสดงให้ผู้ตอบเห็นด้านบนแบบประเมิน)</label>
     <textarea id="surveyCfgDesc" rows="3" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm mb-4" placeholder="คำชี้แจงการทำแบบประเมิน...">${surveyEsc(cfg ? cfg.description : '')}</textarea>
+
+    <div class="p-3 bg-green-50 rounded-xl border border-green-100 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-green-800">เปิดรับการประเมินเฉพาะบทบาทที่เลือก</label>
+        <div class="flex gap-2 text-xs">
+          <button type="button" onclick="surveyToggleAllRoles(true)" class="px-2 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-100">เลือกทุกบทบาท</button>
+          <button type="button" onclick="surveyToggleAllRoles(false)" class="px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100">ไม่เลือกเลย</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+        ${SURVEY_EVAL_ROLES.map(r => `<label class="flex items-center gap-2 text-sm text-gray-700 bg-white rounded-lg px-2 py-1.5 border border-green-100"><input type="checkbox" class="survey-open-role accent-green-600" value="${r}" ${isRoleOpen(r) ? 'checked' : ''}> ${SURVEY_ROLE_LABEL[r] || r}</label>`).join('')}
+      </div>
+      <p class="text-[11px] text-gray-500 mt-2">ติ๊กบทบาทที่ต้องการให้ทำแบบประเมิน แล้วกด "บันทึกการเปิดรับ" — บทบาทที่ไม่ติ๊กจะยังทำไม่ได้ (ไม่ติ๊กเลย = ปิดรับทั้งหมด)</p>
+    </div>
+
     <div class="flex flex-wrap gap-2">
-      <button id="surveyCfgSaveBtn" onclick="surveySaveConfig('${year}','${status}')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200">บันทึกข้อความ</button>
-      ${isOpen
-      ? `<button onclick="surveySaveConfig('${year}','closed')" class="px-4 py-2 bg-red-500 text-white rounded-xl text-sm hover:bg-red-600">ปิดรับการประเมิน</button>`
-      : `<button onclick="surveySaveConfig('${year}','open')" class="px-4 py-2 bg-green-500 text-white rounded-xl text-sm hover:bg-green-600">เปิดรับการประเมิน</button>`}
+      <button id="surveyCfgSaveBtn" onclick="surveySaveConfig('${year}','${status}')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200">บันทึกชื่อ/คำชี้แจง</button>
+      <button onclick="surveySaveOpenRoles('${year}')" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm hover:bg-green-700">บันทึกการเปิดรับ</button>
       ${qCount === 0 ? `<button onclick="surveyCreateDefaultQuestions('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้น (ใช้ร่วมทุกบทบาท)</button>` : ''}
     </div>
-    <p class="text-xs text-gray-400 mt-3">หมายเหตุ: เมื่อ "เปิดรับ" ผู้ใช้ทุกบทบาทจะเห็นแบบประเมินของปีนี้ และทำได้คนละครั้งเดียว</p>
   </div>`;
+}
+
+function surveyToggleAllRoles(on) {
+  document.querySelectorAll('.survey-open-role').forEach(el => { el.checked = !!on; });
+}
+
+async function surveySaveOpenRoles(year) {
+  const roles = [...document.querySelectorAll('.survey-open-role:checked')].map(el => el.value);
+  const title = (document.getElementById('surveyCfgTitle') || {}).value || '';
+  const desc = (document.getElementById('surveyCfgDesc') || {}).value || '';
+  const existing = surveyConfigForYear(year);
+  const wasOpen = existing && String(existing.status).trim() === 'open';
+  const status = roles.length ? 'open' : 'closed';
+  // ติ๊กครบทุกบทบาท → เก็บว่าง (= ทุกบทบาท) ไม่งั้นเก็บรายการบทบาท
+  const openRolesStr = (roles.length === SURVEY_EVAL_ROLES.length) ? '' : roles.join(',');
+  const now = new Date().toISOString();
+  await withLoading(document.getElementById('surveyCfgSaveBtn'), async () => {
+    const payload = { status, open_roles: openRolesStr, title, description: desc, updated_at: now };
+    let res;
+    if (existing) res = await GSheetDB.update({ ...existing, ...payload });
+    else res = await GSheetDB.create({ type: 'survey_config', academic_year: year, created_at: now, ...payload });
+    if (res && res.isOk) {
+      if (status === 'open' && !wasOpen) await surveyCreateOpenAnnouncement(year, title, openRolesStr);
+      showToast('บันทึกการเปิดรับแล้ว', 'success');
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+      renderCurrentPage();
+    } else showToast((res && res.error) || 'บันทึกไม่สำเร็จ', 'error');
+  });
 }
 
 async function surveySaveConfig(year, status) {
@@ -9296,7 +9354,7 @@ async function surveySaveConfig(year, status) {
 
 // สร้างประกาศแจ้งเตือน "เปิดให้ทำแบบประเมิน" เข้าระบบ (กระดิ่ง + การ์ดหน้าหลัก)
 // ตั้ง line_sent ไว้ล่วงหน้า เพื่อกันไม่ให้ตัวแจ้งเตือน LINE (line-announcement-notify.gs) หยิบไปส่ง
-async function surveyCreateOpenAnnouncement(year, title) {
+async function surveyCreateOpenAnnouncement(year, title, roles) {
   try {
     const pad = n => String(n).padStart(2, '0');
     const d = new Date();
@@ -9307,6 +9365,7 @@ async function surveyCreateOpenAnnouncement(year, title) {
       announcement_title: 'เปิดให้ทำแบบประเมินความพึงพอใจ ปีการศึกษา ' + year,
       announcement_content: 'ขอเชิญผู้ใช้งานร่วมทำ "' + t + '" ประจำปีการศึกษา ' + year + ' ได้ที่เมนู "แบบประเมินความพึงพอใจ" (ทำได้ครั้งเดียวต่อปีการศึกษา)',
       announcement_date: dateStr,
+      roles: roles || '',
       line_sent: 'ไม่ส่ง LINE (แจ้งเฉพาะในระบบ)',
       line_notify: ''
     });
