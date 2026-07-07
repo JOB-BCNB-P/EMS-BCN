@@ -4280,21 +4280,20 @@ function specialTeachersPage() {
       ${selYear ? `<span class="text-xs text-gray-500">แสดงปีการศึกษา ${selYear}</span>` : ''}
       <div class="relative flex-1 min-w-[200px] max-w-xs ml-auto">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
-        <input type="text" value="${(APP.filters._specialTeacherSearch || '').replace(/"/g, '&quot;')}" placeholder="ค้นหาชื่อ / หน่วยงาน / รายวิชา..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._specialTeacherSearchTimer);window._specialTeacherSearchTimer=setTimeout(()=>{APP.filters._specialTeacherSearch=this.value;APP.pagination.page=1;renderCurrentPage()},300)">
+        <input type="text" value="${(APP.filters._specialTeacherSearch || '').replace(/"/g, '&quot;')}" placeholder="ค้นหาชื่อ / ตำแหน่ง / หน่วยงาน..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._specialTeacherSearchTimer);window._specialTeacherSearchTimer=setTimeout(()=>{APP.filters._specialTeacherSearch=this.value;APP.pagination.page=1;renderCurrentPage()},300)">
       </div>
     </div>
     ${kw ? `<p class="text-xs text-gray-500 mt-2">พบ ${total} รายการจากคำค้น "${kw.replace(/</g, '&lt;')}"</p>` : ''}
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th><th class="px-4 py-3 font-semibold">รหัสวิชา</th><th class="px-4 py-3 font-semibold">รายวิชาที่สอน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ปีการศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">หน่วยงาน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(t => `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 align-top">${t.academic_year || ''}</td>
         <td class="px-4 py-3 font-medium align-top">${t.name || ''}</td>
         <td class="px-4 py-3 align-top">${t.academic_position || ''}</td>
         <td class="px-4 py-3 align-top">${t.agency || ''}</td>
-        ${specialSubjectCells(t)}
-        ${isAdmin ? `<td class="px-4 py-3 align-top"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 7 : 6}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+        ${isAdmin ? `<td class="px-4 py-3 align-top"><div class="flex gap-1"><button onclick="showEditSpecialTeacherRegModal('${t.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${t.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${isAdmin ? 5 : 4}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -5313,7 +5312,7 @@ function specialTeacherRegPickerHTML() {
   if (!list.length) return '';
   const opts = list.slice()
     .sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''))
-    .map(t => `<option value="${t.__backendId}">${(t.name || '').replace(/"/g, '&quot;')}${t.academic_year ? ' · ปี ' + t.academic_year : ''}${t.agency ? ' · ' + (t.agency || '').replace(/"/g, '&quot;') : ''}</option>`).join('');
+    .map(t => `<option value="${t.__backendId}">${(t.name || '').replace(/"/g, '&quot;')}${t.academic_position ? ' · ' + (t.academic_position || '').replace(/"/g, '&quot;') : ''}${t.agency ? ' · ' + (t.agency || '').replace(/"/g, '&quot;') : ''}</option>`).join('');
   return `<div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
     <label class="block text-xs font-medium text-emerald-800 mb-1"><i data-lucide="download" class="w-3.5 h-3.5 inline mr-1"></i>ดึงข้อมูลจาก "ข้อมูลอาจารย์พิเศษ" (ระบบทะเบียน)</label>
     <select onchange="fillFromSpecialTeacherReg(this)" class="w-full border rounded-xl px-3 py-2 text-sm">
@@ -5332,8 +5331,7 @@ function fillFromSpecialTeacherReg(sel) {
   setv('name', rest);
   setv('academic_position', t.academic_position);
   setv('agency', t.agency);
-  setv('edu_level', t.edu_level);
-  setv('academic_year', t.academic_year);
+  // ดึงเฉพาะ ชื่อ-สกุล/ตำแหน่ง/หน่วยงาน — ไม่ดึงปีการศึกษา (เพิ่มในปีอื่นได้)
   const tp = form.querySelector('[name="title_prefix"]'); if (tp) syncTitlePrefixChips(tp);
 }
 
