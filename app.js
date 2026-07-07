@@ -4334,23 +4334,13 @@ function specialTeacherRegFormBody(t) {
   t = t || {};
   const year = norm(t.academic_year) || currentAcademicYearBE();
   return `
-    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" id="specialAcademicYear" required value="${String(t.academic_year || currentAcademicYearBE()).replace(/"/g, '&quot;')}" oninput="refreshSpecialSubjectOptions()" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+    <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา *</label><input name="academic_year" id="specialAcademicYear" required value="${String(t.academic_year || currentAcademicYearBE()).replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
     ${titlePrefixField(t.name || '')}
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-xs text-gray-600 mb-1">ตำแหน่ง</label><input name="academic_position" value="${(t.academic_position || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น นายแพทย์ชำนาญการ"></div>
       <div><label class="block text-xs text-gray-600 mb-1">หน่วยงาน</label><input name="agency" value="${(t.agency || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รพ.ราชวิถี"></div>
     </div>
-    <div>
-      <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอน</label>
-      <input type="hidden" name="subjects" id="specialSubjectsValue" value="${((t.subjects || t.edu_level) || '').replace(/"/g, '&quot;')}">
-      <div class="flex gap-2 items-stretch">
-        <select id="specialSubjectSelect" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm">${specialSubjectDropdownOptionsHTML(year)}</select>
-        <button type="button" onclick="addSpecialSubject()" class="shrink-0 px-3 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark whitespace-nowrap flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่ม</button>
-      </div>
-      <p class="text-[11px] text-gray-400 mt-1">รายวิชาดึงจาก "รายวิชาที่เปิดสอน" ตามปีการศึกษาที่กรอก หรือพิมพ์เองในช่องด้านล่างแล้วกด Enter</p>
-      <div id="specialSubjectChips" class="flex flex-wrap gap-1.5 mt-2"></div>
-      <input id="specialSubjectManual" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="หรือพิมพ์รายวิชาเอง แล้วกด Enter เพื่อเพิ่ม" onkeydown="if(event.key==='Enter'){event.preventDefault();addSpecialSubjectManual();}">
-    </div>`;
+    <p class="text-[11px] text-gray-400">การเลือก "รายวิชาที่สอน" ย้ายไปอยู่ที่ระบบทำเนียบอาจารย์ (เมนูเพิ่มอาจารย์พิเศษ)</p>`;
 }
 
 // สร้างตัวเลือกรายวิชา (จากชีต subject) กรองตามปีการศึกษา — ไม่ซ้ำชื่อวิชา
@@ -4419,7 +4409,6 @@ function collectSpecialTeacherReg(form, obj) {
   obj.name = combineName(form);
   obj.academic_position = form.querySelector('[name="academic_position"]').value;
   obj.agency = form.querySelector('[name="agency"]').value;
-  obj.subjects = form.querySelector('[name="subjects"]').value;
   return obj;
 }
 
@@ -4492,7 +4481,7 @@ function alumniPage() {
   </div>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คำนำหน้า</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">เข้าศึกษาวันที่</th><th class="px-4 py-3 font-semibold">จบการศึกษาวันที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">สถานที่ปฏิบัติงาน</th><th class="px-4 py-3 font-semibold">วันที่บันทึกข้อมูล</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
+      <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">คำนำหน้า</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">เข้าศึกษาวันที่</th><th class="px-4 py-3 font-semibold">จบการศึกษาวันที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3 font-semibold">สถานที่ปฏิบัติงาน</th>${isAdmin ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(a => {
     const pp = parseTitlePrefix(a.name || '');
     return `<tr class="border-t hover:bg-gray-50">
@@ -4503,9 +4492,8 @@ function alumniPage() {
         <td class="px-4 py-3">${a.graduation_date ? toBuddhistDate(a.graduation_date) : ''}</td>
         <td class="px-4 py-3">${a.alumni_status || ''}</td>
         <td class="px-4 py-3">${a.workplace || ''}</td>
-        <td class="px-4 py-3">${a.recorded_date ? toBuddhistDate(a.recorded_date) : ''}</td>
         ${isAdmin ? `<td class="px-4 py-3"><div class="flex gap-1"><button onclick="showEditAlumniModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>` : ''}</tr>`;
-  }).join('') : `<tr><td colspan="${isAdmin ? 9 : 8}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
+  }).join('') : `<tr><td colspan="${isAdmin ? 8 : 7}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
   ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
@@ -5002,27 +4990,8 @@ function exportTeacherDirectoryPDF() {
 // รวมข้อมูลทำเนียบอาจารย์ + อาจารย์พิเศษจากระบบทะเบียน (special_teacher)
 // ที่ยังไม่มีในทำเนียบ (เทียบด้วยชื่อ + ปีการศึกษา) — เพื่อให้อาจารย์พิเศษที่ลงทะเบียนไว้แสดงในทำเนียบด้วย
 function directoryRecords() {
-  const dir = getDataByType('teacher_directory');
-  const nameKey = v => norm(v).toLowerCase().replace(/\s+/g, '');
-  const existing = new Set(dir
-    .filter(d => norm(d.teacher_category) === 'อาจารย์พิเศษ')
-    .map(d => nameKey(d.name) + '|' + norm(d.academic_year)));
-  const reg = getDataByType('special_teacher')
-    .filter(t => norm(t.name) && !existing.has(nameKey(t.name) + '|' + norm(t.academic_year)))
-    .map(t => ({
-      __backendId: t.__backendId,
-      __fromRegistry: true,
-      type: 'teacher_directory',
-      name: t.name,
-      academic_position: t.academic_position,
-      agency: t.agency,
-      academic_year: t.academic_year,
-      teacher_category: 'อาจารย์พิเศษ',
-      subjects_taught: norm(t.subjects || t.edu_level).split(/[,;/]/).map(s => s.trim()).filter(Boolean).join('||'),
-      edu_level: '',
-      nursing_branch: ''
-    }));
-  return dir.concat(reg);
+  // แสดงเฉพาะข้อมูลที่ลงในระบบทำเนียบอาจารย์เท่านั้น (ไม่ดึงอาจารย์พิเศษจากระบบทะเบียนมาแสดงอัตโนมัติ)
+  return getDataByType('teacher_directory');
 }
 
 function renderDirectoryDataSection(paged, total, counts, activeTab, isAdmin) {
