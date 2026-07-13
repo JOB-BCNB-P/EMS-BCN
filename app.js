@@ -8983,8 +8983,8 @@ function surveySectionColor(i) { return SURVEY_SECTION_COLORS[((i % SURVEY_SECTI
 
 // กลุ่มบทบาทสำหรับสรุปผล: บุคลากร vs นักศึกษา
 const SURVEY_ROLE_GROUPS = [
-  { key: 'staff', label: 'บุคลากร', full: 'บุคลากร (ผู้บริหาร · งานวิชาการ · งานทะเบียน · ประธานสาขา · อาจารย์ · อ.ประจำชั้น)', roles: ['executive', 'academic', 'registrar', 'deptHead', 'teacher', 'classTeacher'], color: 'bg-primary' },
-  { key: 'student', label: 'นักศึกษา', full: 'นักศึกษา', roles: ['student'], color: 'bg-emerald-500' }
+  { key: 'student', label: 'นักศึกษา', full: 'นักศึกษา', roles: ['student'], color: 'bg-emerald-500' },
+  { key: 'staff', label: 'บุคลากร', full: 'บุคลากร (อาจารย์ · ประธานสาขา · อ.ประจำชั้น · งานทะเบียน · งานวิชาการ · ผู้บริหาร)', roles: ['teacher', 'deptHead', 'classTeacher', 'registrar', 'academic', 'executive'], color: 'bg-primary' }
 ];
 function surveyParseRoles(s) { return String(s == null ? '' : s).split(/[,|]/).map(x => x.trim()).filter(Boolean); }
 // คำถามนี้ใช้กับบทบาทใดบ้าง — ว่าง = ทุกบทบาท
@@ -9651,14 +9651,60 @@ function surveyResultsTabHTML(year) {
     <p class="text-xs text-gray-400 mt-3">รวมผู้ตอบทั้งหมด ${resps.length} คน${other.length ? ' · อื่นๆ ' + other.length + ' คน' : ''}</p>
   </div>`;
 
-  // สรุปผลแยกตามกลุ่มบทบาท
-  groups.forEach(g => {
-    h += `<div class="mb-2 mt-6"><h3 class="text-lg font-bold text-gray-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full ${g.color}"></span>สรุปผล — ${g.full} <span class="text-sm font-normal text-gray-400">(${g.resps.length} คน)</span></h3></div>`;
-    if (!g.resps.length) { h += `<div class="bg-white rounded-2xl p-6 border border-blue-100 text-center text-gray-400 mb-4 text-sm">ยังไม่มีผู้ตอบในกลุ่มนี้</div>`; return; }
-    h += surveyAnalysisHTML(g.resps, qs);
-  });
+  // ผลรายด้าน — แยกตามกลุ่ม (เทียบข้าง ๆ กัน)
+  h += surveySectionByGroupHTML(groups, qs);
+
+  // ผลรายข้อ — เลือกดูตามกลุ่ม
+  const selKey = APP._surveyResultGroup || groups[0].key;
+  const selGroup = groups.find(g => g.key === selKey) || groups[0];
+  h += `<div class="mt-6 mb-3 flex flex-wrap items-center gap-2">
+    <span class="text-sm font-semibold text-gray-700"><i data-lucide="list-checks" class="w-4 h-4 inline text-primary"></i> ผลรายข้อ — เลือกกลุ่มที่ต้องการดู:</span>
+    ${groups.map(g => `<button onclick="APP._surveyResultGroup='${g.key}';renderCurrentPage()" class="px-4 py-1.5 rounded-xl text-sm transition ${g.key === selKey ? g.color + ' text-white shadow' : 'bg-white border border-gray-200 text-gray-600 hover:bg-surface'}">${g.label} (${g.resps.length})</button>`).join('')}
+  </div>`;
+  h += `<div class="mb-2"><h3 class="text-base font-bold text-gray-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full ${selGroup.color}"></span>รายละเอียดกลุ่ม — ${selGroup.full} <span class="text-sm font-normal text-gray-400">(${selGroup.resps.length} คน)</span></h3></div>`;
+  h += selGroup.resps.length ? surveyAnalysisHTML(selGroup.resps, qs) : `<div class="bg-white rounded-2xl p-6 border border-blue-100 text-center text-gray-400 text-sm">ยังไม่มีผู้ตอบในกลุ่มนี้</div>`;
 
   h += `<div class="bg-blue-50 border border-blue-100 rounded-xl p-3 mt-4 text-xs text-blue-800">เกณฑ์แปลผล (AUN-QA): 4.51-5.00 มากที่สุด · 3.51-4.50 มาก · 2.51-3.50 ปานกลาง · 1.51-2.50 น้อย · 1.00-1.50 น้อยที่สุด &nbsp;|&nbsp; S.D. คำนวณแบบ n-1 (sample)</div>`;
+  return h;
+}
+
+// ค่าเฉลี่ยของ "ด้าน" หนึ่ง สำหรับชุดผู้ตอบชุดหนึ่ง
+function surveySectionStatFor(resps, qs, section) {
+  const secQs = qs.filter(q => q.q_type === 'rating' && q.section === section);
+  const parsed = resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return a; });
+  let vals = [];
+  secQs.forEach(q => parsed.forEach(a => { const v = Number(a[q.q_id]); if (!isNaN(v) && v >= 1 && v <= 5) vals.push(v); }));
+  return surveyMeanSD(vals);
+}
+
+// ตารางผลรายด้าน เทียบระหว่างกลุ่ม (นักศึกษา / บุคลากร)
+function surveySectionByGroupHTML(groups, qs) {
+  const ratingQs = qs.filter(q => q.q_type === 'rating');
+  const sections = [];
+  ratingQs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
+  if (!sections.length) return '';
+  let h = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-5">
+    <div class="p-4 border-b"><h4 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i>ผลรายด้าน — แยกตามกลุ่ม</h4></div>
+    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-gray-50 text-gray-600 text-left">
+      <th class="px-4 py-2">ด้าน</th>${groups.map(g => `<th class="px-3 py-2 text-center border-l border-gray-100">${g.label}<br><span class="text-[11px] font-normal text-gray-400">μ (n) · แปลผล</span></th>`).join('')}</tr></thead><tbody>`;
+  sections.forEach((sec, idx) => {
+    const col = surveySectionColor(idx);
+    h += `<tr class="border-t border-gray-100"><td class="px-4 py-2 font-medium text-gray-700"><span class="inline-block w-2.5 h-2.5 rounded-full ${col.dot} mr-1 align-middle"></span>${surveyEsc(sec)}</td>`;
+    groups.forEach(g => {
+      const s = surveySectionStatFor(g.resps, qs, sec); const it = surveyInterpret(s.mean);
+      h += `<td class="px-3 py-2 text-center border-l border-gray-100">${s.n ? `<span class="font-bold text-gray-800">${s.mean.toFixed(2)}</span> <span class="text-gray-400 text-xs">(${s.n})</span><br><span class="px-2 py-0.5 rounded-full text-[11px] ${it.c}">${it.t}</span>` : '<span class="text-gray-300">—</span>'}</td>`;
+    });
+    h += `</tr>`;
+  });
+  // แถวรวมทุกด้าน
+  h += `<tr class="bg-blue-50 border-t"><td class="px-4 py-2 font-bold text-primary">รวมทุกด้าน</td>`;
+  groups.forEach(g => {
+    const parsed = g.resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return a; });
+    let vals = []; ratingQs.forEach(q => parsed.forEach(a => { const v = Number(a[q.q_id]); if (!isNaN(v) && v >= 1 && v <= 5) vals.push(v); }));
+    const s = surveyMeanSD(vals);
+    h += `<td class="px-3 py-2 text-center border-l border-blue-100 font-bold text-primary">${s.n ? `${s.mean.toFixed(2)} <span class="text-xs font-normal">(${s.n})</span>` : '—'}</td>`;
+  });
+  h += `</tr></tbody></table></div></div>`;
   return h;
 }
 
