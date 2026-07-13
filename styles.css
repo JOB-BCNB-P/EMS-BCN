@@ -179,3 +179,9 @@ body {
 button:hover:not(:disabled):not(.btn-spin) {
     animation: btnWobble 0.5s ease;
 }
+
+/* ===== Collapsible section (details/summary) ===== */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+.chev { transition: transform .2s ease; }
+details[open] > summary .chev { transform: rotate(180deg); }
