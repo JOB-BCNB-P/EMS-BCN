@@ -2079,6 +2079,7 @@ function scheduleTypeBadge(type) {
 
 function schedulePage() {
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
+  const isStudent = APP.currentRole === 'student';
   const _todayISO = new Date().toISOString().slice(0, 10);
   const allSchedule = filterScheduleForStudent(getDataByType('schedule'))
     .filter(s => { const d = norm(s.schedule_date); return !d || d >= _todayISO; })
@@ -2095,7 +2096,7 @@ function schedulePage() {
   <div class="bg-white rounded-2xl border border-blue-100 p-5">
     <div id="scheduleCalendar"></div>
   </div>
-  <div class="mt-4 bg-white rounded-2xl border border-blue-100 overflow-hidden">
+  ${isStudent ? '' : `<div class="mt-4 bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">วันที่</th><th class="px-4 py-3 font-semibold">เวลา</th><th class="px-4 py-3 font-semibold">รายวิชา/กิจกรรม</th><th class="px-4 py-3 font-semibold">ประเภท</th><th class="px-4 py-3 font-semibold">ห้อง</th>${canManage ? '<th class="px-4 py-3"></th>' : ''}</tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
@@ -2107,7 +2108,7 @@ function schedulePage() {
       </tr>`).join('') : `<tr><td colspan="${canManage ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>`}</tbody>
     </table></div>
   </div>
-  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
+  ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`}`;
 }
 
 function scheduleTypeInput(name, selectedValue) {
@@ -7016,6 +7017,12 @@ function leavePage() {
 
   let data = getDataByType('leave');
 
+  // ไม่แสดงข้อมูลการลาของนักศึกษาที่ลาออก หรือพักการศึกษา
+  const _leaveExcludedNames = new Set(getDataByType('student')
+    .filter(s => { const st = norm(s.status); return st === 'ลาออก' || st === 'พักการศึกษา'; })
+    .map(s => norm(s.name)).filter(Boolean));
+  if (_leaveExcludedNames.size) data = data.filter(l => !_leaveExcludedNames.has(norm(l.name)));
+
   if (isStudent && APP.currentUser.data) data = data.filter(l => l.name === APP.currentUser.data.name);
   if (isTeacher) {
     const myName = (APP.currentUser.name || '').trim();
@@ -9740,14 +9747,13 @@ function surveyAnalysisHTML(resps, qs) {
     ${Object.keys(byYear).length ? `<h4 class="font-bold text-gray-700 text-sm mb-2">นักศึกษา — แยกตามชั้นปี</h4><div class="flex flex-wrap gap-2">${chip(byYear)}</div>` : ''}
   </div>`;
 
-  // ตารางรายข้อ (เฉพาะมาตรวัด 1-5)
+  // ตารางรายข้อ (เฉพาะมาตรวัด 1-5) — แยกแต่ละด้าน คลิกเปิด-ยุบได้
   const ratingQs = qs.filter(q => q.q_type === 'rating');
   const sections = [];
   ratingQs.forEach(q => { if (!sections.includes(q.section)) sections.push(q.section); });
-  h += `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4"><div class="p-4 border-b"><h4 class="font-bold text-gray-800">ผลรายข้อ (μ, S.D., ร้อยละ, แปลผล)</h4></div>
-    <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-gray-50 text-gray-600 text-left">
-      <th class="px-4 py-2">ข้อคำถาม</th><th class="px-3 py-2 text-center">n</th><th class="px-3 py-2 text-center">μ</th><th class="px-3 py-2 text-center">S.D.</th><th class="px-3 py-2 text-center">ร้อยละ</th><th class="px-3 py-2 text-center">แปลผล</th></tr></thead><tbody>`;
-  sections.forEach(sec => {
+  h += `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4"><div class="p-4 border-b flex items-center justify-between"><h4 class="font-bold text-gray-800">ผลรายข้อ (μ, S.D., ร้อยละ, แปลผล)</h4><span class="text-xs text-gray-400">คลิกที่ด้านเพื่อเปิด/ยุบ</span></div>`;
+  sections.forEach((sec, idx) => {
+    const col = surveySectionColor(idx);
     const secQs = ratingQs.filter(q => q.section === sec);
     let secVals = [];
     const rows = secQs.map(q => {
@@ -9760,11 +9766,16 @@ function surveyAnalysisHTML(resps, qs) {
         <td class="px-3 py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${it.c}">${it.t}</span></td></tr>`;
     }).join('');
     const ss = surveyMeanSD(secVals); const sit = surveyInterpret(ss.mean);
-    h += `<tr class="bg-blue-50"><td class="px-4 py-2 font-bold text-primary" colspan="2">▸ ${surveyEsc(sec)}</td>
-      <td class="px-3 py-2 text-center font-bold text-primary">${ss.mean.toFixed(2)}</td><td class="px-3 py-2 text-center text-primary">${ss.sd.toFixed(2)}</td>
-      <td class="px-3 py-2 text-center text-primary">${(ss.mean / 5 * 100).toFixed(1)}</td><td class="px-3 py-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${sit.c}">${sit.t}</span></td></tr>${rows}`;
+    h += `<details class="border-t border-gray-100">
+      <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+        <span class="font-bold ${col.head} flex items-center gap-2 min-w-0"><span class="w-2.5 h-2.5 rounded-full ${col.dot} shrink-0"></span><span class="truncate">${surveyEsc(sec)}</span></span>
+        <span class="flex items-center gap-2 shrink-0 text-sm"><span class="font-bold text-gray-800">μ ${ss.mean.toFixed(2)}</span><span class="px-2 py-0.5 rounded-full text-xs ${sit.c}">${sit.t}</span><i data-lucide="chevron-down" class="chev w-4 h-4 text-gray-400"></i></span>
+      </summary>
+      <div class="overflow-x-auto border-t border-gray-100"><table class="w-full text-sm"><thead><tr class="bg-gray-50 text-gray-600 text-left">
+        <th class="px-4 py-2">ข้อคำถาม</th><th class="px-3 py-2 text-center">n</th><th class="px-3 py-2 text-center">μ</th><th class="px-3 py-2 text-center">S.D.</th><th class="px-3 py-2 text-center">ร้อยละ</th><th class="px-3 py-2 text-center">แปลผล</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </details>`;
   });
-  h += `</tbody></table></div></div>`;
+  h += `</div>`;
 
   // คำถามแบบตัวเลือก — แสดงการกระจายคำตอบ (distribution)
   const choiceQs = qs.filter(q => q.q_type === 'choice');
