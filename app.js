@@ -291,11 +291,12 @@ async function handleLogin() {
     if (!/^\d{13}$/.test(nid)) { err.textContent = 'กรุณากรอกเลขบัตรประชาชน 13 หลัก'; err.classList.remove('hidden'); return }
     const loginBtn0 = document.querySelector('#loginScreen button[onclick="handleLogin()"]');
     if (loginBtn0) { loginBtn0.disabled = true; loginBtn0.textContent = 'กำลังตรวจสอบ...'; }
+    showScreen('loadingScreen');  // แสดงหน้าโหลดข้อมูลระหว่างดึงข้อมูล (เหมือนบทบาทอื่น)
     const sres = await GSheetDB.studentLogin(nid);
     if (loginBtn0) { loginBtn0.disabled = false; loginBtn0.textContent = 'เข้าสู่ระบบ'; }
-    if (!sres || !sres.isOk || !sres.student) { err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
+    if (!sres || !sres.isOk || !sres.student) { showScreen('loginScreen'); err.textContent = 'ไม่พบข้อมูลนักศึกษา กรุณาตรวจสอบเลขบัตรประชาชน'; err.classList.remove('hidden'); return }
     const stu = sres.student;
-    if (norm(stu.status) === 'สำเร็จการศึกษา' || norm(stu.year_level) === 'จบ') { err.textContent = 'บัญชีนี้เป็นผู้สำเร็จการศึกษาแล้ว ไม่สามารถเข้าสู่ระบบได้'; err.classList.remove('hidden'); return }
+    if (norm(stu.status) === 'สำเร็จการศึกษา' || norm(stu.year_level) === 'จบ') { showScreen('loginScreen'); err.textContent = 'บัญชีนี้เป็นผู้สำเร็จการศึกษาแล้ว ไม่สามารถเข้าสู่ระบบได้'; err.classList.remove('hidden'); return }
     APP.currentUser = { name: stu.name, role: 'student', data: stu };
   } else {
     // ===== บุคลากร: ตรวจรหัสผ่านฝั่งเซิร์ฟเวอร์ (Apps Script) — รหัสผ่านไม่ถูกเทียบในเบราว์เซอร์ =====
@@ -5325,18 +5326,32 @@ function collectSpecialTeacher(form, obj) {
 }
 
 // ดึงรายการอาจารย์พิเศษจากระบบทะเบียน (special_teacher) มาเป็นตัวเลือกเติมข้อมูลอัตโนมัติ
+function specialRegOptionHTML(t) {
+  return `<option value="${t.__backendId}">${(t.name || '').replace(/"/g, '&quot;')}${t.academic_position ? ' · ' + (t.academic_position || '').replace(/"/g, '&quot;') : ''}${t.agency ? ' · ' + (t.agency || '').replace(/"/g, '&quot;') : ''}</option>`;
+}
 function specialTeacherRegPickerHTML() {
   const list = getDataByType('special_teacher');
   if (!list.length) return '';
-  const opts = list.slice()
-    .sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''))
-    .map(t => `<option value="${t.__backendId}">${(t.name || '').replace(/"/g, '&quot;')}${t.academic_position ? ' · ' + (t.academic_position || '').replace(/"/g, '&quot;') : ''}${t.agency ? ' · ' + (t.agency || '').replace(/"/g, '&quot;') : ''}</option>`).join('');
+  const sorted = list.slice()
+    .sort((a, b) => norm(b.academic_year).localeCompare(norm(a.academic_year)) || (a.name || '').localeCompare(b.name || ''));
+  window._specialRegPickerList = sorted;
+  const opts = sorted.map(specialRegOptionHTML).join('');
   return `<div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
     <label class="block text-xs font-medium text-emerald-800 mb-1"><i data-lucide="download" class="w-3.5 h-3.5 inline mr-1"></i>ดึงข้อมูลจาก "ข้อมูลอาจารย์พิเศษ" (ระบบทะเบียน)</label>
-    <select onchange="fillFromSpecialTeacherReg(this)" class="w-full border rounded-xl px-3 py-2 text-sm">
+    <input type="text" id="specialRegPickerSearch" oninput="filterSpecialTeacherReg(this.value)" placeholder="พิมพ์ค้นหาชื่อ-สกุล / ตำแหน่ง / หน่วยงาน..." class="w-full border rounded-xl px-3 py-2 text-sm mb-2">
+    <select id="specialRegPickerSelect" onchange="fillFromSpecialTeacherReg(this)" class="w-full border rounded-xl px-3 py-2 text-sm">
       <option value="">-- เลือกเพื่อกรอกข้อมูลอัตโนมัติ --</option>${opts}
     </select>
   </div>`;
+}
+function filterSpecialTeacherReg(q) {
+  const sel = document.getElementById('specialRegPickerSelect'); if (!sel) return;
+  const kw = norm(q).toLowerCase();
+  const list = window._specialRegPickerList || [];
+  const matched = kw ? list.filter(t => (norm(t.name) + ' ' + norm(t.academic_position) + ' ' + norm(t.agency)).toLowerCase().includes(kw)) : list;
+  sel.innerHTML = `<option value="">-- ${matched.length ? 'เลือกเพื่อกรอกข้อมูลอัตโนมัติ' : 'ไม่พบรายชื่อที่ค้นหา'} --</option>` + matched.map(specialRegOptionHTML).join('');
+  // ถ้าเหลือรายชื่อเดียว เลือกให้อัตโนมัติ
+  if (matched.length === 1) { sel.value = matched[0].__backendId; fillFromSpecialTeacherReg(sel); }
 }
 
 function fillFromSpecialTeacherReg(sel) {
