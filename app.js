@@ -3420,6 +3420,19 @@ function engResultsPage() {
 }
 
 // ---- Eng helpers ----
+// เกณฑ์ผ่านสอบภาษาอังกฤษ (สบช.):
+//   นักศึกษารุ่นที่ 81 เป็นต้นไป หรือ ปีการศึกษา 2569 เป็นต้นไป → ผ่านเมื่อคะแนน ≥ 51
+//   รุ่น/ปีก่อนหน้านั้น → ใช้เกณฑ์เดิม ผ่านเมื่อคะแนน ≥ 41
+function engIsNewCriterion(studentId, academicYear) {
+  const stu = getDataByType('student').find(s => norm(s.student_id) === norm(studentId));
+  const b = parseInt(norm(stu && stu.batch), 10);
+  const y = parseInt(norm(academicYear), 10);
+  return (!isNaN(b) && b >= 81) || (!isNaN(y) && y >= 2569);
+}
+function engPassThreshold(studentId, academicYear) {
+  return engIsNewCriterion(studentId, academicYear) ? 51 : 41;
+}
+
 function getEngLevel(score) {
   const s = Number(score) || 0;
   if (s >= 91) return 'Proficiency';
@@ -3453,11 +3466,15 @@ function updateEngSbchLevelStatus(prefix) {
   const levelEl = document.getElementById(prefix + 'EngLevel');
   const statusEl = document.getElementById(prefix + 'EngStatus');
   const total = Number(totalEl ? totalEl.value : 0) || 0;
+  const sid = (document.querySelector('#' + prefix + 'EngForm [name="student_id"]') || {}).value || '';
+  const yr = (document.getElementById(prefix + 'EngYear') || {}).value || '';
+  const th = engPassThreshold(sid, yr);
   if (levelEl) levelEl.value = total > 0 ? getEngLevel(total) : '';
   if (statusEl) {
     if (total > 0) {
-      statusEl.textContent = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
-      statusEl.className = 'inline-block px-3 py-1 rounded-full text-sm font-semibold ' + (total >= 41 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+      const pass = total >= th;
+      statusEl.textContent = (pass ? 'ผ่าน' : 'ไม่ผ่าน') + ' (เกณฑ์ ≥ ' + th + ')';
+      statusEl.className = 'inline-block px-3 py-1 rounded-full text-sm font-semibold ' + (pass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
     } else {
       statusEl.textContent = '-';
       statusEl.className = 'text-sm text-gray-400';
@@ -3491,14 +3508,14 @@ function engYearOptions(selected) {
 function showAddEngModal() {
   showModal('เพิ่มผลสอบภาษาอังกฤษ', `
     <form id="addEngForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addEngStudentList" name="student_id" required class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา...">${studentDatalistHTML('addEngStudentList')}</div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา * (พิมพ์รหัสหรือเลือก)</label><input list="addEngStudentList" name="student_id" required oninput="updateEngSbchLevelStatus('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์รหัสนักศึกษา...">${studentDatalistHTML('addEngStudentList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ *</label>
           <select id="addEngType" onchange="updateEngTypeForm('add')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions('')}</select>
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="addEngAttempt" type="number" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1, 2"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="addEngDate" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="addEngYear" type="text" oninput="updateEngSbchLevelStatus('add')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568"></div>
       </div>
       <!-- สบช. fields -->
       <div id="addEngSbch" style="display:none">
@@ -3553,7 +3570,7 @@ function showAddEngModal() {
         if (g) obj.eng_grammar = g;
         if (r) obj.eng_reading = r;
         obj.eng_score = total; obj.eng_level = getEngLevel(total);
-        obj.eng_status = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+        obj.eng_status = total >= engPassThreshold(studentId, year) ? 'ผ่าน' : 'ไม่ผ่าน';
       } else {
         obj.eng_score = Number(document.getElementById('addEngOtherScore').value) || '';
         obj.eng_status = document.getElementById('addEngOtherStatus').value;
@@ -8689,17 +8706,17 @@ function showEditEngModal(id) {
   const isSbch = e.eng_type === 'สบช.';
   const initTotal = Number(e.eng_score) || 0;
   const initLevel = e.eng_level || (isSbch ? getEngLevel(initTotal) : '');
-  const initStatus = e.eng_status || (isSbch ? (initTotal >= 41 ? 'ผ่าน' : 'ไม่ผ่าน') : '');
+  const initStatus = e.eng_status || (isSbch ? (initTotal >= engPassThreshold(e.student_id, e.academic_year) ? 'ผ่าน' : 'ไม่ผ่าน') : '');
   showModal('แก้ไขผลสอบภาษาอังกฤษ', `
     <form id="editEngForm" class="space-y-3">
-      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(e.student_id)}</select></div>
+      <div><label class="block text-xs text-gray-600 mb-1">นักศึกษา</label><select name="student_id" onchange="updateEngSbchLevelStatus('edit')" class="w-full border rounded-xl px-3 py-2 text-sm">${studentOptionsHTML(e.student_id)}</select></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">รูปแบบการสอบ *</label>
           <select id="editEngType" onchange="updateEngTypeForm('edit')" class="w-full border rounded-xl px-3 py-2 text-sm">${engTypeOptions(e.eng_type || '')}</select>
         </div>
         <div><label class="block text-xs text-gray-600 mb-1">สอบครั้งที่</label><input id="editEngAttempt" type="number" value="${e.eng_attempt || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่สอบ <span class="text-gray-400">(วว/ดด/ปปปป พ.ศ. หรือ ค.ศ.)</span></label><input id="editEngDate" type="text" value="${formatDate(e.eng_date)}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 05/04/2568 หรือ 05/04/2025"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" type="text" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="${e.academic_year || ''}"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input id="editEngYear" type="text" oninput="updateEngSbchLevelStatus('edit')" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 2568" value="${e.academic_year || ''}"></div>
       </div>
       <!-- สบช. fields -->
       <div id="editEngSbch" style="display:${isSbch ? 'block' : 'none'}">
@@ -8753,7 +8770,7 @@ function showEditEngModal(id) {
         const total = l + g + r;
         obj.eng_listening = l; obj.eng_grammar = g; obj.eng_reading = r;
         obj.eng_score = total; obj.eng_level = getEngLevel(total);
-        obj.eng_status = total >= 41 ? 'ผ่าน' : 'ไม่ผ่าน';
+        obj.eng_status = total >= engPassThreshold(studentId, year) ? 'ผ่าน' : 'ไม่ผ่าน';
       } else {
         obj.eng_score = Number(document.getElementById('editEngOtherScore').value) || '';
         obj.eng_status = document.getElementById('editEngOtherStatus').value;
@@ -9318,13 +9335,12 @@ function surveyConfigTabHTML(year) {
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
         ${SURVEY_EVAL_ROLES.map(r => `<label class="flex items-center gap-2 text-sm text-gray-700 bg-white rounded-lg px-2 py-1.5 border border-green-100"><input type="checkbox" class="survey-open-role accent-green-600" value="${r}" ${isRoleOpen(r) ? 'checked' : ''}> ${SURVEY_ROLE_LABEL[r] || r}</label>`).join('')}
       </div>
-      <p class="text-[11px] text-gray-500 mt-2">ติ๊กบทบาทที่ต้องการให้ทำแบบประเมิน แล้วกด "บันทึกการเปิดรับ" — บทบาทที่ไม่ติ๊กจะยังทำไม่ได้ (ไม่ติ๊กเลย = ปิดรับทั้งหมด)</p>
+      <p class="text-[11px] text-gray-500 mt-2">ติ๊กบทบาทที่ต้องการให้ทำแบบประเมิน แล้วกด "บันทึกการตั้งค่า" — บทบาทที่ไม่ติ๊กจะยังทำไม่ได้ (ไม่ติ๊กเลย = ปิดรับทั้งหมด)</p>
     </div>
 
     <div class="flex flex-wrap gap-2">
-      <button id="surveyCfgSaveBtn" onclick="surveySaveConfig('${year}','${status}')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200">บันทึกชื่อ/คำชี้แจง</button>
       <button onclick="surveyPreview('${year}')" class="px-4 py-2 bg-white border border-primary text-primary rounded-xl text-sm hover:bg-primaryLight flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i>แสดงตัวอย่างแบบประเมิน</button>
-      <button onclick="surveySaveOpenRoles('${year}')" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm hover:bg-green-700">บันทึกการเปิดรับ</button>
+      <button id="surveyCfgSaveBtn" onclick="surveySaveOpenRoles('${year}')" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm hover:bg-green-700 flex items-center gap-1"><i data-lucide="save" class="w-4 h-4"></i>บันทึกการตั้งค่า (ชื่อ/คำชี้แจง/การเปิดรับ)</button>
       ${qCount === 0 ? `<button onclick="surveyCreateDefaultQuestions('${year}')" class="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primaryDark">สร้างชุดคำถามเริ่มต้น (ใช้ร่วมทุกบทบาท)</button>` : ''}
     </div>
   </div>`;
@@ -9402,7 +9418,8 @@ async function surveySaveOpenRoles(year) {
     else res = await GSheetDB.create({ type: 'survey_config', academic_year: year, created_at: now, ...payload });
     if (res && res.isOk) {
       if (status === 'open' && !wasOpen) await surveyCreateOpenAnnouncement(year, title, openRolesStr);
-      showToast('บันทึกการเปิดรับแล้ว', 'success');
+      const openLabel = !roles.length ? 'ปิดรับทั้งหมด' : (openRolesStr === '' ? 'เปิดรับทุกบทบาท' : 'เปิดรับ: ' + roles.map(r => SURVEY_ROLE_LABEL[r] || r).join(', '));
+      showToast('บันทึกแล้ว — ' + openLabel, 'success');
       if (typeof updateNotifBadge === 'function') updateNotifBadge();
       renderCurrentPage();
     } else showToast((res && res.error) || 'บันทึกไม่สำเร็จ', 'error');
