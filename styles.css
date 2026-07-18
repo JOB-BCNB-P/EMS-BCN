@@ -254,30 +254,27 @@ details[open]>summary .chev {
 .donut-wrap:hover .donut-seg { opacity: .55; }
 .donut-seg:hover { stroke-width: 26 !important; opacity: 1 !important; }
 
-/* ===== Gender infographic: รูปบัณฑิตยกมือทักทายเมื่อเอาเมาส์ชี้ ===== */
-.gc-fig { position: relative; display: inline-block; width: 46px; height: 112px; line-height: 0; }
+/* ===== Gender infographic: รูปบัณฑิต 3D ยกมือทักทายเมื่อเอาเมาส์ชี้ ===== */
+.gc-fig { position: relative; display: inline-block; width: 60px; height: 124px; line-height: 0; }
 .gc-fig .gc-frame {
     position: absolute; inset: 0;
-    width: 46px; height: 112px;
+    width: 60px; height: 124px;
     object-fit: contain; object-position: bottom center;
     -webkit-user-select: none; user-select: none; -webkit-user-drag: none;
-    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .14));
-    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), opacity .18s ease;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .16));
+    transform-origin: 50% 100%;
+    transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), opacity .18s ease;
 }
-/* ผู้ชาย: มีเฟรมเดียว → ยกตัวขึ้น + เอียงเล็กน้อยตอนเอาเมาส์ชี้ */
-.gc-male .gc-frame { transform-origin: 50% 100%; }
-.gender-card:hover .gc-male .gc-frame { transform: translateY(-7px) scale(1.05) rotate(-2deg); }
-/* ผู้หญิง: 2 เฟรม (แขนลง ↔ ยกมือ) — สลับเป็นภาพยกมือ แล้วโยกไปมาเหมือนโบกมือทักทาย */
-.gc-female .gc-up { opacity: 0; transform-origin: 50% 100%; }
-.gender-card:hover .gc-female .gc-down { opacity: 0; }
-.gender-card:hover .gc-female .gc-up { opacity: 1; animation: gcWave .9s ease-in-out infinite; }
+/* แขนลงเป็นค่าเริ่มต้น → เอาเมาส์ชี้แล้วสลับเป็นภาพยกมือ + โยกไปมาเหมือนโบกมือ (ทั้งชายและหญิง) */
+.gc-fig .gc-up { opacity: 0; }
+.gender-card:hover .gc-fig .gc-down { opacity: 0; }
+.gender-card:hover .gc-fig .gc-up { opacity: 1; animation: gcWave .9s ease-in-out infinite; }
 @keyframes gcWave {
     0%, 100% { transform: rotate(-4deg) translateY(-3px); }
     50%      { transform: rotate(4deg)  translateY(-3px); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .gender-card:hover .gc-female .gc-up { animation: none; transform: translateY(-3px); }
-    .gender-card:hover .gc-male .gc-frame { transform: translateY(-4px); }
+    .gender-card:hover .gc-fig .gc-up { animation: none; transform: translateY(-3px); }
 }
 .gc-hint { opacity: 0; transition: opacity .3s ease; }
 .gender-card:hover .gc-hint { opacity: 1; }
