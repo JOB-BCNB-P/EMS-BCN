@@ -544,6 +544,25 @@ const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พั
 function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)) && norm(s && s.year_level) !== 'จบ'; }
 // คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
 function activeStudents(list) { return (list || []).filter(isActiveStudent); }
+// แมป "รุ่น (batch) → ชั้นปีปัจจุบัน" จากผู้ที่กำลังศึกษา (เพื่อจัดผู้ลาออก/พัก/โอนย้ายให้ตามรุ่นที่เลื่อนชั้นไปแล้ว)
+function batchCurrentYearMap(list) {
+  const tally = {};
+  (list || []).forEach(s => {
+    if (!isActiveStudent(s)) return;
+    const b = norm(s.batch), y = norm(s.year_level);
+    if (!b || !['1', '2', '3', '4'].includes(y)) return;
+    (tally[b] || (tally[b] = {}))[y] = (tally[b][y] || 0) + 1;
+  });
+  const map = {};
+  Object.keys(tally).forEach(b => { map[b] = Object.entries(tally[b]).sort((a, c) => c[1] - a[1])[0][0]; });
+  return map;
+}
+// ชั้นปีสำหรับแสดงผล: ผู้กำลังศึกษาใช้ year_level ของตนเอง; ผู้ลาออก/พัก/โอนย้ายใช้ชั้นปีปัจจุบันของรุ่น (ถ้าหาได้)
+function displayYearLevel(s, batchMap) {
+  const own = norm(s && s.year_level);
+  if (isActiveStudent(s)) return own;
+  return (batchMap && batchMap[norm(s && s.batch)]) || own;
+}
 
 // ======================== ROLE HELPERS (RBAC) ========================
 // สิทธิ์ "แก้ไขเต็มที่เหมือน admin" สำหรับหน้าทั่วไป: admin / งานวิชาการ / งานทะเบียน
@@ -1644,12 +1663,13 @@ function studentsPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || isClassTeacher;
   const allStudents = getDataByType('student');
+  const batchYearMap = batchCurrentYearMap(allStudents);
   const selectedYearLevel = APP.filters._studentYearLevel || '';
 
   // ClassTeacher: room-based selector
   if (isClassTeacher) {
     const yr = APP.currentUser.responsible_year || '1';
-    const myYrStudents = allStudents.filter(s => norm(s.year_level) === norm(yr));
+    const myYrStudents = allStudents.filter(s => displayYearLevel(s, batchYearMap) === norm(yr));
     const selectedRoom = APP.filters._studentRoom || '';
     // จำนวนนักศึกษานับเฉพาะคนที่กำลังศึกษาอยู่
     const myYrActive = activeStudents(myYrStudents);
@@ -1717,7 +1737,7 @@ function studentsPage() {
 
     let data = myAllStudents;
     if (selectedYearLevel === '__grad') data = data.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ');
-    else if (selectedYearLevel) data = data.filter(s => norm(s.year_level) === selectedYearLevel && !isGraduate(s));
+    else if (selectedYearLevel) data = data.filter(s => displayYearLevel(s, batchYearMap) === selectedYearLevel && !isGraduate(s));
     data = applyFilters(data);
     const total = data.length;
     const paged = paginate(data);
@@ -1729,7 +1749,7 @@ function studentsPage() {
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
+          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${displayYearLevel(s, batchYearMap) || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
@@ -1762,7 +1782,7 @@ function studentsPage() {
 
   let data = selectedYearLevel === '__grad'
     ? allStudents.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ')
-    : allStudents.filter(s => norm(s.year_level) === selectedYearLevel && !isGraduate(s));
+    : allStudents.filter(s => displayYearLevel(s, batchYearMap) === selectedYearLevel && !isGraduate(s));
   data = applyFilters(data);
   const total = data.length;
   const paged = paginate(data);
@@ -1774,7 +1794,7 @@ function studentsPage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
+        <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${displayYearLevel(s, batchYearMap) || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
