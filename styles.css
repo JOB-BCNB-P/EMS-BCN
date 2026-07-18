@@ -140,7 +140,11 @@ body {
     position: relative;
     pointer-events: none;
 }
-.btn-spin > * { visibility: hidden !important; }
+
+.btn-spin>* {
+    visibility: hidden !important;
+}
+
 .btn-spin::after {
     content: "";
     position: absolute;
@@ -153,10 +157,17 @@ body {
     background: url("https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_run_transparent.gif") center/contain no-repeat;
     animation: catrun 1.4s linear infinite;
 }
+
 @keyframes catrun {
-    0%   { left: -16%; }
-    100% { left: 100%; }
+    0% {
+        left: -16%;
+    }
+
+    100% {
+        left: 100%;
+    }
 }
+
 /* รูปแมววิ่งแบบ inline (ข้างข้อความ "กำลังบันทึก...") — GIF เล่นก้าวขาอยู่กับที่ */
 .cat-run-inline {
     display: inline-block;
@@ -169,19 +180,89 @@ body {
 
 /* ===== Button hover wobble effect ===== */
 @keyframes btnWobble {
-    0%, 100% { transform: rotate(0deg); }
-    15% { transform: rotate(-3deg); }
-    30% { transform: rotate(2.5deg); }
-    45% { transform: rotate(-2deg); }
-    60% { transform: rotate(1.5deg); }
-    75% { transform: rotate(-0.8deg); }
+
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+
+    15% {
+        transform: rotate(-3deg);
+    }
+
+    30% {
+        transform: rotate(2.5deg);
+    }
+
+    45% {
+        transform: rotate(-2deg);
+    }
+
+    60% {
+        transform: rotate(1.5deg);
+    }
+
+    75% {
+        transform: rotate(-0.8deg);
+    }
 }
+
 button:hover:not(:disabled):not(.btn-spin) {
     animation: btnWobble 0.5s ease;
 }
 
 /* ===== Collapsible section (details/summary) ===== */
-details > summary { list-style: none; }
-details > summary::-webkit-details-marker { display: none; }
-.chev { transition: transform .2s ease; }
-details[open] > summary .chev { transform: rotate(180deg); }
+details>summary {
+    list-style: none;
+}
+
+details>summary::-webkit-details-marker {
+    display: none;
+}
+
+.chev {
+    transition: transform .2s ease;
+}
+
+details[open]>summary .chev {
+    transform: rotate(180deg);
+}
+/* ===== Analytics: animated bars (โตจากซ้าย→ขวา) ===== */
+@keyframes growBar {
+    from { width: 0; }
+    to { width: var(--tw, 100%); }
+}
+.grow-bar {
+    width: var(--tw, 100%);
+    animation: growBar .9s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ===== Analytics: donut/pie spin-in (หมุนรอบตัวเองตอนโหลด) ===== */
+@keyframes pieSpin {
+    from { transform: rotate(-130deg) scale(.85); opacity: .3; }
+    to   { transform: rotate(0) scale(1); opacity: 1; }
+}
+.pie-spin {
+    transform-origin: 50% 50%;
+    animation: pieSpin .9s cubic-bezier(.34, 1.2, .64, 1) both;
+}
+/* เซกเมนต์วงกลม: เอาเมาส์ชี้แล้วหนาขึ้น + ชูออกเล็กน้อย */
+.donut-seg {
+    transition: stroke-width .18s ease, opacity .18s ease;
+    cursor: default;
+}
+.donut-wrap:hover .donut-seg { opacity: .55; }
+.donut-seg:hover { stroke-width: 26 !important; opacity: 1 !important; }
+
+/* ===== Gender infographic: ตัวการ์ตูนยกมือเมื่อเอาเมาส์ชี้ ===== */
+.gc-fig { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+.gender-card:hover .gc-fig { transform: translateY(-4px); }
+.gc-arm {
+    transition: transform .4s cubic-bezier(.34, 1.56, .64, 1);
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+}
+.gender-card:hover .gc-arm.left  { transform: rotate(145deg); }
+.gender-card:hover .gc-arm.right { transform: rotate(-145deg); }
+.gc-hint { opacity: 0; transition: opacity .3s ease; }
+.gender-card:hover .gc-hint { opacity: 1; }
