@@ -11,7 +11,7 @@
   <script>
     tailwind.config = { theme: { extend: { fontFamily: { sarabun: ['Sarabun', 'sans-serif'] }, colors: { primary: '#1e6fba', primaryLight: '#e8f4fd', primaryDark: '#14507f', accent: '#0ea5e9', surface: '#f0f7ff', border: '#d1e6f9' } } } }
   </script>
-  <link rel="stylesheet" href="styles.css?v=20260629-p67">
+  <link rel="stylesheet" href="styles.css?v=20260718-p70">
 </head>
 
 <body class="h-full bg-gray-50">
@@ -46,7 +46,8 @@
             <p class="font-semibold">วิธีเตรียม Google Sheet:</p>
             <p>1. สร้าง Google Sheet ใหม่</p>
             <p>2. สร้าง Tab (แผ่นงาน) ตามชื่อนี้:</p>
-            <p class="font-mono text-xs bg-white rounded-lg p-2">student · teacher · special_teacher · alumni · subject · schedule · grade ·
+            <p class="font-mono text-xs bg-white rounded-lg p-2">student · teacher · special_teacher · alumni · subject
+              · schedule · grade ·
               eng_result · leave · tracking · announcement · user</p>
             <p>3. แถวแรกของแต่ละ Tab = หัวคอลัมน์ (ต้องตรงกับ CSV template)</p>
             <p>4. ตั้งค่า Share → <strong>"Anyone with the link"</strong> → <strong>Viewer</strong></p>
@@ -187,7 +188,8 @@
               <p class="text-xs text-gray-500" id="currentUserRole">ผู้ดูแลระบบ</p>
             </div>
           </div>
-          <button id="changePwBtn" onclick="showPasswordOtpModal('change')" class="hidden p-2 rounded-lg hover:bg-blue-50 text-gray-500 hover:text-primary" title="เปลี่ยนรหัสผ่าน"><i
+          <button id="changePwBtn" onclick="showPasswordOtpModal('change')"
+            class="hidden p-2 rounded-lg hover:bg-blue-50 text-gray-500 hover:text-primary" title="เปลี่ยนรหัสผ่าน"><i
               data-lucide="key-round" class="w-5 h-5"></i></button>
           <button onclick="handleLogout()" class="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500"><i
               data-lucide="log-out" class="w-5 h-5"></i></button>
@@ -220,8 +222,8 @@
   </div>
 
   <script>window.__APP_VER = Date.now();</script>
-  <script src="gsheet-db.js?v=20260629-p67"></script>
-  <script src="app.js?v=20260629-p67"></script>
+  <script src="gsheet-db.js?v=20260718-p70"></script>
+  <script src="app.js?v=20260718-p70"></script>
 </body>
 
 </html>
