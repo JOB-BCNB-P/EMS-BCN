@@ -1669,9 +1669,9 @@ function studentRetentionAnalyticsHTML() {
     </div>`;
   }).join('');
 
-  return `<details open class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
-      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-primary"></i>อัตราการคงอยู่ของนักศึกษา <span class="text-sm font-normal text-green-600">(คงอยู่รวม ${retentionPct}%)</span></span>
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-primary"></i>อัตราการคงอยู่ของนักศึกษา <span class="text-sm font-normal text-green-600">(คงอยู่รวม ${retentionPct}%)</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
       <span class="text-xs text-gray-400 flex items-center gap-1">ยุบ/เปิด <i data-lucide="chevron-down" class="chev w-5 h-5"></i></span>
     </summary>
     <div class="px-5 pb-5 fade-in">
@@ -2846,8 +2846,12 @@ function gpaxAnalyticsHTML() {
     </tr>`;
   }).join('');
 
-  return `<div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-    <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span></h3>
+  return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
       ${statCard('alert-triangle', 'GPAx ต่ำกว่า 2.30 (เฝ้าระวัง)', atRisk, 'คน', 'bg-red-500')}
       ${statCard('users', 'มีผลการเรียนแล้ว', withGpax.length, 'คน', 'bg-blue-500')}
@@ -2868,7 +2872,8 @@ function gpaxAnalyticsHTML() {
         <tbody>${rankRows || '<tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">ยังไม่มีข้อมูลผลการเรียน</td></tr>'}</tbody>
       </table></div>
     </div>
-  </div>`;
+    </div>
+  </details>`;
 }
 
 function gradesPage() {
@@ -4720,6 +4725,17 @@ async function advisorAssignSelected() {
 function promotePanelHTML(allStudents) {
   const cnt = y => (allStudents || []).filter(s => isActiveStudent(s) && norm(s.year_level) === y).length;
   const btn = (from, label, color) => `<button onclick="confirmPromoteYear('${from}')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${color}"><i data-lucide="arrow-up" class="w-4 h-4"></i>${label} <span class="opacity-80">(${cnt(from)} คน)</span></button>`;
+  const batches = [...new Set((allStudents || []).map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const moveSection = `<div class="mt-3 pt-3 border-t border-amber-200">
+    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="move-right" class="w-4 h-4 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">ย้ายทั้งรุ่นไปชั้นปีที่กำหนด</h3><span class="text-xs text-amber-600">(ย้ายทุกคนในรุ่น ไม่ว่าสถานะใด — เก็บตกคนที่ค้าง)</span></div>
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="text-xs text-amber-800">รุ่น:</label>
+      <select id="moveBatchSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="">-- เลือกรุ่น --</option>${batches.map(b => `<option value="${b}">รุ่นที่ ${b}</option>`).join('')}</select>
+      <label class="text-xs text-amber-800">ไปชั้นปี:</label>
+      <select id="moveYearSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option></select>
+      <button onclick="confirmMoveBatch()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700"><i data-lucide="arrow-right" class="w-4 h-4"></i>ย้าย</button>
+    </div>
+  </div>`;
   return `<div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-4">
     <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="arrow-up-circle" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">เลื่อนชั้นปี</h3><span class="text-xs text-amber-600">(เลื่อนเฉพาะผู้ที่กำลังศึกษา · ควรสำรองแท็บ student ก่อน)</span></div>
     <div class="flex gap-2 flex-wrap">
@@ -4728,7 +4744,45 @@ function promotePanelHTML(allStudents) {
       ${btn('3', 'ปี 3 → ปี 4', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
       ${btn('4', 'ปี 4 → สำเร็จการศึกษา', 'bg-amber-600 text-white hover:bg-amber-700')}
     </div>
+    ${moveSection}
   </div>`;
+}
+
+// ย้ายทั้งรุ่น (batch) ไปชั้นปีที่กำหนด — ครอบคลุมทุกสถานะ (เก็บตกคนที่ค้างชั้นปี)
+function confirmMoveBatch() {
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const batch = norm((document.getElementById('moveBatchSel') || {}).value);
+  const year = norm((document.getElementById('moveYearSel') || {}).value) || '1';
+  if (!batch) { showToast('กรุณาเลือกรุ่นที่ต้องการย้าย', 'error'); return; }
+  const list = getDataByType('student').filter(s => norm(s.batch) === batch);
+  if (!list.length) { showToast('ไม่พบนักศึกษาในรุ่นที่ ' + batch, 'error'); return; }
+  const already = list.filter(s => norm(s.year_level) === year).length;
+  const toMove = list.length - already;
+  const activeN = list.filter(isActiveStudent).length;
+  const gradN = list.filter(isGraduate).length;
+  showModal('ยืนยันการย้ายทั้งรุ่น', `
+    <div class="space-y-3 text-sm">
+      <p>กำลังจะตั้ง <strong>ชั้นปี</strong> ของนักศึกษา <strong class="text-primary">รุ่นที่ ${batch}</strong> ให้เป็น <strong>ชั้นปีที่ ${year}</strong></p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
+        <p class="font-semibold">⚠ ข้อควรระวัง</p>
+        <p>• ในรุ่นนี้มีทั้งหมด ${list.length} คน — กำลังศึกษา ${activeN} คน, สถานะอื่น (พัก/ลาออก/โอนย้าย/จบ) ${list.length - activeN} คน</p>
+        <p>• อยู่ชั้นปี ${year} อยู่แล้ว ${already} คน · <strong>ต้องย้ายจริง ${toMove} คน</strong></p>
+        ${gradN ? `<p>• มีผู้ "สำเร็จการศึกษา/จบ" ${gradN} คน จะถูกเปลี่ยนชั้นปีด้วย (สถานะเดิมไม่เปลี่ยน) หากไม่ต้องการ ให้ยกเลิกแล้วแก้รายคน</p>` : ''}
+        <p>• เปลี่ยนเฉพาะ "ชั้นปี" — สถานภาพ/ข้อมูลอื่นไม่เปลี่ยน · ย้อนกลับอัตโนมัติไม่ได้ แนะนำสำรองแท็บ student ก่อน</p>
+      </div>
+    </div>`, () => doMoveBatch(batch, year));
+}
+async function doMoveBatch(batch, year) {
+  const list = getDataByType('student').filter(s => norm(s.batch) === batch && norm(s.year_level) !== year);
+  closeModal();
+  if (!list.length) { showToast('ทุกคนในรุ่นนี้อยู่ชั้นปีที่ ' + year + ' อยู่แล้ว'); return; }
+  list.forEach(s => { s.year_level = String(year); });
+  showToast('กำลังย้าย ' + list.length + ' คน...', 'loading');
+  const r = await GSheetDB.updateMany(list);
+  hideLoadingToast();
+  if (r.isOk) showToast('ย้ายรุ่นที่ ' + batch + ' ไปชั้นปีที่ ' + year + ' สำเร็จ (' + r.ok + ' คน)');
+  else showToast('ย้ายเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน', r.ok ? 'success' : 'error');
+  renderCurrentPage();
 }
 
 function confirmPromoteYear(fromYear) {
