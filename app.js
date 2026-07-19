@@ -1635,8 +1635,8 @@ function studentRetentionAnalyticsHTML() {
   </table></div>
   <p class="text-xs text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>คงอยู่ % = (รับเข้า − ลาออก − โอนย้าย) ÷ รับเข้า (นับผู้สำเร็จการศึกษาเป็นการคงอยู่จนจบ)</p>`;
 
-  // --- เพศ (ชาย/หญิง) ตามขอบเขต + รายชั้นปี (เฉพาะที่กำลังศึกษา) ---
-  const activeAll = activeStudents(scoped);
+  // --- เพศ (ชาย/หญิง) + รายชั้นปี (นักศึกษาที่กำลังศึกษา "ทั้งหมด" — ไม่ขึ้นกับตัวกรองปีที่รับเข้า) ---
+  const activeAll = activeStudents(all);
   const gc = list => ({ M: list.filter(s => studentGender(s) === 'M').length, F: list.filter(s => studentGender(s) === 'F').length, U: list.filter(s => studentGender(s) === 'U').length });
   const tot = gc(activeAll);
   const genderCard = (label, count, total, trim, sex) => {
@@ -1675,7 +1675,7 @@ function studentRetentionAnalyticsHTML() {
       </div>
       ${reasonCard}
       <div class="mt-6 pt-5 border-t border-gray-100">
-        <p class="text-sm font-semibold text-gray-600 mb-3"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>นักศึกษาที่กำลังศึกษา แยกตามเพศ</p>
+        <p class="text-sm font-semibold text-gray-600 mb-3"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>นักศึกษาที่กำลังศึกษา แยกตามเพศ <span class="font-normal text-gray-400">(ทั้งหมดทุกชั้นปี — ไม่ขึ้นกับตัวกรองปีรับเข้า)</span></p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           ${genderCard('นักศึกษาชาย', tot.M, tot.M + tot.F + tot.U, '#2563eb', 'M')}
           ${genderCard('นักศึกษาหญิง', tot.F, tot.M + tot.F + tot.U, '#db2777', 'F')}
