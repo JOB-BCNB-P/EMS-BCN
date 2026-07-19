@@ -1483,6 +1483,17 @@ function statusReasonField(value) {
   </select>`;
 }
 
+// ประเภทการเข้าศึกษา (รับปกติ / โอนย้ายเข้า / เทียบโอน)
+const ENTRY_TYPES = ['รับปกติ', 'โอนย้ายเข้า', 'เทียบโอน'];
+function entryTypeField(value) {
+  const v = norm(value) || 'รับปกติ';
+  const extra = v && !ENTRY_TYPES.includes(v) ? `<option selected>${v}</option>` : '';
+  return `<select name="entry_type" class="w-full border rounded-xl px-3 py-2 text-sm">
+    ${ENTRY_TYPES.map(r => `<option ${v === r ? 'selected' : ''}>${r}</option>`).join('')}${extra}
+  </select>`;
+}
+function isTransferIn(s) { return norm(s && s.entry_type) === 'โอนย้ายเข้า'; }
+
 // ปีการศึกษาที่รับเข้า — ใช้ admission_year ถ้ามี, ไม่งั้นดึงปี พ.ศ. จาก admission_date, ไม่งั้นใช้รุ่น
 function admissionYearOf(s) {
   const ay = norm(s && s.admission_year); if (ay) return ay;
@@ -1577,6 +1588,7 @@ function studentRetentionAnalyticsHTML() {
   const cTransfer = nonGrad.filter(s => norm(s.status) === 'ขอโอนย้ายสถานศึกษา').length;
   const baseTotal = cActive + cLeave + cResign + cTransfer;
   const retentionPct = baseTotal ? Math.round(cActive / baseTotal * 1000) / 10 : 0;
+  const cTransIn = nonGrad.filter(s => isActiveStudent(s) && isTransferIn(s)).length; // โอนย้ายเข้า (กำลังศึกษา)
   const donut = svgDonut([
     { label: 'กำลังศึกษา (คงอยู่)', value: cActive, color: '#22c55e' },
     { label: 'พักการศึกษา', value: cLeave, color: '#f59e0b' },
@@ -1674,6 +1686,7 @@ function studentRetentionAnalyticsHTML() {
         <div><p class="text-sm font-semibold text-gray-600 mb-3">เปรียบเทียบรับเข้า vs กำลังศึกษา (รายรุ่น)</p>${cohortTable}</div>
       </div>
       ${reasonCard}
+      <div class="mt-4"><span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 text-sm"><i data-lucide="log-in" class="w-4 h-4"></i>นักศึกษาโอนย้ายเข้า (กำลังศึกษา ในขอบเขตที่เลือก): <b>${cTransIn}</b> คน</span></div>
       <div class="mt-6 pt-5 border-t border-gray-100">
         <p class="text-sm font-semibold text-gray-600 mb-3"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>นักศึกษาที่กำลังศึกษา แยกตามเพศ <span class="font-normal text-gray-400">(ทั้งหมดทุกชั้นปี — ไม่ขึ้นกับตัวกรองปีรับเข้า)</span></p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -1788,9 +1801,10 @@ function studentsPage() {
   const _projOpts = [...new Set(allStudents.map(s => norm(s.admission_project)).filter(Boolean))].sort();
   const _selSch = APP.filters._stuScholarship || '';
   const _selProj = APP.filters._stuProject || '';
+  const _selEntry = APP.filters._stuEntry || '';
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,scholarship,admission_project,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,entry_type,transfer_from,transfer_date,scholarship,admission_project,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? studentRetentionAnalyticsHTML() : ''}
   ${isAdmin ? promotePanelHTML(allStudents) : ''}
@@ -1809,7 +1823,9 @@ function studentsPage() {
       <label class="text-sm font-medium text-gray-700">ทุนต้นสังกัด:</label>
       <select onchange="APP.filters._stuScholarship=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${_schOpts.map(x => `<option ${_selSch === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
       <label class="text-sm font-medium text-gray-700">โครงการ:</label>
-      <select onchange="APP.filters._stuProject=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${_projOpts.map(x => `<option ${_selProj === x ? 'selected' : ''}>${x}</option>`).join('')}</select>` : ''}
+      <select onchange="APP.filters._stuProject=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${_projOpts.map(x => `<option ${_selProj === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <label class="text-sm font-medium text-gray-700">ประเภทเข้าศึกษา:</label>
+      <select onchange="APP.filters._stuEntry=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${ENTRY_TYPES.map(x => `<option ${_selEntry === x ? 'selected' : ''}>${x}</option>`).join('')}</select>` : ''}
       ${selectedYearLevel ? '<span class="text-xs text-gray-500">' + (selectedYearLevel === '__grad' ? 'แสดงผู้สำเร็จการศึกษา' : 'แสดงข้อมูลชั้นปี ' + selectedYearLevel) + '</span>' : ''}
     </div>
   </div>`;
@@ -1822,6 +1838,7 @@ function studentsPage() {
   data = applyFilters(data);
   if (_selSch) data = data.filter(s => norm(s.scholarship) === _selSch);
   if (_selProj) data = data.filter(s => norm(s.admission_project) === _selProj);
+  if (_selEntry) data = data.filter(s => (norm(s.entry_type) || 'รับปกติ') === _selEntry);
   const total = data.length;
   const paged = paginate(data);
 
@@ -1901,6 +1918,9 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField('')}</div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่ลาออก/พักการศึกษา</label><input name="status_date" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สาเหตุการลาออก/พักการศึกษา</label>${statusReasonField('')}</div>
       </div>
@@ -1930,6 +1950,7 @@ function showStudentDetail(id) {
     ${infoRow('สถานภาพ', s.status)}${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('เพศ', s.gender ? s.gender : (studentGender(s) === 'M' ? 'ชาย (จากคำนำหน้า)' : studentGender(s) === 'F' ? 'หญิง (จากคำนำหน้า)' : '-'))}
     ${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
     ${infoRow('ทุนต้นสังกัด', s.scholarship)}${infoRow('โครงการที่สมัคร', s.admission_project)}
+    ${infoRow('ประเภทการเข้าศึกษา', s.entry_type || 'รับปกติ')}${isTransferIn(s) ? infoRow('สถาบันเดิม', s.transfer_from) + (norm(s.transfer_date) ? infoRow('วันที่โอนเข้า', s.transfer_date) : '') : ''}
     ${norm(s.status_date) ? infoRow('วันที่ลาออก/พักการศึกษา', s.status_date) : ''}${norm(s.status_reason) ? infoRow('สาเหตุลาออก/พักการศึกษา', s.status_reason) : ''}
   </div>`);
 }
@@ -9284,6 +9305,9 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" value="${(s.scholarship || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" value="${(s.admission_project || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField(s.entry_type)}</div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" value="${(s.transfer_from || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" value="${(s.transfer_date || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่ลาออก/พักการศึกษา</label><input name="status_date" value="${(s.status_date || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">สาเหตุการลาออก/พักการศึกษา</label>${statusReasonField(s.status_reason)}</div>
       </div>
