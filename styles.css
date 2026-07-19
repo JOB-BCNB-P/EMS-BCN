@@ -273,3 +273,63 @@ details[open]>summary .chev {
     background-image: linear-gradient(180deg, #e6f1ff 0%, #f3f9ff 42%, #ffffff 100%);
     background-attachment: fixed;
 }
+
+/* ========================================================================
+   DARK MODE — สลับด้วยคลาส .dark บน <html> (จำค่าใน localStorage)
+   ======================================================================== */
+/* ปุ่มไอคอนพระจันทร์/พระอาทิตย์ สลับด้วย CSS */
+.icon-sun { display: none; }
+.dark .icon-moon { display: none; }
+.dark .icon-sun { display: inline-block; }
+
+/* พื้นหลังหลัก */
+.dark body { background-color: #0f172a; }
+.dark #mainContent {
+    background-color: #0f172a;
+    background-image: linear-gradient(180deg, #14233d 0%, #101c30 42%, #0f172a 100%);
+}
+
+/* พื้นผิว/การ์ด/แถบบน/เมนู */
+.dark .bg-white { background-color: #1e293b !important; }
+.dark .bg-gray-50, .dark .bg-slate-50 { background-color: #0f172a !important; }
+.dark .bg-gray-100 { background-color: #334155 !important; }
+.dark .bg-surface { background-color: #1b2942 !important; }
+.dark .bg-blue-50 { background-color: #1c2b47 !important; }
+.dark .bg-amber-50 { background-color: #2b2517 !important; }
+.dark .bg-orange-50 { background-color: #2b2016 !important; }
+
+/* ข้อความ */
+.dark .text-gray-800, .dark .text-gray-900 { color: #e2e8f0 !important; }
+.dark .text-gray-700 { color: #cbd5e1 !important; }
+.dark .text-gray-600 { color: #a3b2c7 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-gray-400 { color: #6b7c93 !important; }
+.dark .text-gray-300 { color: #55647a !important; }
+.dark .text-primary { color: #5aa2e6 !important; }
+
+/* เส้นขอบ */
+.dark .border-blue-100, .dark .border-blue-200 { border-color: #33465f !important; }
+.dark .border-gray-100 { border-color: #2c3a4f !important; }
+.dark .border-gray-200, .dark .border-gray-300 { border-color: #3b4a60 !important; }
+.dark .border-amber-200 { border-color: #4a3f1e !important; }
+
+/* ตาราง — หัวตาราง (bg-surface) + เส้นแบ่งแถว */
+.dark table th { color: #cbd5e1; }
+.dark .border-t { border-top-color: #2c3a4f !important; }
+
+/* ฟอร์ม input/select/textarea */
+.dark input, .dark select, .dark textarea {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #3b4a60 !important;
+}
+.dark input::placeholder, .dark textarea::placeholder { color: #64748b !important; }
+.dark option { background-color: #1e293b; color: #e2e8f0; }
+
+/* hover states ที่ใช้บ่อย */
+.dark .hover\:bg-gray-50:hover { background-color: #26334a !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+.dark .hover\:bg-blue-50:hover { background-color: #26334a !important; }
+
+/* scrollbar เข้มขึ้น */
+.dark ::-webkit-scrollbar-thumb { background: #3b4a60; }
