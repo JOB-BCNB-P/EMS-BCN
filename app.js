@@ -983,13 +983,13 @@ function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
   // เคลียร์เฉพาะส่วน "ประกาศ" เมื่อเปิดดู — ส่วนใบลา/ติดตามจะค้างไว้จนกว่าจะอนุมัติจริง
-  const seenCount = visibleAnnouncements().length;
+  const seenCount = activeAnnouncements().length;
   try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  const ann = visibleAnnouncements().slice(-10).reverse();
+  const ann = activeAnnouncements().slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
   const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
@@ -1054,7 +1054,7 @@ function renderNotifications() {
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
-  const annTotal = visibleAnnouncements().length;
+  const annTotal = activeAnnouncements().length;
   let seenAnn = 0;
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
@@ -6621,6 +6621,14 @@ function annVisibleTo(a, role) {
 }
 // ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge)
 function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => annVisibleTo(a, role)); }
+// ประกาศที่ "ยังไม่เลยกำหนด" — วันประกาศ/กำหนดการต้องไม่เก่ากว่าวันนี้ (ใช้กับกระดิ่งแจ้งเตือน)
+function annNotExpired(a) {
+  const d = norm(a && a.announcement_date);
+  if (!d) return true;
+  if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10) >= new Date().toISOString().slice(0, 10);
+  return true;
+}
+function activeAnnouncements() { return visibleAnnouncements().filter(annNotExpired); }
 // ช่องเลือกบทบาทผู้รับในฟอร์มประกาศ (ไม่ติ๊กเลย = ทุกบทบาท)
 function annRolesFieldHTML(selected) {
   const sel = annParseRoles(selected);
@@ -8071,6 +8079,46 @@ function showAddLeaveModal() {
 }
 
 // ======================== LOGIN LOG (admin only) ========================
+// จัดกลุ่มบทบาทสำหรับกราฟการเข้าใช้งาน: อาจารย์ / นักศึกษา / อื่นๆ
+function loginRoleGroup(role) {
+  const x = norm(role).toLowerCase();
+  if (x === 'teacher' || x === 'classteacher' || x === 'depthead') return 'teacher';
+  if (x === 'student') return 'student';
+  return 'other';
+}
+// กราฟเส้น (SVG) หลายชุด + แถบ Low–High (band) — months:[{key,label}], series:[{name,color,values[]}]
+function svgLineChart(months, series) {
+  const W = 760, H = 300, padL = 38, padR = 14, padT = 14, padB = 50;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = months.length;
+  const allVals = series.reduce((a, s) => a.concat(s.values), [0]);
+  const rawMax = Math.max(1, ...allVals);
+  const stepY = Math.max(1, Math.ceil(rawMax / 4));
+  const maxY = stepY * 4;
+  const xAt = i => n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW;
+  const yAt = v => padT + plotH - (v / maxY) * plotH;
+  let grid = '';
+  for (let k = 0; k <= 4; k++) { const v = stepY * k, y = yAt(v); grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#eef2f7"/><text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#94a3b8">${v}</text>`; }
+  let band = '';
+  if (n) {
+    const highs = months.map((_, i) => Math.max(...series.map(s => s.values[i] || 0)));
+    const lows = months.map((_, i) => Math.min(...series.map(s => s.values[i] || 0)));
+    const up = highs.map((v, i) => `${i === 0 ? 'M' : 'L'}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    const down = lows.map((_, i) => `L${xAt(n - 1 - i).toFixed(1)},${yAt(lows[n - 1 - i]).toFixed(1)}`).join(' ');
+    band = `<path d="${up} ${down} Z" fill="#93c5fd" fill-opacity="0.18"/>`;
+  }
+  let xlab = '';
+  months.forEach((m, i) => { if (n <= 14 || i % 2 === 0) xlab += `<text x="${xAt(i).toFixed(1)}" y="${H - padB + 15}" text-anchor="middle" font-size="9" fill="#64748b">${m.label}</text>`; });
+  let lines = '';
+  series.forEach(s => {
+    const pts = s.values.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.values.forEach((v, i) => { lines += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3.5" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${s.name} · ${months[i].label}: ${v} ครั้ง</title></circle>`; });
+  });
+  const legend = `<div class="flex flex-wrap gap-4 mt-2 text-xs text-gray-600">${series.map(s => `<span class="inline-flex items-center gap-1"><span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px"></span>${s.name}</span>`).join('')}<span class="inline-flex items-center gap-1"><span style="width:14px;height:10px;background:#93c5fd;opacity:.35;display:inline-block;border-radius:2px"></span>แถบต่ำสุด–สูงสุด (Low–High band)</span></div>`;
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:560px">${grid}${band}${lines}${xlab}</svg></div>${legend}`;
+}
+
 function loginLogPage() {
   if (APP.currentRole !== 'admin') {
     return '<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-500">เฉพาะผู้ดูแลระบบเท่านั้นที่ดูหน้านี้ได้</div>';
@@ -8108,6 +8156,35 @@ function loginLogPage() {
   const last7Logins = sortedLogs.filter(l => l.event_type === 'login' && (l.timestamp || '').slice(0, 10) >= past7);
   const uniqueTodayUsers = [...new Set(todayLogins.map(l => l.user_name))].length;
 
+  // === กราฟเส้นแนวโน้มการเข้าใช้งานรายเดือน (แยกกลุ่ม อาจารย์/นักศึกษา/อื่นๆ, ปี พ.ศ.) ===
+  const _thMon = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const loginsOnly = sortedLogs.filter(l => norm(l.event_type) === 'login');
+  const mKey = l => (l.timestamp || l.created_at || '').slice(0, 7);
+  const chartYears = [...new Set(loginsOnly.map(l => mKey(l).slice(0, 4)).filter(y => /^\d{4}$/.test(y)))].sort().reverse();
+  const selChartYear = APP.filters._loginChartYear || (chartYears[0] || String(new Date().getFullYear()));
+  let monthKeys;
+  if (selChartYear === '__all') monthKeys = [...new Set(loginsOnly.map(mKey).filter(k => /^\d{4}-\d{2}$/.test(k)))].sort();
+  else { monthKeys = []; for (let m = 1; m <= 12; m++) monthKeys.push(selChartYear + '-' + String(m).padStart(2, '0')); }
+  const grpCount = { teacher: {}, student: {}, other: {} };
+  loginsOnly.forEach(l => { const k = mKey(l); if (!/^\d{4}-\d{2}$/.test(k)) return; const g = loginRoleGroup(l.role); grpCount[g][k] = (grpCount[g][k] || 0) + 1; });
+  const chartMonths = monthKeys.map(k => { const p = k.split('-'); return { key: k, label: _thMon[Number(p[1]) - 1] + ' ' + String(Number(p[0]) + 543).slice(2) }; });
+  const chartSeries = [
+    { name: 'อาจารย์', color: '#3b82f6', values: monthKeys.map(k => grpCount.teacher[k] || 0) },
+    { name: 'นักศึกษา', color: '#ec4899', values: monthKeys.map(k => grpCount.student[k] || 0) },
+    { name: 'อื่นๆ', color: '#f59e0b', values: monthKeys.map(k => grpCount.other[k] || 0) }
+  ];
+  const loginChartCard = `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h3 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="line-chart" class="w-5 h-5 text-primary"></i>แนวโน้มการเข้าใช้งานรายเดือน (แยกกลุ่มผู้ใช้)</h3>
+      <select onchange="APP.filters._loginChartYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
+        ${chartYears.map(y => `<option value="${y}" ${selChartYear === y ? 'selected' : ''}>ปี พ.ศ. ${Number(y) + 543}</option>`).join('')}
+        <option value="__all" ${selChartYear === '__all' ? 'selected' : ''}>ทุกปี (รายเดือนต่อเนื่อง)</option>
+      </select>
+    </div>
+    ${chartMonths.length ? svgLineChart(chartMonths, chartSeries) : '<p class="text-gray-400 text-sm text-center py-6">ยังไม่มีข้อมูลการเข้าใช้งาน</p>'}
+    <p class="text-xs text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i>อาจารย์ = อาจารย์/อ.ประจำชั้น/ประธานสาขา · อื่นๆ = ผู้ดูแล/งานวิชาการ/ทะเบียน/ผู้บริหาร</p>
+  </div>`;
+
   const eventBadge = (ev) => {
     if (ev === 'login') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i data-lucide="log-in" class="w-3 h-3 inline"></i> เข้าสู่ระบบ</span>';
     if (ev === 'logout') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700"><i data-lucide="log-out" class="w-3 h-3 inline"></i> ออกจากระบบ</span>';
@@ -8137,6 +8214,8 @@ function loginLogPage() {
       <div><p class="text-xs text-gray-500">เข้าใช้งาน 7 วันล่าสุด</p><p class="text-xl font-bold text-gray-800">${last7Logins.length} <span class="text-xs font-normal text-gray-500">ครั้ง</span></p></div>
     </div>
   </div>
+
+  ${loginChartCard}
 
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -10269,15 +10348,21 @@ function surveyResultsTabHTML(year) {
 
   // กราฟแท่งจำนวนผู้ตอบแยกตามกลุ่ม
   const maxC = Math.max(1, ...groups.map(g => g.resps.length));
-  h += `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-5">
-    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>จำนวนผู้ตอบแบบประเมิน แยกตามกลุ่ม</h4>
-    <div class="space-y-3">${groups.map(g => {
-    const c = g.resps.length; const pct = (c / maxC * 100);
+  const _survPalette = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'];
+  const groupBars = groups.map((g, i) => {
+    const c = g.resps.length; const barPct = (c / maxC * 100); const totPct = resps.length ? Math.round(c / resps.length * 100) : 0;
     return `<div class="flex items-center gap-3 text-sm">
         <span class="w-28 sm:w-36 shrink-0 text-gray-600">${g.label}</span>
-        <div class="flex-1 bg-gray-100 rounded-lg h-6 overflow-hidden"><div class="h-6 rounded-lg ${g.color} flex items-center justify-end pr-2 text-white text-xs font-bold" style="width:${Math.max(pct, c ? 8 : 0)}%">${c ? c : ''}</div></div>
-        <span class="w-10 text-right font-bold text-gray-800">${c}</span></div>`;
-  }).join('')}</div>
+        <div class="flex-1 bg-gray-100 rounded-lg h-6 overflow-hidden"><div class="h-6 rounded-lg grow-bar ${g.color} flex items-center justify-end pr-2 text-white text-xs font-bold" style="--tw:${Math.max(barPct, c ? 8 : 0)}%">${c ? c : ''}</div></div>
+        <span class="w-24 text-right font-bold text-gray-800">${c} คน <span class="font-normal text-gray-400">(${totPct}%)</span></span></div>`;
+  }).join('');
+  const groupDonut = svgDonut(groups.map((g, i) => ({ label: g.label, value: g.resps.length, color: _survPalette[i % _survPalette.length] })), 'คน');
+  h += `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-5">
+    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>จำนวนผู้ตอบแบบประเมิน แยกตามกลุ่ม</h4>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+      <div class="space-y-3">${groupBars}</div>
+      <div>${groupDonut}</div>
+    </div>
     <p class="text-xs text-gray-400 mt-3">รวมผู้ตอบทั้งหมด ${resps.length} คน${other.length ? ' · อื่นๆ ' + other.length + ' คน' : ''}</p>
   </div>`;
 
@@ -10316,13 +10401,13 @@ function surveySectionByGroupHTML(groups, qs) {
   let h = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-5">
     <div class="p-4 border-b"><h4 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i>ผลรายด้าน — แยกตามกลุ่ม</h4></div>
     <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-gray-50 text-gray-600 text-left">
-      <th class="px-4 py-2">ด้าน</th>${groups.map(g => `<th class="px-3 py-2 text-center border-l border-gray-100">${g.label}<br><span class="text-[11px] font-normal text-gray-400">μ (n) · แปลผล</span></th>`).join('')}</tr></thead><tbody>`;
+      <th class="px-4 py-2">ด้าน</th>${groups.map(g => `<th class="px-3 py-2 text-center border-l border-gray-100">${g.label}<br><span class="text-[11px] font-normal text-gray-400">μ · % · n · แปลผล</span></th>`).join('')}</tr></thead><tbody>`;
   sections.forEach((sec, idx) => {
     const col = surveySectionColor(idx);
     h += `<tr class="border-t border-gray-100"><td class="px-4 py-2 font-medium text-gray-700"><span class="inline-block w-2.5 h-2.5 rounded-full ${col.dot} mr-1 align-middle"></span>${surveyEsc(sec)}</td>`;
     groups.forEach(g => {
       const s = surveySectionStatFor(g.resps, qs, sec); const it = surveyInterpret(s.mean);
-      h += `<td class="px-3 py-2 text-center border-l border-gray-100">${s.n ? `<span class="font-bold text-gray-800">${s.mean.toFixed(2)}</span> <span class="text-gray-400 text-xs">(${s.n})</span><br><span class="px-2 py-0.5 rounded-full text-[11px] ${it.c}">${it.t}</span>` : '<span class="text-gray-300">—</span>'}</td>`;
+      h += `<td class="px-3 py-2 text-center border-l border-gray-100">${s.n ? `<span class="font-bold text-gray-800">${s.mean.toFixed(2)}</span> <span class="text-emerald-600 text-xs font-semibold">${Math.round(s.mean / 5 * 100)}%</span> <span class="text-gray-400 text-xs">(n=${s.n})</span><br><span class="px-2 py-0.5 rounded-full text-[11px] ${it.c}">${it.t}</span>` : '<span class="text-gray-300">—</span>'}</td>`;
     });
     h += `</tr>`;
   });
@@ -10332,7 +10417,7 @@ function surveySectionByGroupHTML(groups, qs) {
     const parsed = g.resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return a; });
     let vals = []; ratingQs.forEach(q => parsed.forEach(a => { const v = Number(a[q.q_id]); if (!isNaN(v) && v >= 1 && v <= 5) vals.push(v); }));
     const s = surveyMeanSD(vals);
-    h += `<td class="px-3 py-2 text-center border-l border-blue-100 font-bold text-primary">${s.n ? `${s.mean.toFixed(2)} <span class="text-xs font-normal">(${s.n})</span>` : '—'}</td>`;
+    h += `<td class="px-3 py-2 text-center border-l border-blue-100 font-bold text-primary">${s.n ? `${s.mean.toFixed(2)} <span class="text-emerald-600 text-xs">${Math.round(s.mean / 5 * 100)}%</span> <span class="text-xs font-normal text-gray-400">(n=${s.n})</span>` : '—'}</td>`;
   });
   h += `</tr></tbody></table></div></div>`;
   return h;
