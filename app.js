@@ -4723,32 +4723,20 @@ async function advisorAssignSelected() {
 // ======================== เลื่อนชั้นปี (Promote) ========================
 // แผงปุ่มเลื่อนชั้น แยกต่อชั้นปี (admin เท่านั้น) — เลื่อนเฉพาะผู้ที่กำลังศึกษา
 function promotePanelHTML(allStudents) {
-  const cnt = y => (allStudents || []).filter(s => isActiveStudent(s) && norm(s.year_level) === y).length;
-  const btn = (from, label, color) => `<button onclick="confirmPromoteYear('${from}')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${color}"><i data-lucide="arrow-up" class="w-4 h-4"></i>${label} <span class="opacity-80">(${cnt(from)} คน)</span></button>`;
   const batches = [...new Set((allStudents || []).map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const moveSection = `<div class="mt-3 pt-3 border-t border-amber-200">
-    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="move-right" class="w-4 h-4 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">ย้ายทั้งรุ่นไปชั้นปีที่กำหนด</h3><span class="text-xs text-amber-600">(ย้ายทุกคนในรุ่น ไม่ว่าสถานะใด — เก็บตกคนที่ค้าง)</span></div>
+  return `<div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-4">
+    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="move-right" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">ย้ายทั้งรุ่นไปชั้นปีที่กำหนด</h3><span class="text-xs text-amber-600">(ย้ายทุกคนในรุ่น ไม่ว่าสถานะใด · ควรสำรองแท็บ student ก่อน)</span></div>
     <div class="flex flex-wrap items-center gap-2">
       <label class="text-xs text-amber-800">รุ่น:</label>
       <select id="moveBatchSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="">-- เลือกรุ่น --</option>${batches.map(b => `<option value="${b}">รุ่นที่ ${b}</option>`).join('')}</select>
       <label class="text-xs text-amber-800">ไปชั้นปี:</label>
-      <select id="moveYearSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option></select>
+      <select id="moveYearSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option><option value="จบ">จบ (สำเร็จการศึกษา)</option></select>
       <button onclick="confirmMoveBatch()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700"><i data-lucide="arrow-right" class="w-4 h-4"></i>ย้าย</button>
     </div>
   </div>`;
-  return `<div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-4">
-    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="arrow-up-circle" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">เลื่อนชั้นปี</h3><span class="text-xs text-amber-600">(เลื่อนเฉพาะผู้ที่กำลังศึกษา · ควรสำรองแท็บ student ก่อน)</span></div>
-    <div class="flex gap-2 flex-wrap">
-      ${btn('1', 'ปี 1 → ปี 2', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('2', 'ปี 2 → ปี 3', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('3', 'ปี 3 → ปี 4', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('4', 'ปี 4 → สำเร็จการศึกษา', 'bg-amber-600 text-white hover:bg-amber-700')}
-    </div>
-    ${moveSection}
-  </div>`;
 }
 
-// ย้ายทั้งรุ่น (batch) ไปชั้นปีที่กำหนด — ครอบคลุมทุกสถานะ (เก็บตกคนที่ค้างชั้นปี)
+// ย้ายทั้งรุ่น (batch) ไปชั้นปีที่กำหนด — ปี 1-4 ย้ายทุกสถานะ; "จบ" ให้เฉพาะผู้กำลังศึกษาสำเร็จการศึกษา + เพิ่มศิษย์เก่า
 function confirmMoveBatch() {
   if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
   const batch = norm((document.getElementById('moveBatchSel') || {}).value);
@@ -4756,32 +4744,60 @@ function confirmMoveBatch() {
   if (!batch) { showToast('กรุณาเลือกรุ่นที่ต้องการย้าย', 'error'); return; }
   const list = getDataByType('student').filter(s => norm(s.batch) === batch);
   if (!list.length) { showToast('ไม่พบนักศึกษาในรุ่นที่ ' + batch, 'error'); return; }
-  const already = list.filter(s => norm(s.year_level) === year).length;
-  const toMove = list.length - already;
   const activeN = list.filter(isActiveStudent).length;
-  const gradN = list.filter(isGraduate).length;
-  showModal('ยืนยันการย้ายทั้งรุ่น', `
-    <div class="space-y-3 text-sm">
-      <p>กำลังจะตั้ง <strong>ชั้นปี</strong> ของนักศึกษา <strong class="text-primary">รุ่นที่ ${batch}</strong> ให้เป็น <strong>ชั้นปีที่ ${year}</strong></p>
+  const isGrad = year === 'จบ';
+  let bodyHtml;
+  if (isGrad) {
+    bodyHtml = `<p>กำลังจะให้นักศึกษา <strong>รุ่นที่ ${batch}</strong> ที่ <strong>กำลังศึกษา ${activeN} คน</strong> <strong class="text-primary">สำเร็จการศึกษา</strong> (ชั้นปี = "จบ", สถานะ = สำเร็จการศึกษา)</p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
+        <p class="font-semibold">⚠ ข้อควรระวัง</p>
+        <p>• ทำเฉพาะผู้ที่ "กำลังศึกษา" (ข้ามผู้ที่พัก/ลาออก/โอนย้าย/จบแล้ว)</p>
+        <p>• ระบบจะบันทึกรายชื่อเข้า "ข้อมูลศิษย์เก่า" อัตโนมัติ</p>
+        <p>• ผลการเรียน/ผลสอบเดิมไม่กระทบ (ผูกด้วยรหัสนักศึกษา) · แนะนำสำรองแท็บ student ก่อน</p>
+      </div>`;
+  } else {
+    const already = list.filter(s => norm(s.year_level) === year).length;
+    const gradN = list.filter(isGraduate).length;
+    bodyHtml = `<p>กำลังจะตั้ง <strong>ชั้นปี</strong> ของนักศึกษา <strong class="text-primary">รุ่นที่ ${batch}</strong> ให้เป็น <strong>ชั้นปีที่ ${year}</strong></p>
       <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
         <p class="font-semibold">⚠ ข้อควรระวัง</p>
         <p>• ในรุ่นนี้มีทั้งหมด ${list.length} คน — กำลังศึกษา ${activeN} คน, สถานะอื่น (พัก/ลาออก/โอนย้าย/จบ) ${list.length - activeN} คน</p>
-        <p>• อยู่ชั้นปี ${year} อยู่แล้ว ${already} คน · <strong>ต้องย้ายจริง ${toMove} คน</strong></p>
+        <p>• อยู่ชั้นปี ${year} อยู่แล้ว ${already} คน · <strong>ต้องย้ายจริง ${list.length - already} คน</strong></p>
         ${gradN ? `<p>• มีผู้ "สำเร็จการศึกษา/จบ" ${gradN} คน จะถูกเปลี่ยนชั้นปีด้วย (สถานะเดิมไม่เปลี่ยน) หากไม่ต้องการ ให้ยกเลิกแล้วแก้รายคน</p>` : ''}
         <p>• เปลี่ยนเฉพาะ "ชั้นปี" — สถานภาพ/ข้อมูลอื่นไม่เปลี่ยน · ย้อนกลับอัตโนมัติไม่ได้ แนะนำสำรองแท็บ student ก่อน</p>
-      </div>
-    </div>`, () => doMoveBatch(batch, year));
+      </div>`;
+  }
+  showModal('ยืนยันการย้ายทั้งรุ่น', `<div class="space-y-3 text-sm">${bodyHtml}</div>`, () => doMoveBatch(batch, year));
 }
 async function doMoveBatch(batch, year) {
-  const list = getDataByType('student').filter(s => norm(s.batch) === batch && norm(s.year_level) !== year);
+  const isGrad = year === 'จบ';
+  const list = isGrad
+    ? getDataByType('student').filter(s => norm(s.batch) === batch && isActiveStudent(s))
+    : getDataByType('student').filter(s => norm(s.batch) === batch && norm(s.year_level) !== year);
   closeModal();
-  if (!list.length) { showToast('ทุกคนในรุ่นนี้อยู่ชั้นปีที่ ' + year + ' อยู่แล้ว'); return; }
-  list.forEach(s => { s.year_level = String(year); });
-  showToast('กำลังย้าย ' + list.length + ' คน...', 'loading');
+  if (!list.length) { showToast(isGrad ? 'ไม่มีผู้กำลังศึกษาในรุ่นนี้ให้สำเร็จการศึกษา' : 'ทุกคนในรุ่นนี้อยู่ชั้นปีที่ ' + year + ' อยู่แล้ว'); return; }
+  const gradSnapshot = isGrad ? list.map(s => ({ name: s.name || '', batch: s.batch || '', student_id: s.student_id || '' })) : [];
+  list.forEach(s => { if (isGrad) { s.year_level = 'จบ'; s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(year); } });
+  showToast('กำลังบันทึก ' + list.length + ' คน...', 'loading');
   const r = await GSheetDB.updateMany(list);
   hideLoadingToast();
-  if (r.isOk) showToast('ย้ายรุ่นที่ ' + batch + ' ไปชั้นปีที่ ' + year + ' สำเร็จ (' + r.ok + ' คน)');
-  else showToast('ย้ายเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน', r.ok ? 'success' : 'error');
+  let alumniMsg = '';
+  if (isGrad && r.ok) {
+    const existing = new Set(getDataByType('alumni').map(a => norm(a.student_id)).filter(Boolean));
+    const today = new Date().toISOString().slice(0, 10);
+    const newAlumni = gradSnapshot
+      .filter(s => { const sid = norm(s.student_id); return !sid || !existing.has(sid); })
+      .map(s => ({ type: 'alumni', name: s.name, batch: s.batch, admission_date: '', graduation_date: today, alumni_status: '', workplace: '', recorded_date: today, student_id: s.student_id, created_at: new Date().toISOString() }));
+    if (newAlumni.length) {
+      showToast('กำลังบันทึกข้อมูลศิษย์เก่า ' + newAlumni.length + ' คน...', 'loading');
+      const ar = await GSheetDB.createMany(newAlumni);
+      hideLoadingToast();
+      alumniMsg = ' · เพิ่มศิษย์เก่า ' + ar.ok + ' คน';
+    }
+  }
+  const dest = isGrad ? 'สำเร็จการศึกษา' : 'ชั้นปีที่ ' + year;
+  if (r.isOk) showToast('ย้ายรุ่นที่ ' + batch + ' → ' + dest + ' สำเร็จ (' + r.ok + ' คน)' + alumniMsg);
+  else showToast('ทำรายการเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน' + alumniMsg, r.ok ? 'success' : 'error');
   renderCurrentPage();
 }
 
