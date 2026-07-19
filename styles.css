@@ -302,9 +302,9 @@ details[open]>summary .chev {
 .dark .text-gray-800, .dark .text-gray-900 { color: #e2e8f0 !important; }
 .dark .text-gray-700 { color: #cbd5e1 !important; }
 .dark .text-gray-600 { color: #a3b2c7 !important; }
-.dark .text-gray-500 { color: #94a3b8 !important; }
-.dark .text-gray-400 { color: #6b7c93 !important; }
-.dark .text-gray-300 { color: #55647a !important; }
+.dark .text-gray-500 { color: #aab6c9 !important; }
+.dark .text-gray-400 { color: #8b9bb0 !important; }
+.dark .text-gray-300 { color: #6f7e93 !important; }
 .dark .text-primary { color: #5aa2e6 !important; }
 
 /* เส้นขอบ */
@@ -412,3 +412,13 @@ details[open]>summary .chev {
 .dark .bg-lime-50 { background-color: rgba(132,204,22,.10) !important; }
 .dark .bg-lime-100 { background-color: rgba(132,204,22,.18) !important; }
 .dark .text-lime-500, .dark .text-lime-600, .dark .text-lime-700 { color: #bef264 !important; }
+
+/* ===== DARK MODE — ตัวช่วยกราฟ (โดนัท/แท่ง/เส้น) ให้อ่านชัดบนพื้นมืด ===== */
+.dark .dnt-label { color: #cbd5e1 !important; }
+.dark .dnt-val   { color: #f1f5f9 !important; }
+.dark .dnt-pct   { color: #aab6c9 !important; }
+.dark .dnt-center { color: #7ab8f0 !important; }
+.dark .dnt-sub   { color: #94a3b8 !important; }
+.dark .bar-track { background: #2c3a4f !important; }
+.dark .lc-grid   { stroke: #2c3a4f !important; }
+.dark .lc-axis   { fill: #9aa8bd !important; }
