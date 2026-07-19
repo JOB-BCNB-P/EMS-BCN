@@ -988,6 +988,11 @@ function showNotifications() {
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
+// สลับโหมดสว่าง/มืด — จำค่าไว้ใน localStorage (ไอคอนพระจันทร์/พระอาทิตย์สลับด้วย CSS)
+function toggleDarkMode() {
+  const dark = document.documentElement.classList.toggle('dark');
+  try { localStorage.setItem('ems-theme', dark ? 'dark' : 'light'); } catch (e) { }
+}
 function renderNotifications() {
   const ann = activeAnnouncements().slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
