@@ -1516,11 +1516,11 @@ function svgDonut(segments, centerLabel) {
     const pct = Math.round(v / total * 100);
     return `<circle class="donut-seg" cx="60" cy="60" r="${r}" fill="none" stroke="${s.color}" stroke-width="20" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"><title>${s.label}: ${v} คน (${pct}%)</title></circle>`;
   }).join('') : `<circle cx="60" cy="60" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="20"></circle>`;
-  const legend = segments.map(s => { const v = parseFloat(s.value) || 0; const pct = total ? Math.round(v / total * 100) : 0; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px"><span style="width:13px;height:13px;border-radius:3px;background:${s.color};flex-shrink:0"></span><span style="flex:1;color:#475569">${s.label}</span><b style="color:#1e293b">${v}</b><span style="color:#94a3b8;width:40px;text-align:right">${pct}%</span></div>`; }).join('');
+  const legend = segments.map(s => { const v = parseFloat(s.value) || 0; const pct = total ? Math.round(v / total * 100) : 0; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px"><span style="width:13px;height:13px;border-radius:3px;background:${s.color};flex-shrink:0"></span><span class="dnt-label" style="flex:1;color:#475569">${s.label}</span><b class="dnt-val" style="color:#1e293b">${v}</b><span class="dnt-pct" style="color:#94a3b8;width:40px;text-align:right">${pct}%</span></div>`; }).join('');
   return `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
     <div class="donut-wrap pie-spin" style="width:150px;height:150px;flex-shrink:0;position:relative">
       <svg viewBox="0 0 120 120" width="150" height="150" style="transform:rotate(-90deg)">${ring}</svg>
-      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:26px;font-weight:700;color:#1e6fba">${total || 0}</span><span style="font-size:11px;color:#94a3b8">${centerLabel || 'รวม'}</span></div>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none"><span class="dnt-center" style="font-size:26px;font-weight:700;color:#1e6fba">${total || 0}</span><span class="dnt-sub" style="font-size:11px;color:#94a3b8">${centerLabel || 'รวม'}</span></div>
     </div>
     <div style="flex:1;min-width:180px">${legend}</div>
   </div>`;
@@ -1532,8 +1532,8 @@ function animBarRows(items) {
   return items.map(i => {
     const w = Math.round((parseFloat(i.value) || 0) / max * 100);
     return `<div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#475569">${i.label}</span><b style="color:#1e293b">${i.value || 0}</b></div>
-      <div style="background:#eef2f7;border-radius:7px;height:18px;overflow:hidden"><div class="grow-bar" style="--tw:${w}%;height:100%;background:${i.color || '#1e6fba'};border-radius:7px"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span class="dnt-label" style="color:#475569">${i.label}</span><b class="dnt-val" style="color:#1e293b">${i.value || 0}</b></div>
+      <div class="bar-track" style="background:#eef2f7;border-radius:7px;height:18px;overflow:hidden"><div class="grow-bar" style="--tw:${w}%;height:100%;background:${i.color || '#1e6fba'};border-radius:7px"></div></div>
     </div>`;
   }).join('');
 }
@@ -1598,7 +1598,7 @@ function studentRetentionAnalyticsHTML() {
 
   // --- สาเหตุการลาออก (แยกหมวดหมู่) → กราฟวงกลม แสดง % และจำนวน ---
   const resignStudents = nonGrad.filter(s => norm(s.status) === 'ลาออก');
-  const catPalette = { 'เปลี่ยนสาขาวิชา': '#3b82f6', 'การเงิน': '#f59e0b', 'การเรียน': '#8b5cf6', 'สุขภาพ': '#ef4444', 'อื่นๆ': '#64748b', 'ไม่ระบุ': '#cbd5e1' };
+  const catPalette = { 'เปลี่ยนสาขาวิชา': '#3b82f6', 'การเงิน': '#f59e0b', 'การเรียน': '#8b5cf6', 'สุขภาพ': '#ef4444', 'อื่นๆ': '#94a3b8', 'ไม่ระบุ': '#cbd5e1' };
   const reasonCount = {};
   resignStudents.forEach(s => { let k = norm(s.status_reason) || 'ไม่ระบุ'; if (k !== 'ไม่ระบุ' && !STATUS_REASONS.includes(k)) k = 'อื่นๆ'; reasonCount[k] = (reasonCount[k] || 0) + 1; });
   const reasonSegs = Object.entries(reasonCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v, color: catPalette[k] || '#64748b' }));
@@ -8103,7 +8103,7 @@ function svgLineChart(months, series) {
   const xAt = i => n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW;
   const yAt = v => padT + plotH - (v / maxY) * plotH;
   let grid = '';
-  for (let k = 0; k <= 4; k++) { const v = stepY * k, y = yAt(v); grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#eef2f7"/><text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#94a3b8">${v}</text>`; }
+  for (let k = 0; k <= 4; k++) { const v = stepY * k, y = yAt(v); grid += `<line class="lc-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#eef2f7"/><text class="lc-axis" x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#94a3b8">${v}</text>`; }
   let band = '';
   if (n) {
     const highs = months.map((_, i) => Math.max(...series.map(s => s.values[i] || 0)));
@@ -8113,7 +8113,7 @@ function svgLineChart(months, series) {
     band = `<path d="${up} ${down} Z" fill="#93c5fd" fill-opacity="0.18"/>`;
   }
   let xlab = '';
-  months.forEach((m, i) => { if (n <= 14 || i % 2 === 0) xlab += `<text x="${xAt(i).toFixed(1)}" y="${H - padB + 15}" text-anchor="middle" font-size="9" fill="#64748b">${m.label}</text>`; });
+  months.forEach((m, i) => { if (n <= 14 || i % 2 === 0) xlab += `<text class="lc-axis" x="${xAt(i).toFixed(1)}" y="${H - padB + 15}" text-anchor="middle" font-size="9" fill="#64748b">${m.label}</text>`; });
   let lines = '';
   series.forEach(s => {
     const pts = s.values.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
