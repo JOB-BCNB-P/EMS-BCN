@@ -1534,24 +1534,17 @@ function animBarRows(items) {
 }
 
 // ตัวการ์ตูนนักศึกษา (SVG) — แขนขวายกขึ้นเมื่อเอาเมาส์ชี้ที่การ์ด (ผ่านคลาส .gender-card:hover)
+// ตัวการ์ตูนบัณฑิต (รูปจริงชุดครุย) — ท่าปกติ + ท่ายกมือตอนเอาเมาส์ชี้ที่การ์ด
 function genderFigureSVG(sex) {
-  const skin = '#f7c9a4', uniform = '#ffffff', trim = sex === 'F' ? '#ec4899' : '#3b82f6', hair = sex === 'F' ? '#5b3a29' : '#2d2018';
-  const hairTop = sex === 'F'
-    ? `<path d="M24 24 Q45 2 66 24 L66 40 Q64 30 58 27 Q45 20 32 27 Q26 30 24 40 Z" fill="${hair}"/>`
-    : `<path d="M27 22 Q45 6 63 22 L63 27 Q45 18 27 27 Z" fill="${hair}"/>`;
-  return `<svg class="gc-fig" viewBox="0 0 90 118" width="76" height="100" style="overflow:visible">
-    <rect x="34" y="88" width="8" height="26" rx="4" fill="#1f2937"/>
-    <rect x="48" y="88" width="8" height="26" rx="4" fill="#1f2937"/>
-    <rect x="25" y="52" width="40" height="44" rx="13" fill="${uniform}" stroke="${trim}" stroke-width="2"/>
-    <rect x="25" y="52" width="40" height="7" rx="2" fill="${trim}"/>
-    <path d="M45 60 l4 8 l-4 4 l-4 -4 z" fill="${trim}" opacity=".8"/>
-    <g class="gc-arm left"><rect x="18" y="55" width="9" height="30" rx="4.5" fill="${uniform}" stroke="${trim}" stroke-width="1.5"/><circle cx="22.5" cy="86" r="5" fill="${skin}"/></g>
-    <g class="gc-arm right"><rect x="63" y="55" width="9" height="30" rx="4.5" fill="${uniform}" stroke="${trim}" stroke-width="1.5"/><circle cx="67.5" cy="86" r="5" fill="${skin}"/></g>
-    <circle cx="45" cy="30" r="16" fill="${skin}"/>
-    ${hairTop}
-    <circle cx="39" cy="30" r="1.8" fill="#3a2a1a"/><circle cx="51" cy="30" r="1.8" fill="#3a2a1a"/>
-    <path d="M41 36 Q45 39 49 36" stroke="#c67a52" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  </svg>`;
+  const G = (typeof window !== 'undefined' && window.GRAD_IMG) || {};
+  const down = sex === 'F' ? G.f_down : G.m_down;
+  const wave = sex === 'F' ? G.f_wave : G.m_wave;
+  const alt = sex === 'F' ? 'บัณฑิตหญิง' : 'บัณฑิตชาย';
+  if (!down) return '';
+  return `<div class="grad-fig" style="width:88px;height:118px;position:relative">
+    <img class="grad-down" src="${down}" alt="${alt}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+    <img class="grad-wave" src="${wave || down}" alt="${alt} ยกมือทักทาย" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+  </div>`;
 }
 
 // แผงวิเคราะห์อัตราการคงอยู่ของนักศึกษา (หน้าข้อมูลนักศึกษา — สำหรับผู้ดูแล/วิชาการ/ผู้บริหาร)
