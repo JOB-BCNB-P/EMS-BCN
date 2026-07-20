@@ -1804,7 +1804,7 @@ function studentsPage() {
   const _selEntry = APP.filters._stuEntry || '';
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,entry_type,transfer_from,transfer_date,scholarship,admission_project,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,entry_type,transfer_from,transfer_date,scholarship,admission_project,admission_round,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? studentRetentionAnalyticsHTML() : ''}
   ${isAdmin ? promotePanelHTML(allStudents) : ''}
@@ -1918,6 +1918,7 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รอบการสมัคร</label><input name="admission_round" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รอบ 1 / รอบ 2 / TCAS 3"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField('')}</div>
         <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
@@ -1949,7 +1950,7 @@ function showStudentDetail(id) {
     ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('เลขบัตรประชาชน', maskNationalId(s.national_id))}${infoRow('รุ่นที่', s.batch)}
     ${infoRow('สถานภาพ', s.status)}${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('เพศ', s.gender ? s.gender : (studentGender(s) === 'M' ? 'ชาย (จากคำนำหน้า)' : studentGender(s) === 'F' ? 'หญิง (จากคำนำหน้า)' : '-'))}
     ${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
-    ${infoRow('ทุนต้นสังกัด', s.scholarship)}${infoRow('โครงการที่สมัคร', s.admission_project)}
+    ${infoRow('ทุนต้นสังกัด', s.scholarship)}${infoRow('โครงการที่สมัคร', s.admission_project)}${infoRow('รอบการสมัคร', s.admission_round)}
     ${infoRow('ประเภทการเข้าศึกษา', s.entry_type || 'รับปกติ')}${isTransferIn(s) ? infoRow('สถาบันเดิม', s.transfer_from) + (norm(s.transfer_date) ? infoRow('วันที่โอนเข้า', s.transfer_date) : '') : ''}
     ${norm(s.status_date) ? infoRow('วันที่ลาออก/พักการศึกษา', s.status_date) : ''}${norm(s.status_reason) ? infoRow('สาเหตุลาออก/พักการศึกษา', s.status_reason) : ''}
   </div>`);
@@ -2751,38 +2752,62 @@ function showAddScheduleModal() {
 // ======================== GRADES ========================
 // ตารางรายชื่อกรองตามทุนต้นสังกัด/โครงการที่สมัคร (หน้าผลการเรียน)
 function scholarshipRosterHTML() {
-  const all = getDataByType('student');
+  // ไม่นับนักศึกษาที่สำเร็จการศึกษาแล้ว
+  const all = getDataByType('student').filter(s => !isGraduate(s));
   const schOpts = [...new Set(all.map(s => norm(s.scholarship)).filter(Boolean))].sort();
   const projOpts = [...new Set(all.map(s => norm(s.admission_project)).filter(Boolean))].sort();
+  const roundOpts = [...new Set(all.map(s => norm(s.admission_round)).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const selSch = APP.filters._grSch || '';
   const selProj = APP.filters._grProj || '';
+  const selRound = APP.filters._grRound || '';
+  const selYr = APP.filters._grRosterYear || '';
   let rows = all.slice();
+  if (selYr) rows = rows.filter(s => norm(s.year_level) === selYr);
   if (selSch) rows = rows.filter(s => norm(s.scholarship) === selSch);
   if (selProj) rows = rows.filter(s => norm(s.admission_project) === selProj);
+  if (selRound) rows = rows.filter(s => norm(s.admission_round) === selRound);
   rows.sort((a, b) => String(a.student_id || '').localeCompare(String(b.student_id || ''), undefined, { numeric: true }));
-  const stColor = st => st === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : st === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : st === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700';
+  const stColor = st => st === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : st === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700';
+
+  // กราฟวงกลม: จำนวนตามรอบการสมัคร / ตามโครงการที่สมัคร (ตามผลการกรอง)
+  const _palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#0ea5e9', '#ef4444', '#84cc16', '#a855f7', '#14b8a6'];
+  const countBy = (list, key, fallback) => { const m = {}; list.forEach(s => { const k = norm(s[key]) || fallback; m[k] = (m[k] || 0) + 1; }); return m; };
+  const toSegs = m => Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({ label: k, value: v, color: _palette[i % _palette.length] }));
+  const roundDonut = svgDonut(toSegs(countBy(rows, 'admission_round', 'ไม่ระบุรอบ')), 'คน');
+  const projDonut = svgDonut(toSegs(countBy(rows, 'admission_project', 'ไม่ระบุโครงการ')), 'คน');
+
   const body = rows.map(s => { const np = studentNameParts(s); return `<tr class="border-t hover:bg-gray-50">
     <td class="px-3 py-2 font-mono text-primary">${s.student_id || ''}</td>
     <td class="px-3 py-2">${np.prefix || ''}</td>
     <td class="px-3 py-2 font-medium">${np.first || ''}</td>
     <td class="px-3 py-2">${np.last || ''}</td>
+    <td class="px-3 py-2 text-center">${s.year_level || '-'}</td>
     <td class="px-3 py-2 text-center">${admissionYearOf(s)}</td>
+    <td class="px-3 py-2">${s.admission_round || '-'}</td>
     <td class="px-3 py-2">${s.scholarship || '-'}</td>
     <td class="px-3 py-2">${s.admission_project || '-'}</td>
     <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs ${stColor(norm(s.status))}">${s.status || ''}</span></td>
   </tr>`; }).join('');
   return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
-      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการที่สมัคร</span>
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา)</span></span>
       <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
     </summary>
     <div class="px-5 pb-5">
-      <div class="flex flex-wrap items-center gap-3 mb-3">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
+        <select onchange="APP.filters._grRosterYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${selYr === y ? 'selected' : ''}>${y}</option>`).join('')}</select>
         <label class="text-sm font-medium text-gray-700">ทุนต้นสังกัด:</label>
         <select onchange="APP.filters._grSch=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${schOpts.map(x => `<option ${selSch === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
         <label class="text-sm font-medium text-gray-700">โครงการ:</label>
         <select onchange="APP.filters._grProj=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${projOpts.map(x => `<option ${selProj === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <label class="text-sm font-medium text-gray-700">รอบการสมัคร:</label>
+        <select onchange="APP.filters._grRound=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${roundOpts.map(x => `<option ${selRound === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
         <span class="text-xs text-gray-500">พบ ${rows.length} คน</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
+        <div><p class="text-sm font-semibold text-gray-600 mb-3">จำนวนตามรอบการสมัคร</p>${roundDonut}</div>
+        <div><p class="text-sm font-semibold text-gray-600 mb-3">จำนวนตามโครงการที่สมัคร</p>${projDonut}</div>
       </div>
       <div class="overflow-x-auto border border-gray-100 rounded-xl" style="max-height:420px;overflow-y:auto"><table class="w-full text-sm">
         <thead class="sticky top-0"><tr class="bg-surface text-left">
@@ -2790,12 +2815,14 @@ function scholarshipRosterHTML() {
           <th class="px-3 py-2 font-semibold">คำนำหน้า</th>
           <th class="px-3 py-2 font-semibold">ชื่อ</th>
           <th class="px-3 py-2 font-semibold">นามสกุล</th>
+          <th class="px-3 py-2 font-semibold text-center">ชั้นปี</th>
           <th class="px-3 py-2 font-semibold text-center">ปีรับเข้า</th>
+          <th class="px-3 py-2 font-semibold">รอบการสมัคร</th>
           <th class="px-3 py-2 font-semibold">ทุนต้นสังกัด</th>
           <th class="px-3 py-2 font-semibold">โครงการที่สมัคร</th>
           <th class="px-3 py-2 font-semibold">สถานภาพ</th>
         </tr></thead>
-        <tbody>${body || '<tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">ไม่พบข้อมูล</td></tr>'}</tbody>
+        <tbody>${body || '<tr><td colspan="10" class="px-3 py-6 text-center text-gray-400">ไม่พบข้อมูล</td></tr>'}</tbody>
       </table></div>
     </div>
   </details>`;
@@ -3595,7 +3622,13 @@ function engAnalyticsHTML() {
   ];
   const levelCount = {}; levelDefs.forEach(l => levelCount[l.key] = 0);
   const pbriRecs = engScope.filter(e => norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ');
-  pbriRecs.forEach(e => { const lv = getEngLevel(Number(e.eng_score) || 0); if (levelCount[lv] !== undefined) levelCount[lv]++; });
+  // นับเฉพาะ "การสอบครั้งล่าสุด" ของแต่ละคน (กันการนับซ้ำจากการสอบหลายครั้ง) — จัดลำดับด้วย ครั้งที่สอบ แล้ววันที่
+  const _attNum = e => parseInt(norm(e.eng_attempt), 10) || 0;
+  const _isLater = (a, b) => { const aa = _attNum(a), ab = _attNum(b); if (aa !== ab) return aa > ab; return norm(a.eng_date) > norm(b.eng_date); };
+  const latestPbriByStu = {};
+  pbriRecs.forEach(e => { const id = norm(e.student_id); if (!latestPbriByStu[id] || _isLater(e, latestPbriByStu[id])) latestPbriByStu[id] = e; });
+  const latestPbri = Object.values(latestPbriByStu);
+  latestPbri.forEach(e => { const lv = getEngLevel(Number(e.eng_score) || 0); if (levelCount[lv] !== undefined) levelCount[lv]++; });
   const barItems = animBarRows(levelDefs.map(l => ({ label: l.label, value: levelCount[l.key], color: l.color })));
 
   // --- กราฟวงกลม: ผ่าน/ไม่ผ่าน + แยกประเภทการผ่าน ---
@@ -3636,7 +3669,7 @@ function engAnalyticsHTML() {
     <div class="mb-4">${yrBtns}</div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
-        <p class="text-sm font-semibold text-gray-600 mb-3">ระดับผลสอบ PBRI (สบช.) — ${pbriRecs.length} ครั้ง</p>
+        <p class="text-sm font-semibold text-gray-600 mb-3">ระดับผลสอบ PBRI (สบช.) — ${latestPbri.length} คน <span class="font-normal text-gray-400">(นับเฉพาะการสอบครั้งล่าสุดของแต่ละคน)</span></p>
         <div class="space-y-2.5">${barItems}</div>
       </div>
       <div>
@@ -9308,6 +9341,7 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" value="${(s.scholarship || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" value="${(s.admission_project || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รอบการสมัคร</label><input name="admission_round" value="${(s.admission_round || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รอบ 1 / รอบ 2 / TCAS 3"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField(s.entry_type)}</div>
         <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" value="${(s.transfer_from || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" value="${(s.transfer_date || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
