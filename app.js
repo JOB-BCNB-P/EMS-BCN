@@ -6510,10 +6510,10 @@ function showEditBranchSummaryModal(year) {
     ${DB_EDU_KEYS.map(k => `<td class="px-1 py-1 text-center">${inpCell(idx, branch, k.key)}</td>`).join('')}
   </tr>`;
 
-  const rows = names.map((b, i) => rowHTML(i, b, false)).join('');
+  const rows = names.map((b, i) => rowHTML(i, b, true)).join('');
   showModal('แก้ไขตัวเลขตามสาขา — ปีการศึกษา ' + year, `
     <form id="dbForm" style="max-height:70vh;overflow-y:auto;padding-right:4px">
-      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">ช่องว่าง = ใช้ค่าที่คำนวณอัตโนมัติ (เลข auto ใน placeholder) · กรอกเพื่อกำหนดเอง</div>
+      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">แก้ไขได้ทุกช่อง — ทั้งชื่อสาขาและตัวเลข · ช่องตัวเลขที่เว้นว่าง = ใช้ค่าที่คำนวณอัตโนมัติ (เลข auto ใน placeholder) · กรอกเพื่อกำหนดเอง</div>
       <button type="button" onclick="dbBranchAutoFill()" class="mb-3 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"><i data-lucide="wand-2" class="w-4 h-4 inline"></i> เติมค่าอัตโนมัติ</button>
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="px-1 py-1 text-left">สาขาวิชา</th>${DB_EDU_KEYS.map(k => `<th class="px-1 py-1">${k.short}</th>`).join('')}</tr></thead>
       <tbody id="dbRows">${rows}</tbody></table></div>
