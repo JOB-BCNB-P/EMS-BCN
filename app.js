@@ -2752,8 +2752,8 @@ function showAddScheduleModal() {
 // ======================== GRADES ========================
 // ตารางรายชื่อกรองตามทุนต้นสังกัด/โครงการที่สมัคร (หน้าผลการเรียน)
 function scholarshipRosterHTML() {
-  // ไม่นับนักศึกษาที่สำเร็จการศึกษาแล้ว
-  const all = getDataByType('student').filter(s => !isGraduate(s));
+  // นับเฉพาะผู้ที่กำลังศึกษา — ตัดผู้สำเร็จการศึกษา / ลาออก / พักการศึกษา / โอนย้ายออก
+  const all = activeStudents(getDataByType('student'));
   const schOpts = [...new Set(all.map(s => norm(s.scholarship)).filter(Boolean))].sort();
   const projOpts = [...new Set(all.map(s => norm(s.admission_project)).filter(Boolean))].sort();
   const roundOpts = [...new Set(all.map(s => norm(s.admission_round)).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -2790,7 +2790,7 @@ function scholarshipRosterHTML() {
   </tr>`; }).join('');
   return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
-      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา)</span></span>
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา/ลาออก/พัก/โอนย้าย)</span></span>
       <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
     </summary>
     <div class="px-5 pb-5">
