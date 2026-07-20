@@ -6428,7 +6428,9 @@ function directoryBranchView(year, isAdmin) {
   const auto = computeBranchAuto(year);
   const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
   const bget = (branch, key) => {
-    const s = saved[branch]; if (s && s[key] !== undefined && String(s[key]) !== '') return parseFloat(s[key]) || 0;
+    const s = saved[branch];
+    // สาขาที่มีการแก้ไข/บันทึกแล้ว → ช่องที่ว่าง/ไม่มีค่า = 0 (ไม่ดึง auto มาค้าง)
+    if (s) { const raw = s[key]; return (raw !== undefined && String(raw) !== '') ? (parseFloat(raw) || 0) : 0; }
     const a = auto[branch]; if (a && a[key] !== undefined) return a[key];
     return 0;
   };
@@ -6500,9 +6502,10 @@ function showEditBranchSummaryModal(year) {
   const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
 
   const inpCell = (idx, branch, key) => {
-    const sv = saved[branch] || {}; const av = auto[branch] || {};
-    const val = sv[key] !== undefined ? sv[key] : '';
-    const ph = av[key] !== undefined ? String(av[key]) : '0';
+    const sv = saved[branch]; const av = auto[branch] || {};
+    const val = (sv && sv[key] !== undefined) ? sv[key] : '';
+    // สาขาที่แก้ไขแล้ว → ช่องว่าง = 0 (placeholder 0); สาขาที่ยังไม่แตะ → placeholder = ค่า auto
+    const ph = sv ? '0' : (av[key] !== undefined ? String(av[key]) : '0');
     return `<input name="b_${idx}_${key}" data-branch="${(branch || '').replace(/"/g, '&quot;')}" data-key="${key}" value="${val}" inputmode="numeric" class="w-14 border rounded-lg px-1 py-1 text-sm text-right" placeholder="${ph}">`;
   };
   const rowHTML = (idx, branch, editable) => `<tr class="border-t">
@@ -6513,7 +6516,7 @@ function showEditBranchSummaryModal(year) {
   const rows = names.map((b, i) => rowHTML(i, b, true)).join('');
   showModal('แก้ไขตัวเลขตามสาขา — ปีการศึกษา ' + year, `
     <form id="dbForm" style="max-height:70vh;overflow-y:auto;padding-right:4px">
-      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">แก้ไขได้ทุกช่อง — ทั้งชื่อสาขาและตัวเลข · ช่องตัวเลขที่เว้นว่าง = ใช้ค่าที่คำนวณอัตโนมัติ (เลข auto ใน placeholder) · กรอกเพื่อกำหนดเอง</div>
+      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">แก้ไขได้ทุกช่อง — ทั้งชื่อสาขาและตัวเลข · <b>สาขาที่ยังไม่เคยแก้:</b> ช่องว่างใช้ค่า auto (ตัวเลขจางใน placeholder) · <b>สาขาที่แก้แล้ว:</b> ช่องว่าง = 0 · ต้องการค่าใดให้กรอกตัวเลขลงไป (ล้างทุกช่องในสาขา = กลับไปใช้ auto)</div>
       <button type="button" onclick="dbBranchAutoFill()" class="mb-3 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"><i data-lucide="wand-2" class="w-4 h-4 inline"></i> เติมค่าอัตโนมัติ</button>
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="px-1 py-1 text-left">สาขาวิชา</th>${DB_EDU_KEYS.map(k => `<th class="px-1 py-1">${k.short}</th>`).join('')}</tr></thead>
       <tbody id="dbRows">${rows}</tbody></table></div>
