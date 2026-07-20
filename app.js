@@ -1513,6 +1513,10 @@ function studentNameParts(s) {
   return { prefix: p, first, last: parts.join(' ') };
 }
 
+// จำสถานะเปิด/ยุบของการ์ด <details> ข้ามการ re-render (กันการ์ดยุบทุกครั้งที่กรอง)
+function rememberDetails(el) { try { if (!APP._openCards) APP._openCards = {}; APP._openCards[el.id] = el.open; } catch (e) { } }
+function detailsOpen(id) { return (APP._openCards && APP._openCards[id]) ? ' open' : ''; }
+
 // กราฟวงกลม (SVG) — เอาเมาส์ชี้เซกเมนต์เพื่อดูจำนวน/เปอร์เซ็นต์ + เอฟเฟคหมุนตอนโหลด
 function svgDonut(segments, centerLabel) {
   const total = segments.reduce((s, x) => s + (parseFloat(x.value) || 0), 0);
@@ -1674,7 +1678,7 @@ function studentRetentionAnalyticsHTML() {
     </div>`;
   }).join('');
 
-  return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `<details id="retentionCard"${detailsOpen('retentionCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
       <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-primary"></i>อัตราการคงอยู่ของนักศึกษา <span class="text-sm font-normal text-green-600">(คงอยู่รวม ${retentionPct}%)</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
       <span class="text-xs text-gray-400 flex items-center gap-1">ยุบ/เปิด <i data-lucide="chevron-down" class="chev w-5 h-5"></i></span>
@@ -2788,7 +2792,7 @@ function scholarshipRosterHTML() {
     <td class="px-3 py-2">${s.admission_project || '-'}</td>
     <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs ${stColor(norm(s.status))}">${s.status || ''}</span></td>
   </tr>`; }).join('');
-  return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `<details id="rosterCard"${detailsOpen('rosterCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
       <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา/ลาออก/พัก/โอนย้าย)</span></span>
       <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
@@ -2887,7 +2891,7 @@ function gpaxAnalyticsHTML() {
     </tr>`;
   }).join('');
 
-  return `<details class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `<details id="gpaxCard"${detailsOpen('gpaxCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
       <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
       <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
