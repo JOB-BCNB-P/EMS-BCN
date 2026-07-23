@@ -1811,6 +1811,7 @@ function studentsPage() {
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,entry_type,transfer_from,transfer_date,scholarship,admission_project,admission_round,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? studentRetentionAnalyticsHTML() : ''}
+  ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? scholarshipRosterHTML() : ''}
   ${isAdmin ? promotePanelHTML(allStudents) : ''}
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="flex flex-wrap items-center gap-3">
@@ -3069,7 +3070,6 @@ function gradesPage() {
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddGradeModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลการเรียน</button>${csvUploadBtn('grade', 'student_id,subject_code,subject_name,grade,credits,semester,academic_year')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? gpaxAnalyticsHTML() : ''}
-  ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? scholarshipRosterHTML() : ''}
   ${studentSelector}
   ${noSelectionMsg || `${filterBar({ yearData: yearScopeGrades })}
   ${gpaSection}
@@ -3688,6 +3688,54 @@ function engAnalyticsHTML() {
   </div>`;
 }
 
+// เกณฑ์การผ่านภาษาอังกฤษ (PBRI/สบช.) — แสดง 2 เกณฑ์ เก่า (รุ่น 78–80) / ใหม่ (รุ่น 81+)
+function engCriteriaHTML() {
+  const oldList = [
+    ['PBRI Test', '≥ 41'],
+    ['TOEIC', '≥ 255'],
+    ['TOEFL – Paper Based (PBT)', '≥ 397'],
+    ['TOEFL – Computer Based (CBT)', '≥ 93'],
+    ['TOEFL – Internet Based (IBT)', '≥ 30'],
+    ['IELTS', '≥ 3.0'],
+    ['CU-TEP', '≥ 40'],
+    ['TOEFL-ITP', '≥ 350'],
+    ['สถาบันภาษาของสถาบันอุดมศึกษาฯ', '≥ B1 (ที่ได้รับการยอมรับ)'],
+    ['อื่นๆ', 'ตามที่สภาวิชาการพิจารณาเห็นชอบ']
+  ];
+  const newList = [
+    ['PBRI Test', '≥ 51'],
+    ['TOEIC', '≥ 600'],
+    ['TOEFL – ITP', '≥ 432'],
+    ['TOEFL – Computer Based (CBT)', '≥ 131'],
+    ['TOEFL – Internet Based (IBT)', '≥ 50'],
+    ['IELTS', '≥ 4.5'],
+    ['สถาบันภาษาของสถาบันอุดมศึกษาฯ', '≥ B1 (ที่ได้รับการยอมรับ)'],
+    ['อื่นๆ', 'ตามที่สภาวิชาการพิจารณาเห็นชอบ']
+  ];
+  const rows = list => list.map(([k, v]) => `<div class="flex justify-between gap-3 py-1.5 border-b border-black/5 last:border-0"><span class="text-gray-700">${k}</span><span class="font-semibold text-gray-800 text-right whitespace-nowrap">${v}</span></div>`).join('');
+  return `<details id="engCriteriaCard"${detailsOpen('engCriteriaCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="clipboard-check" class="w-5 h-5 text-primary"></i>เกณฑ์การผ่านภาษาอังกฤษ (สบช./PBRI) — เกณฑ์เก่า &amp; เกณฑ์ใหม่</span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p class="font-bold text-amber-800">เกณฑ์เก่า</p>
+          <p class="text-xs text-amber-700 mb-3">ใช้กับนักศึกษา รุ่น 78 – 80</p>
+          <div class="text-sm">${rows(oldList)}</div>
+        </div>
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p class="font-bold text-emerald-800">เกณฑ์ใหม่</p>
+          <p class="text-xs text-emerald-700 mb-3">เริ่มที่นักศึกษา รุ่น 81 เป็นต้นไป</p>
+          <div class="text-sm">${rows(newList)}</div>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-400 mt-3"><i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i>ระบบตัดสิน "ผ่าน/ไม่ผ่าน" ของข้อสอบ PBRI (สบช.) อัตโนมัติตามรุ่น: รุ่น ≥ 81 หรือปีการศึกษา ≥ 2569 → ผ่านเมื่อ ≥ 51 · รุ่นก่อนหน้า → ผ่านเมื่อ ≥ 41 · การสอบจากภายนอกให้เทียบเกณฑ์ตามตารางข้างต้น</p>
+    </div>
+  </details>`;
+}
+
 function engResultsPage() {
   const isAdmin = isAdminRole();
   const isExecutive = APP.currentRole === 'executive';
@@ -3944,6 +3992,7 @@ function engResultsPage() {
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_attempt,eng_date,eng_status,academic_year')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? engAnalyticsHTML() : ''}
+  ${engCriteriaHTML()}
   ${summaryTableHtml}
   ${yearPickerHtml}
   ${studentSelector}
