@@ -403,3 +403,33 @@ html.dark .shadow-lg, html.dark .shadow-xl, html.dark .shadow-2xl { --tw-shadow-
 /* ---- แถบเลื่อน ---- */
 html.dark ::-webkit-scrollbar-thumb { background: #334155; }
 html.dark ::-webkit-scrollbar-track { background: #0f172a; }
+
+/* =========================================================================
+   DARK THEME (เพิ่มเติม) — override สีที่กำหนดแบบ inline style
+   (legend โดนัท, ป้ายกราฟ, แท่งกราฟ ฯลฯ ที่ class override จับไม่ถึง)
+   ========================================================================= */
+/* ---- ตัวอักษรสีเข้ม (inline) -> สว่างขึ้น ---- */
+html.dark [style*="color:#1e293b"],
+html.dark [style*="color:#1f2937"],
+html.dark [style*="color:#000"] { color: #e8eef7 !important; }
+html.dark [style*="color:#222"] { color: #e2e8f0 !important; }
+html.dark [style*="color:#374151"],
+html.dark [style*="color:#333"] { color: #d3dced !important; }
+html.dark [style*="color:#475569"],
+html.dark [style*="color:#555"] { color: #c4d0e0 !important; }
+html.dark [style*="color:#6b7280"],
+html.dark [style*="color:#666"] { color: #aab7c9 !important; }
+html.dark [style*="color:#94a3b8"] { color: #9fb0c4 !important; }
+html.dark [style*="color:#1e3a8a"] { color: #93c5fd !important; }
+html.dark [style*="color:#14507f"],
+html.dark [style*="color:#1e6fba"] { color: #5cabee !important; }
+
+/* ---- พื้นหลังสว่าง (inline) -> เข้มให้เข้าธีมมืด ---- */
+html.dark [style*="background:#eef2f7"] { background: #26344a !important; }   /* แท่งกราฟ (track) */
+html.dark [style*="background:#fff"] { background: #1e293b !important; }      /* วงกลมกลางโดนัท/พื้นขาว */
+html.dark [style*="background:#f9fafb"] { background: #172236 !important; }
+html.dark [style*="background:#f0f7ff"],
+html.dark [style*="background:#e8f4fd"],
+html.dark [style*="background:#eef5fb"],
+html.dark [style*="background:#eaf2fb"],
+html.dark [style*="background:#dceaf7"] { background: #1b2940 !important; }
