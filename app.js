@@ -544,25 +544,6 @@ const NON_ACTIVE_STATUS = ['สำเร็จการศึกษา', 'พั
 function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.status)) && norm(s && s.year_level) !== 'จบ'; }
 // คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
 function activeStudents(list) { return (list || []).filter(isActiveStudent); }
-// แมป "รุ่น (batch) → ชั้นปีปัจจุบัน" จากผู้ที่กำลังศึกษา (เพื่อจัดผู้ลาออก/พัก/โอนย้ายให้ตามรุ่นที่เลื่อนชั้นไปแล้ว)
-function batchCurrentYearMap(list) {
-  const tally = {};
-  (list || []).forEach(s => {
-    if (!isActiveStudent(s)) return;
-    const b = norm(s.batch), y = norm(s.year_level);
-    if (!b || !['1', '2', '3', '4'].includes(y)) return;
-    (tally[b] || (tally[b] = {}))[y] = (tally[b][y] || 0) + 1;
-  });
-  const map = {};
-  Object.keys(tally).forEach(b => { map[b] = Object.entries(tally[b]).sort((a, c) => c[1] - a[1])[0][0]; });
-  return map;
-}
-// ชั้นปีสำหรับแสดงผล: ผู้กำลังศึกษาใช้ year_level ของตนเอง; ผู้ลาออก/พัก/โอนย้ายใช้ชั้นปีปัจจุบันของรุ่น (ถ้าหาได้)
-function displayYearLevel(s, batchMap) {
-  const own = norm(s && s.year_level);
-  if (isActiveStudent(s)) return own;
-  return (batchMap && batchMap[norm(s && s.batch)]) || own;
-}
 
 // ======================== ROLE HELPERS (RBAC) ========================
 // สิทธิ์ "แก้ไขเต็มที่เหมือน admin" สำหรับหน้าทั่วไป: admin / งานวิชาการ / งานทะเบียน
@@ -1002,13 +983,13 @@ function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();
   // เคลียร์เฉพาะส่วน "ประกาศ" เมื่อเปิดดู — ส่วนใบลา/ติดตามจะค้างไว้จนกว่าจะอนุมัติจริง
-  const seenCount = visibleAnnouncements().length;
+  const seenCount = activeAnnouncements().length;
   try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  const ann = visibleAnnouncements().slice(-10).reverse();
+  const ann = activeAnnouncements().slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
   const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
@@ -1073,7 +1054,7 @@ function renderNotifications() {
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
-  const annTotal = visibleAnnouncements().length;
+  const annTotal = activeAnnouncements().length;
   let seenAnn = 0;
   try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
   const unseenAnn = Math.max(0, annTotal - seenAnn);
@@ -1473,13 +1454,13 @@ function statCard(icon, label, value, unit, color) {
 function studentGender(s) {
   const g = norm(s && s.gender);
   if (g) {
-    if (/^(ช|ชาย|ผู้ชาย|m|male|man|boy)/i.test(g)) return 'M';
-    if (/^(ญ|หญิง|ผู้หญิง|f|female|woman|girl)/i.test(g)) return 'F';
+    if (/^(ช|ชาย|m|male)/i.test(g)) return 'M';
+    if (/^(ญ|หญิง|f|female)/i.test(g)) return 'F';
   }
   const n = norm(s && s.name);
-  if (/^นางสาว|^น\.ส\.|^เด็กหญิง|^ด\.ญ\.|^คุณหญิง|^ว่าที่ร้อยตรีหญิง|^ร\.ต\.หญิง/.test(n)) return 'F';
+  if (/^นางสาว|^น\.ส\.|^เด็กหญิง|^ด\.ญ\./.test(n)) return 'F';
   if (/^นาง(?!สาว)/.test(n)) return 'F';
-  if (/^นาย|^เด็กชาย|^ด\.ช\.|^สามเณร|^ว่าที่ร้อยตรี(?!หญิง)|^ร\.ต\.(?!หญิง)/.test(n)) return 'M';
+  if (/^นาย|^เด็กชาย|^ด\.ช\./.test(n)) return 'M';
   return 'U';
 }
 
@@ -1491,6 +1472,51 @@ function studentDisplayName(s) {
   return name || '';
 }
 
+// หมวดหมู่สาเหตุการลาออก/พักการศึกษา
+const STATUS_REASONS = ['เปลี่ยนสาขาวิชา', 'การเงิน', 'การเรียน', 'สุขภาพ', 'อื่นๆ'];
+function statusReasonField(value) {
+  const v = norm(value);
+  const extra = v && !STATUS_REASONS.includes(v) ? `<option selected>${v}</option>` : '';
+  return `<select name="status_reason" class="w-full border rounded-xl px-3 py-2 text-sm">
+    <option value="">-- เลือกสาเหตุ --</option>
+    ${STATUS_REASONS.map(r => `<option ${v === r ? 'selected' : ''}>${r}</option>`).join('')}${extra}
+  </select>`;
+}
+
+// ประเภทการเข้าศึกษา (รับปกติ / โอนย้ายเข้า / เทียบโอน)
+const ENTRY_TYPES = ['รับปกติ', 'โอนย้ายเข้า', 'เทียบโอน'];
+function entryTypeField(value) {
+  const v = norm(value) || 'รับปกติ';
+  const extra = v && !ENTRY_TYPES.includes(v) ? `<option selected>${v}</option>` : '';
+  return `<select name="entry_type" class="w-full border rounded-xl px-3 py-2 text-sm">
+    ${ENTRY_TYPES.map(r => `<option ${v === r ? 'selected' : ''}>${r}</option>`).join('')}${extra}
+  </select>`;
+}
+function isTransferIn(s) { return norm(s && s.entry_type) === 'โอนย้ายเข้า'; }
+
+// ปีการศึกษาที่รับเข้า — ใช้ admission_year ถ้ามี, ไม่งั้นดึงปี พ.ศ. จาก admission_date, ไม่งั้นใช้รุ่น
+function admissionYearOf(s) {
+  const ay = norm(s && s.admission_year); if (ay) return ay;
+  const ad = norm(s && s.admission_date); const m = ad.match(/(25\d{2})/); if (m) return m[1];
+  const b = norm(s && s.batch); return b ? ('รุ่น ' + b) : 'ไม่ระบุ';
+}
+
+// แยกคำนำหน้า/ชื่อ/นามสกุล จากข้อมูลนักศึกษา (best-effort)
+function studentNameParts(s) {
+  const full = norm(s && s.name);
+  let p = norm(s && s.title_prefix);
+  if (!p) { const m = full.match(/^(นางสาว|นาง|นาย|เด็กหญิง|เด็กชาย|น\.ส\.|ด\.ญ\.|ด\.ช\.)/); if (m) p = m[1]; }
+  let rest = full;
+  if (p && full.indexOf(p) === 0) rest = full.slice(p.length).trim();
+  const parts = rest.split(/\s+/).filter(Boolean);
+  const first = parts.shift() || '';
+  return { prefix: p, first, last: parts.join(' ') };
+}
+
+// จำสถานะเปิด/ยุบของการ์ด <details> ข้ามการ re-render (กันการ์ดยุบทุกครั้งที่กรอง)
+function rememberDetails(el) { try { if (!APP._openCards) APP._openCards = {}; APP._openCards[el.id] = el.open; } catch (e) { } }
+function detailsOpen(id) { return (APP._openCards && APP._openCards[id]) ? ' open' : ''; }
+
 // กราฟวงกลม (SVG) — เอาเมาส์ชี้เซกเมนต์เพื่อดูจำนวน/เปอร์เซ็นต์ + เอฟเฟคหมุนตอนโหลด
 function svgDonut(segments, centerLabel) {
   const total = segments.reduce((s, x) => s + (parseFloat(x.value) || 0), 0);
@@ -1500,11 +1526,11 @@ function svgDonut(segments, centerLabel) {
     const pct = Math.round(v / total * 100);
     return `<circle class="donut-seg" cx="60" cy="60" r="${r}" fill="none" stroke="${s.color}" stroke-width="20" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"><title>${s.label}: ${v} คน (${pct}%)</title></circle>`;
   }).join('') : `<circle cx="60" cy="60" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="20"></circle>`;
-  const legend = segments.map(s => { const v = parseFloat(s.value) || 0; const pct = total ? Math.round(v / total * 100) : 0; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px"><span style="width:13px;height:13px;border-radius:3px;background:${s.color};flex-shrink:0"></span><span style="flex:1;color:#475569">${s.label}</span><b style="color:#1e293b">${v}</b><span style="color:#94a3b8;width:40px;text-align:right">${pct}%</span></div>`; }).join('');
+  const legend = segments.map(s => { const v = parseFloat(s.value) || 0; const pct = total ? Math.round(v / total * 100) : 0; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px"><span style="width:13px;height:13px;border-radius:3px;background:${s.color};flex-shrink:0"></span><span class="dnt-label" style="flex:1;color:#475569">${s.label}</span><b class="dnt-val" style="color:#1e293b">${v}</b><span class="dnt-pct" style="color:#94a3b8;width:40px;text-align:right">${pct}%</span></div>`; }).join('');
   return `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
     <div class="donut-wrap pie-spin" style="width:150px;height:150px;flex-shrink:0;position:relative">
       <svg viewBox="0 0 120 120" width="150" height="150" style="transform:rotate(-90deg)">${ring}</svg>
-      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none"><span style="font-size:26px;font-weight:700;color:#1e6fba">${total || 0}</span><span style="font-size:11px;color:#94a3b8">${centerLabel || 'รวม'}</span></div>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none"><span class="dnt-center" style="font-size:26px;font-weight:700;color:#1e6fba">${total || 0}</span><span class="dnt-sub" style="font-size:11px;color:#94a3b8">${centerLabel || 'รวม'}</span></div>
     </div>
     <div style="flex:1;min-width:180px">${legend}</div>
   </div>`;
@@ -1516,40 +1542,57 @@ function animBarRows(items) {
   return items.map(i => {
     const w = Math.round((parseFloat(i.value) || 0) / max * 100);
     return `<div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#475569">${i.label}</span><b style="color:#1e293b">${i.value || 0}</b></div>
-      <div style="background:#eef2f7;border-radius:7px;height:18px;overflow:hidden"><div class="grow-bar" style="--tw:${w}%;height:100%;background:${i.color || '#1e6fba'};border-radius:7px"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span class="dnt-label" style="color:#475569">${i.label}</span><b class="dnt-val" style="color:#1e293b">${i.value || 0}</b></div>
+      <div class="bar-track" style="background:#eef2f7;border-radius:7px;height:18px;overflow:hidden"><div class="grow-bar" style="--tw:${w}%;height:100%;background:${i.color || '#1e6fba'};border-radius:7px"></div></div>
     </div>`;
   }).join('');
 }
 
-// ===== ตัวการ์ตูนบัณฑิต 3D — ยกมือทักทายเมื่อเอาเมาส์ชี้ที่การ์ด =====
-// รูปโหลดจากไฟล์ grad-images.js (window.GRAD_IMG) เพื่อให้ app.js เบา — ต้องโหลด grad-images.js ก่อน app.js
-const _GI = (typeof window !== 'undefined' && window.GRAD_IMG) ? window.GRAD_IMG : {};
-const GC_M_DOWN = _GI.m_down || '';
-const GC_M_UP = _GI.m_wave || '';
-const GC_F_DOWN = _GI.f_down || '';
-const GC_F_UP = _GI.f_wave || '';
+// ตัวการ์ตูนนักศึกษา (SVG) — แขนขวายกขึ้นเมื่อเอาเมาส์ชี้ที่การ์ด (ผ่านคลาส .gender-card:hover)
+// ตัวการ์ตูนบัณฑิต (รูปจริงชุดครุย) — ท่าปกติ + ท่ายกมือตอนเอาเมาส์ชี้ที่การ์ด
 function genderFigureSVG(sex) {
-  const down = sex === 'F' ? GC_F_DOWN : GC_M_DOWN;
-  const up = sex === 'F' ? GC_F_UP : GC_M_UP;
-  const label = sex === 'F' ? 'นักศึกษาหญิง' : 'นักศึกษาชาย';
-  return `<span class="gc-fig">`
-    + `<img class="gc-frame gc-down" src="${down}" alt="${label}" draggable="false">`
-    + `<img class="gc-frame gc-up" src="${up}" alt="" aria-hidden="true" draggable="false">`
-    + `</span>`;
+  const G = (typeof window !== 'undefined' && window.GRAD_IMG) || {};
+  const down = sex === 'F' ? G.f_down : G.m_down;
+  const wave = sex === 'F' ? G.f_wave : G.m_wave;
+  const alt = sex === 'F' ? 'บัณฑิตหญิง' : 'บัณฑิตชาย';
+  if (!down) return '';
+  return `<div class="grad-fig" style="width:88px;height:118px;position:relative">
+    <img class="grad-down" src="${down}" alt="${alt}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+    <img class="grad-wave" src="${wave || down}" alt="${alt} ยกมือทักทาย" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+  </div>`;
 }
 
 // แผงวิเคราะห์อัตราการคงอยู่ของนักศึกษา (หน้าข้อมูลนักศึกษา — สำหรับผู้ดูแล/วิชาการ/ผู้บริหาร)
 function studentRetentionAnalyticsHTML() {
   const all = getDataByType('student');
+  // --- ตัวกรองปีการศึกษาที่รับเข้า (cohort) ---
+  const cohortKey = s => admissionYearOf(s);
+  const allCohorts = [...new Set(all.map(cohortKey))].sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
+  const activeCohorts = new Set(all.filter(isActiveStudent).map(cohortKey));
+  const gradCohorts = [...new Set(all.filter(isGraduate).map(cohortKey))].sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
+  const defaultCohorts = new Set(activeCohorts); if (gradCohorts[0]) defaultCohorts.add(gradCohorts[0]);
+  const sel = APP.filters._retYear || '';
+  const inScope = s => { const k = cohortKey(s); if (sel === '__all') return true; if (sel) return k === sel; return defaultCohorts.has(k); };
+  const scoped = all.filter(inScope);
+  const cohortLabel = c => /^\d/.test(String(c)) ? ('ปีการศึกษา ' + c) : c;
+  const yearSelector = `<div class="mb-5 flex flex-wrap items-center gap-2">
+    <label class="text-sm font-medium text-gray-700"><i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>ปีการศึกษาที่รับเข้า:</label>
+    <select onchange="APP.filters._retYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
+      <option value="" ${sel === '' ? 'selected' : ''}>ค่าเริ่มต้น (กำลังศึกษา + จบล่าสุด)</option>
+      <option value="__all" ${sel === '__all' ? 'selected' : ''}>ทุกปี/ทุกรุ่น</option>
+      ${allCohorts.map(c => `<option value="${c}" ${sel === c ? 'selected' : ''}>${cohortLabel(c)}</option>`).join('')}
+    </select>
+    <span class="text-xs text-gray-400">${sel === '__all' ? 'แสดงทุกปี' : sel ? ('เฉพาะ ' + cohortLabel(sel)) : 'แสดงเฉพาะรุ่นที่ยังเรียนอยู่ + จบล่าสุด'} (${scoped.length} คน)</span>
+  </div>`;
   // --- สัดส่วนการคงอยู่ (ไม่รวมผู้สำเร็จการศึกษา) ---
-  const nonGrad = all.filter(s => !isGraduate(s));
+  const nonGrad = scoped.filter(s => !isGraduate(s));
   const cActive = nonGrad.filter(isActiveStudent).length;
   const cLeave = nonGrad.filter(s => norm(s.status) === 'พักการศึกษา').length;
   const cResign = nonGrad.filter(s => norm(s.status) === 'ลาออก').length;
   const cTransfer = nonGrad.filter(s => norm(s.status) === 'ขอโอนย้ายสถานศึกษา').length;
   const baseTotal = cActive + cLeave + cResign + cTransfer;
   const retentionPct = baseTotal ? Math.round(cActive / baseTotal * 1000) / 10 : 0;
+  const cTransIn = nonGrad.filter(s => isActiveStudent(s) && isTransferIn(s)).length; // โอนย้ายเข้า (กำลังศึกษา)
   const donut = svgDonut([
     { label: 'กำลังศึกษา (คงอยู่)', value: cActive, color: '#22c55e' },
     { label: 'พักการศึกษา', value: cLeave, color: '#f59e0b' },
@@ -1557,22 +1600,23 @@ function studentRetentionAnalyticsHTML() {
     { label: 'ขอโอนย้ายสถานศึกษา', value: cTransfer, color: '#f97316' }
   ], 'คน');
 
-  // --- สรุปเหตุผลการลาออก/พักการศึกษา (จากคอลัมน์ status_reason) ---
-  const attrition = nonGrad.filter(s => ['ลาออก', 'พักการศึกษา', 'ขอโอนย้ายสถานศึกษา'].includes(norm(s.status)));
-  const reasonMap = {};
-  attrition.forEach(s => { const k = norm(s.status_reason) || 'ไม่ระบุเหตุผล'; reasonMap[k] = (reasonMap[k] || 0) + 1; });
-  const reasonPalette = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#14b8a6', '#3b82f6', '#a855f7'];
-  const reasonItems = Object.entries(reasonMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v], i) => ({ label: k, value: v, color: reasonPalette[i % reasonPalette.length] }));
+  // --- สาเหตุการลาออก (แยกหมวดหมู่) → กราฟวงกลม แสดง % และจำนวน ---
+  const resignStudents = nonGrad.filter(s => norm(s.status) === 'ลาออก');
+  const catPalette = { 'เปลี่ยนสาขาวิชา': '#3b82f6', 'การเงิน': '#f59e0b', 'การเรียน': '#8b5cf6', 'สุขภาพ': '#ef4444', 'อื่นๆ': '#94a3b8', 'ไม่ระบุ': '#cbd5e1' };
+  const reasonCount = {};
+  resignStudents.forEach(s => { let k = norm(s.status_reason) || 'ไม่ระบุ'; if (k !== 'ไม่ระบุ' && !STATUS_REASONS.includes(k)) k = 'อื่นๆ'; reasonCount[k] = (reasonCount[k] || 0) + 1; });
+  const reasonSegs = Object.entries(reasonCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v, color: catPalette[k] || '#64748b' }));
   const reasonCard = `<div class="mt-6 pt-5 border-t border-gray-100">
-    <p class="text-sm font-semibold text-gray-600 mb-1"><i data-lucide="clipboard-list" class="w-4 h-4 inline mr-1"></i>สรุปเหตุผลการลาออก/พักการศึกษา</p>
-    <p class="text-xs text-gray-400 mb-3">ลาออก ${cResign} · พักการศึกษา ${cLeave} · โอนย้าย ${cTransfer} คน (รวม ${attrition.length} คน)</p>
-    ${reasonItems.length ? `<div class="space-y-2.5" style="max-width:640px">${animBarRows(reasonItems)}</div><p class="text-[11px] text-gray-400 mt-2">* กรอกช่อง "เหตุผลการลาออก/พักการศึกษา" ในฟอร์มนักศึกษาให้ครบ กราฟจะละเอียดขึ้น</p>` : '<p class="text-sm text-gray-400">ยังไม่มีข้อมูลการลาออก/พักการศึกษา</p>'}
+    <p class="text-sm font-semibold text-gray-600 mb-1"><i data-lucide="pie-chart" class="w-4 h-4 inline mr-1"></i>สาเหตุการลาออก (แยกตามหมวดหมู่)</p>
+    <p class="text-xs text-gray-400 mb-3">ลาออก ${cResign} · พักการศึกษา ${cLeave} · โอนย้าย ${cTransfer} คน</p>
+    ${resignStudents.length ? svgDonut(reasonSegs, 'ลาออก') : '<p class="text-sm text-gray-400">ยังไม่มีข้อมูลการลาออกในขอบเขตนี้</p>'}
+    <p class="text-[11px] text-gray-400 mt-2">* เลือก "สาเหตุ" จากหมวดหมู่ในฟอร์มนักศึกษา (เปลี่ยนสาขาวิชา/การเงิน/การเรียน/สุขภาพ/อื่นๆ)</p>
   </div>`;
 
   // --- ตารางเปรียบเทียบรับเข้า (รายรุ่น) vs กำลังศึกษา ---
-  const batches = [...new Set(all.map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const cohortRows = batches.map(b => {
-    const inB = all.filter(s => norm(s.batch) === b);
+  const cohorts = [...new Set(scoped.map(cohortKey))].sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
+  const cohortRows = cohorts.map(b => {
+    const inB = scoped.filter(s => cohortKey(s) === b);
     const admitted = inB.length;
     const active = inB.filter(isActiveStudent).length;
     const resign = inB.filter(s => norm(s.status) === 'ลาออก').length;
@@ -1582,7 +1626,7 @@ function studentRetentionAnalyticsHTML() {
     const stayPct = admitted ? Math.round((admitted - resign - transfer) / admitted * 1000) / 10 : 0;
     const pctColor = stayPct >= 90 ? 'text-green-600' : stayPct >= 80 ? 'text-amber-600' : 'text-red-600';
     return `<tr class="border-t hover:bg-gray-50">
-      <td class="px-3 py-2 font-medium">รุ่นที่ ${b}</td>
+      <td class="px-3 py-2 font-medium">${cohortLabel(b)}</td>
       <td class="px-3 py-2 text-center font-semibold text-primary">${admitted}</td>
       <td class="px-3 py-2 text-center text-green-600 font-semibold">${active}</td>
       <td class="px-3 py-2 text-center">${leave}</td>
@@ -1594,7 +1638,7 @@ function studentRetentionAnalyticsHTML() {
   }).join('');
   const cohortTable = `<div class="overflow-x-auto"><table class="w-full text-sm">
     <thead><tr class="bg-surface text-left">
-      <th class="px-3 py-2 font-semibold">รุ่น</th>
+      <th class="px-3 py-2 font-semibold">ปีรับเข้า/รุ่น</th>
       <th class="px-3 py-2 font-semibold text-center">รับเข้า</th>
       <th class="px-3 py-2 font-semibold text-center">กำลังศึกษา</th>
       <th class="px-3 py-2 font-semibold text-center">พักฯ</th>
@@ -1607,7 +1651,7 @@ function studentRetentionAnalyticsHTML() {
   </table></div>
   <p class="text-xs text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>คงอยู่ % = (รับเข้า − ลาออก − โอนย้าย) ÷ รับเข้า (นับผู้สำเร็จการศึกษาเป็นการคงอยู่จนจบ)</p>`;
 
-  // --- เพศ (ชาย/หญิง) ทั้งหมด + รายชั้นปี (เฉพาะที่กำลังศึกษา) ---
+  // --- เพศ (ชาย/หญิง) + รายชั้นปี (นักศึกษาที่กำลังศึกษา "ทั้งหมด" — ไม่ขึ้นกับตัวกรองปีที่รับเข้า) ---
   const activeAll = activeStudents(all);
   const gc = list => ({ M: list.filter(s => studentGender(s) === 'M').length, F: list.filter(s => studentGender(s) === 'F').length, U: list.filter(s => studentGender(s) === 'U').length });
   const tot = gc(activeAll);
@@ -1634,28 +1678,26 @@ function studentRetentionAnalyticsHTML() {
     </div>`;
   }).join('');
 
-  return `<details open class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `<details id="retentionCard"${detailsOpen('retentionCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
-      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-primary"></i>อัตราการคงอยู่ของนักศึกษา <span class="text-sm font-normal text-green-600">(คงอยู่รวม ${retentionPct}%)</span></span>
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-primary"></i>อัตราการคงอยู่ของนักศึกษา <span class="text-sm font-normal text-green-600">(คงอยู่รวม ${retentionPct}%)</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
       <span class="text-xs text-gray-400 flex items-center gap-1">ยุบ/เปิด <i data-lucide="chevron-down" class="chev w-5 h-5"></i></span>
     </summary>
     <div class="px-5 pb-5 fade-in">
+      ${yearSelector}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div><p class="text-sm font-semibold text-gray-600 mb-3">สัดส่วนการคงอยู่ (ไม่รวมผู้สำเร็จการศึกษา)</p>${donut}</div>
         <div><p class="text-sm font-semibold text-gray-600 mb-3">เปรียบเทียบรับเข้า vs กำลังศึกษา (รายรุ่น)</p>${cohortTable}</div>
       </div>
       ${reasonCard}
+      <div class="mt-4"><span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 text-sm"><i data-lucide="log-in" class="w-4 h-4"></i>นักศึกษาโอนย้ายเข้า (กำลังศึกษา ในขอบเขตที่เลือก): <b>${cTransIn}</b> คน</span></div>
       <div class="mt-6 pt-5 border-t border-gray-100">
-        <p class="text-sm font-semibold text-gray-600 mb-3"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>นักศึกษาที่กำลังศึกษา แยกตามเพศ</p>
+        <p class="text-sm font-semibold text-gray-600 mb-3"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>นักศึกษาที่กำลังศึกษา แยกตามเพศ <span class="font-normal text-gray-400">(ทั้งหมดทุกชั้นปี — ไม่ขึ้นกับตัวกรองปีรับเข้า)</span></p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           ${genderCard('นักศึกษาชาย', tot.M, tot.M + tot.F + tot.U, '#2563eb', 'M')}
           ${genderCard('นักศึกษาหญิง', tot.F, tot.M + tot.F + tot.U, '#db2777', 'F')}
         </div>
-        ${tot.U ? (() => {
-          const unk = activeAll.filter(s => studentGender(s) === 'U');
-          const names = unk.map(s => `${studentDisplayName(s)}${norm(s.student_id) ? ' (' + s.student_id + ')' : ''}`).join(', ');
-          return `<div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 inline mr-1"></i>มี ${tot.U} คนที่ยังระบุเพศไม่ได้ — คอลัมน์ "gender" ยังว่าง หรือกรอกค่าที่ระบบไม่รู้จัก และคำนำหน้าชื่อไม่ชัดเจน: <span class="font-semibold">${names}</span><br><span class="text-amber-600">วิธีแก้: ในชีต student กรอกคอลัมน์ gender = "ชาย" หรือ "หญิง" ให้คนเหล่านี้</span></div>`;
-        })() : ''}
+        ${tot.U ? `<p class="text-xs text-amber-600 mb-3"><i data-lucide="alert-triangle" class="w-3 h-3 inline mr-1"></i>มี ${tot.U} คนที่ระบุเพศไม่ได้จากคำนำหน้าชื่อ — แนะนำเพิ่มคอลัมน์ "gender" ในชีต student</p>` : ''}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">${yrGenderRows}</div>
       </div>
     </div>
@@ -1668,13 +1710,12 @@ function studentsPage() {
   const isClassTeacher = APP.currentRole === 'classTeacher';
   const canEdit = isAdmin || APP.currentRole === 'teacher' || isClassTeacher;
   const allStudents = getDataByType('student');
-  const batchYearMap = batchCurrentYearMap(allStudents);
   const selectedYearLevel = APP.filters._studentYearLevel || '';
 
   // ClassTeacher: room-based selector
   if (isClassTeacher) {
     const yr = APP.currentUser.responsible_year || '1';
-    const myYrStudents = allStudents.filter(s => displayYearLevel(s, batchYearMap) === norm(yr));
+    const myYrStudents = allStudents.filter(s => norm(s.year_level) === norm(yr));
     const selectedRoom = APP.filters._studentRoom || '';
     // จำนวนนักศึกษานับเฉพาะคนที่กำลังศึกษาอยู่
     const myYrActive = activeStudents(myYrStudents);
@@ -1700,7 +1741,7 @@ function studentsPage() {
       </div>
     </div>`;
 
-    let data = myYrStudents.filter(s => !isGraduate(s));
+    let data = myYrStudents;
     if (selectedRoom) data = data.filter(s => norm(s.room).toUpperCase() === selectedRoom.toUpperCase());
     data = applyFilters(data);
     const total = data.length;
@@ -1708,7 +1749,6 @@ function studentsPage() {
 
     return headerHtml + `
     ${filterBar({ semester: false, year: false, yearLevel: false })}
-    <p class="text-xs text-gray-400 mb-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงผู้ที่ลาออก/พักการศึกษา/โอนย้ายไว้ตามชั้นปีเดิมด้วย (ดูป้ายสถานภาพ) โดยไม่นับรวมในจำนวนนักศึกษา รายชั้นปี และอัตราคงอยู่</p>
     <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ห้อง</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
@@ -1742,19 +1782,18 @@ function studentsPage() {
 
     let data = myAllStudents;
     if (selectedYearLevel === '__grad') data = data.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ');
-    else if (selectedYearLevel) data = data.filter(s => displayYearLevel(s, batchYearMap) === selectedYearLevel && !isGraduate(s));
+    else if (selectedYearLevel) data = data.filter(s => norm(s.year_level) === selectedYearLevel);
     data = applyFilters(data);
     const total = data.length;
     const paged = paginate(data);
 
     return headerHtml + `
     ${filterBar({ semester: false, year: false, yearLevel: false })}
-    <p class="text-xs text-gray-400 mb-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงผู้ที่ลาออก/พักการศึกษา/โอนย้ายไว้ตามชั้นปีเดิมด้วย (ดูป้ายสถานภาพ) โดยไม่นับรวมในจำนวนนักศึกษา รายชั้นปี และอัตราคงอยู่</p>
     <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
         <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${displayYearLevel(s, batchYearMap) || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
+          <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
           <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
           <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button></div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
       </table></div>
@@ -1762,14 +1801,20 @@ function studentsPage() {
     ${paginationHTML(total, APP.pagination.perPage, APP.pagination.page, 'changePage')}`;
   }
 
+  const _schOpts = [...new Set(allStudents.map(s => norm(s.scholarship)).filter(Boolean))].sort();
+  const _projOpts = [...new Set(allStudents.map(s => norm(s.admission_project)).filter(Boolean))].sort();
+  const _selSch = APP.filters._stuScholarship || '';
+  const _selProj = APP.filters._stuProject || '';
+  const _selEntry = APP.filters._stuEntry || '';
   let headerHtml = `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="users" class="w-6 h-6 inline mr-2"></i>ข้อมูลนักศึกษา</h2>
-    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
+    ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddStudentModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มนักศึกษา</button>${csvUploadBtn('student', 'name,title_prefix,gender,student_id,batch,status,status_date,status_reason,entry_type,transfer_from,transfer_date,scholarship,admission_project,admission_round,admission_year,phone,email,parent_name,parent_phone,advisor,year_level,room,national_id,name_en,birth_date,birth_province,nationality,religion,prev_education,degree,honors,admission_date,graduation_date,comprehensive_exam')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? studentRetentionAnalyticsHTML() : ''}
+  ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? scholarshipRosterHTML() : ''}
   ${isAdmin ? promotePanelHTML(allStudents) : ''}
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
       <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
       <select onchange="APP.filters._studentYearLevel=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm">
         <option value="">-- เลือกชั้นปี --</option>
@@ -1779,6 +1824,13 @@ function studentsPage() {
         <option value="4" ${selectedYearLevel === '4' ? 'selected' : ''}>ชั้นปี 4</option>
         <option value="__grad" ${selectedYearLevel === '__grad' ? 'selected' : ''}>ผู้สำเร็จการศึกษา</option>
       </select>
+      ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? `<span class="w-px h-6 bg-gray-200"></span>
+      <label class="text-sm font-medium text-gray-700">ทุนต้นสังกัด:</label>
+      <select onchange="APP.filters._stuScholarship=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${_schOpts.map(x => `<option ${_selSch === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <label class="text-sm font-medium text-gray-700">โครงการ:</label>
+      <select onchange="APP.filters._stuProject=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${_projOpts.map(x => `<option ${_selProj === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <label class="text-sm font-medium text-gray-700">ประเภทเข้าศึกษา:</label>
+      <select onchange="APP.filters._stuEntry=this.value;APP.pagination.page=1;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${ENTRY_TYPES.map(x => `<option ${_selEntry === x ? 'selected' : ''}>${x}</option>`).join('')}</select>` : ''}
       ${selectedYearLevel ? '<span class="text-xs text-gray-500">' + (selectedYearLevel === '__grad' ? 'แสดงผู้สำเร็จการศึกษา' : 'แสดงข้อมูลชั้นปี ' + selectedYearLevel) + '</span>' : ''}
     </div>
   </div>`;
@@ -1787,19 +1839,21 @@ function studentsPage() {
 
   let data = selectedYearLevel === '__grad'
     ? allStudents.filter(s => norm(s.status) === 'สำเร็จการศึกษา' || norm(s.year_level) === 'จบ')
-    : allStudents.filter(s => displayYearLevel(s, batchYearMap) === selectedYearLevel && !isGraduate(s));
+    : allStudents.filter(s => norm(s.year_level) === selectedYearLevel);
   data = applyFilters(data);
+  if (_selSch) data = data.filter(s => norm(s.scholarship) === _selSch);
+  if (_selProj) data = data.filter(s => norm(s.admission_project) === _selProj);
+  if (_selEntry) data = data.filter(s => (norm(s.entry_type) || 'รับปกติ') === _selEntry);
   const total = data.length;
   const paged = paginate(data);
 
   return headerHtml + `
   ${filterBar({ semester: false, year: false, yearLevel: false })}
-  <p class="text-xs text-gray-400 mb-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงผู้ที่ลาออก/พักการศึกษา/โอนย้ายไว้ตามชั้นปีเดิมด้วย (ดูป้ายสถานภาพ) โดยไม่นับรวมในจำนวนนักศึกษา รายชั้นปี และอัตราคงอยู่</p>
   <div class="bg-white rounded-2xl border border-blue-100 overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">รหัสนักศึกษา</th><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ชั้นปี</th><th class="px-4 py-3 font-semibold">รุ่นที่</th><th class="px-4 py-3 font-semibold">สถานภาพ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(s => `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${displayYearLevel(s, batchYearMap) || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
+        <td class="px-4 py-3">${s.student_id || ''}</td><td class="px-4 py-3 font-medium">${studentDisplayName(s)}</td><td class="px-4 py-3">${s.year_level || ''}</td><td class="px-4 py-3">${s.batch || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${s.status === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : s.status === 'สำเร็จการศึกษา' ? 'bg-blue-100 text-blue-700' : s.status === 'ลาออก' ? 'bg-red-100 text-red-700' : s.status === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status || ''}</span></td>
         <td class="px-4 py-3"><div class="flex gap-1"><button onclick="showStudentDetail('${s.__backendId}')" class="text-gray-400 hover:text-primary" title="ดูข้อมูล"><i data-lucide="eye" class="w-4 h-4"></i></button>${isAdmin ? `<button onclick="showEditStudentModal('${s.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${s.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div></td></tr>`).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
     </table></div>
@@ -1867,8 +1921,14 @@ function showAddStudentModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ชื่อผู้ปกครอง</label><input name="parent_name" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รอบการสมัคร</label><input name="admission_round" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รอบ 1 / รอบ 2 / TCAS 3"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField('')}</div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่ลาออก/พักการศึกษา</label><input name="status_date" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
-        <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">เหตุผลการลาออก/พักการศึกษา</label><input name="status_reason" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกเมื่อสถานะเป็น ลาออก / พักการศึกษา / โอนย้าย"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สาเหตุการลาออก/พักการศึกษา</label>${statusReasonField('')}</div>
       </div>
       ${transcriptFieldsHTML({})}
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -1895,7 +1955,9 @@ function showStudentDetail(id) {
     ${infoRow('ชื่อ-สกุล', s.name)}${infoRow('รหัสนักศึกษา', s.student_id)}${infoRow('เลขบัตรประชาชน', maskNationalId(s.national_id))}${infoRow('รุ่นที่', s.batch)}
     ${infoRow('สถานภาพ', s.status)}${infoRow('ชั้นปี', s.year_level)}${infoRow('ห้อง', s.room)}${infoRow('เพศ', s.gender ? s.gender : (studentGender(s) === 'M' ? 'ชาย (จากคำนำหน้า)' : studentGender(s) === 'F' ? 'หญิง (จากคำนำหน้า)' : '-'))}
     ${infoRow('โทร', s.phone)}${infoRow('E-mail', s.email)}${infoRow('ผู้ปกครอง', s.parent_name)}${infoRow('โทรผู้ปกครอง', s.parent_phone)}${infoRow('อาจารย์ที่ปรึกษา', s.advisor)}
-    ${norm(s.status_date) ? infoRow('วันที่ลาออก/พักการศึกษา', s.status_date) : ''}${norm(s.status_reason) ? infoRow('เหตุผลลาออก/พักการศึกษา', s.status_reason) : ''}
+    ${infoRow('ทุนต้นสังกัด', s.scholarship)}${infoRow('โครงการที่สมัคร', s.admission_project)}${infoRow('รอบการสมัคร', s.admission_round)}
+    ${infoRow('ประเภทการเข้าศึกษา', s.entry_type || 'รับปกติ')}${isTransferIn(s) ? infoRow('สถาบันเดิม', s.transfer_from) + (norm(s.transfer_date) ? infoRow('วันที่โอนเข้า', s.transfer_date) : '') : ''}
+    ${norm(s.status_date) ? infoRow('วันที่ลาออก/พักการศึกษา', s.status_date) : ''}${norm(s.status_reason) ? infoRow('สาเหตุลาออก/พักการศึกษา', s.status_reason) : ''}
   </div>`);
 }
 
@@ -2693,6 +2755,84 @@ function showAddScheduleModal() {
 }
 
 // ======================== GRADES ========================
+// ตารางรายชื่อกรองตามทุนต้นสังกัด/โครงการที่สมัคร (หน้าผลการเรียน)
+function scholarshipRosterHTML() {
+  // นับเฉพาะผู้ที่กำลังศึกษา — ตัดผู้สำเร็จการศึกษา / ลาออก / พักการศึกษา / โอนย้ายออก
+  const all = activeStudents(getDataByType('student'));
+  const schOpts = [...new Set(all.map(s => norm(s.scholarship)).filter(Boolean))].sort();
+  const projOpts = [...new Set(all.map(s => norm(s.admission_project)).filter(Boolean))].sort();
+  const roundOpts = [...new Set(all.map(s => norm(s.admission_round)).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const selSch = APP.filters._grSch || '';
+  const selProj = APP.filters._grProj || '';
+  const selRound = APP.filters._grRound || '';
+  const selYr = APP.filters._grRosterYear || '';
+  let rows = all.slice();
+  if (selYr) rows = rows.filter(s => norm(s.year_level) === selYr);
+  if (selSch) rows = rows.filter(s => norm(s.scholarship) === selSch);
+  if (selProj) rows = rows.filter(s => norm(s.admission_project) === selProj);
+  if (selRound) rows = rows.filter(s => norm(s.admission_round) === selRound);
+  rows.sort((a, b) => String(a.student_id || '').localeCompare(String(b.student_id || ''), undefined, { numeric: true }));
+  const stColor = st => st === 'กำลังศึกษา' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : st === 'ขอโอนย้ายสถานศึกษา' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700';
+
+  // กราฟวงกลม: จำนวนตามรอบการสมัคร / ตามโครงการที่สมัคร (ตามผลการกรอง)
+  const _palette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#0ea5e9', '#ef4444', '#84cc16', '#a855f7', '#14b8a6'];
+  const countBy = (list, key, fallback) => { const m = {}; list.forEach(s => { const k = norm(s[key]) || fallback; m[k] = (m[k] || 0) + 1; }); return m; };
+  const toSegs = m => Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({ label: k, value: v, color: _palette[i % _palette.length] }));
+  const roundDonut = svgDonut(toSegs(countBy(rows, 'admission_round', 'ไม่ระบุรอบ')), 'คน');
+  const projDonut = svgDonut(toSegs(countBy(rows, 'admission_project', 'ไม่ระบุโครงการ')), 'คน');
+
+  const body = rows.map(s => { const np = studentNameParts(s); return `<tr class="border-t hover:bg-gray-50">
+    <td class="px-3 py-2 font-mono text-primary">${s.student_id || ''}</td>
+    <td class="px-3 py-2">${np.prefix || ''}</td>
+    <td class="px-3 py-2 font-medium">${np.first || ''}</td>
+    <td class="px-3 py-2">${np.last || ''}</td>
+    <td class="px-3 py-2 text-center">${s.year_level || '-'}</td>
+    <td class="px-3 py-2 text-center">${admissionYearOf(s)}</td>
+    <td class="px-3 py-2">${s.admission_round || '-'}</td>
+    <td class="px-3 py-2">${s.scholarship || '-'}</td>
+    <td class="px-3 py-2">${s.admission_project || '-'}</td>
+    <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs ${stColor(norm(s.status))}">${s.status || ''}</span></td>
+  </tr>`; }).join('');
+  return `<details id="rosterCard"${detailsOpen('rosterCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา/ลาออก/พัก/โอนย้าย)</span></span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <label class="text-sm font-medium text-gray-700">ชั้นปี:</label>
+        <select onchange="APP.filters._grRosterYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option>${['1', '2', '3', '4'].map(y => `<option ${selYr === y ? 'selected' : ''}>${y}</option>`).join('')}</select>
+        <label class="text-sm font-medium text-gray-700">ทุนต้นสังกัด:</label>
+        <select onchange="APP.filters._grSch=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${schOpts.map(x => `<option ${selSch === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <label class="text-sm font-medium text-gray-700">โครงการ:</label>
+        <select onchange="APP.filters._grProj=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${projOpts.map(x => `<option ${selProj === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <label class="text-sm font-medium text-gray-700">รอบการสมัคร:</label>
+        <select onchange="APP.filters._grRound=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm"><option value="">ทั้งหมด</option>${roundOpts.map(x => `<option ${selRound === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+        <span class="text-xs text-gray-500">พบ ${rows.length} คน</span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
+        <div><p class="text-sm font-semibold text-gray-600 mb-3">จำนวนตามรอบการสมัคร</p>${roundDonut}</div>
+        <div><p class="text-sm font-semibold text-gray-600 mb-3">จำนวนตามโครงการที่สมัคร</p>${projDonut}</div>
+      </div>
+      <div class="overflow-x-auto border border-gray-100 rounded-xl" style="max-height:420px;overflow-y:auto"><table class="w-full text-sm">
+        <thead class="sticky top-0"><tr class="bg-surface text-left">
+          <th class="px-3 py-2 font-semibold">รหัสนักศึกษา</th>
+          <th class="px-3 py-2 font-semibold">คำนำหน้า</th>
+          <th class="px-3 py-2 font-semibold">ชื่อ</th>
+          <th class="px-3 py-2 font-semibold">นามสกุล</th>
+          <th class="px-3 py-2 font-semibold text-center">ชั้นปี</th>
+          <th class="px-3 py-2 font-semibold text-center">ปีรับเข้า</th>
+          <th class="px-3 py-2 font-semibold">รอบการสมัคร</th>
+          <th class="px-3 py-2 font-semibold">ทุนต้นสังกัด</th>
+          <th class="px-3 py-2 font-semibold">โครงการที่สมัคร</th>
+          <th class="px-3 py-2 font-semibold">สถานภาพ</th>
+        </tr></thead>
+        <tbody>${body || '<tr><td colspan="10" class="px-3 py-6 text-center text-gray-400">ไม่พบข้อมูล</td></tr>'}</tbody>
+      </table></div>
+    </div>
+  </details>`;
+}
+
 // แผงวิเคราะห์ GPAx (หน้าผลการเรียน — สำหรับผู้ดูแล/วิชาการ/ผู้บริหาร)
 // อิงตัวกรองชั้นปีเดิม (APP.filters._gradeYearLevel): '' = ทุกชั้นปี, '1'-'4', '__grad'
 function gpaxAnalyticsHTML() {
@@ -2752,8 +2892,12 @@ function gpaxAnalyticsHTML() {
     </tr>`;
   }).join('');
 
-  return `<div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-    <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span></h3>
+  return `<details id="gpaxCard"${detailsOpen('gpaxCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
       ${statCard('alert-triangle', 'GPAx ต่ำกว่า 2.30 (เฝ้าระวัง)', atRisk, 'คน', 'bg-red-500')}
       ${statCard('users', 'มีผลการเรียนแล้ว', withGpax.length, 'คน', 'bg-blue-500')}
@@ -2774,7 +2918,8 @@ function gpaxAnalyticsHTML() {
         <tbody>${rankRows || '<tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">ยังไม่มีข้อมูลผลการเรียน</td></tr>'}</tbody>
       </table></div>
     </div>
-  </div>`;
+    </div>
+  </details>`;
 }
 
 function gradesPage() {
@@ -3481,7 +3626,13 @@ function engAnalyticsHTML() {
   ];
   const levelCount = {}; levelDefs.forEach(l => levelCount[l.key] = 0);
   const pbriRecs = engScope.filter(e => norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ');
-  pbriRecs.forEach(e => { const lv = getEngLevel(Number(e.eng_score) || 0); if (levelCount[lv] !== undefined) levelCount[lv]++; });
+  // นับเฉพาะ "การสอบครั้งล่าสุด" ของแต่ละคน (กันการนับซ้ำจากการสอบหลายครั้ง) — จัดลำดับด้วย ครั้งที่สอบ แล้ววันที่
+  const _attNum = e => parseInt(norm(e.eng_attempt), 10) || 0;
+  const _isLater = (a, b) => { const aa = _attNum(a), ab = _attNum(b); if (aa !== ab) return aa > ab; return norm(a.eng_date) > norm(b.eng_date); };
+  const latestPbriByStu = {};
+  pbriRecs.forEach(e => { const id = norm(e.student_id); if (!latestPbriByStu[id] || _isLater(e, latestPbriByStu[id])) latestPbriByStu[id] = e; });
+  const latestPbri = Object.values(latestPbriByStu);
+  latestPbri.forEach(e => { const lv = getEngLevel(Number(e.eng_score) || 0); if (levelCount[lv] !== undefined) levelCount[lv]++; });
   const barItems = animBarRows(levelDefs.map(l => ({ label: l.label, value: levelCount[l.key], color: l.color })));
 
   // --- กราฟวงกลม: ผ่าน/ไม่ผ่าน + แยกประเภทการผ่าน ---
@@ -3495,6 +3646,15 @@ function engAnalyticsHTML() {
     { label: 'ผ่าน — สอบ PBRI (สบช.)', value: cPBRI, color: '#22c55e' },
     { label: 'ผ่าน — สอบภายนอกสถาบัน', value: cExt, color: '#0ea5e9' },
     { label: 'ยังไม่ผ่าน', value: cFail, color: '#ef4444' }
+  ], 'คน');
+
+  // --- สัดส่วนเข้าสอบ vs ไม่เข้าสอบ (เฉพาะ PBRI สบช. — ไม่นับผลจากภายนอก) ---
+  const attendedIds = new Set(engScope.filter(e => norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ').map(e => norm(e.student_id)));
+  let cAttend = 0, cNoAttend = 0;
+  scopeStudents.forEach(s => { if (attendedIds.has(norm(s.student_id))) cAttend++; else cNoAttend++; });
+  const attendDonut = svgDonut([
+    { label: 'เข้าสอบ (PBRI)', value: cAttend, color: '#0ea5e9' },
+    { label: 'ไม่เข้าสอบ / ไม่มีผล', value: cNoAttend, color: '#94a3b8' }
   ], 'คน');
 
   // ตัวกรอง
@@ -3513,7 +3673,7 @@ function engAnalyticsHTML() {
     <div class="mb-4">${yrBtns}</div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
-        <p class="text-sm font-semibold text-gray-600 mb-3">ระดับผลสอบ PBRI (สบช.) — ${pbriRecs.length} ครั้ง</p>
+        <p class="text-sm font-semibold text-gray-600 mb-3">ระดับผลสอบ PBRI (สบช.) — ${latestPbri.length} คน <span class="font-normal text-gray-400">(นับเฉพาะการสอบครั้งล่าสุดของแต่ละคน)</span></p>
         <div class="space-y-2.5">${barItems}</div>
       </div>
       <div>
@@ -3521,7 +3681,59 @@ function engAnalyticsHTML() {
         ${donut}
       </div>
     </div>
+    <div class="mt-6 pt-5 border-t border-gray-100">
+      <p class="text-sm font-semibold text-gray-600 mb-3">สัดส่วนการเข้าสอบ (เฉพาะข้อสอบ PBRI — ไม่นับผลจากภายนอก) <span class="font-normal text-gray-400">· ไม่เข้าสอบ/ไม่มีผล ${cNoAttend} คน จาก ${scopeStudents.length} คน</span></p>
+      ${attendDonut}
+    </div>
   </div>`;
+}
+
+// เกณฑ์การผ่านภาษาอังกฤษ (PBRI/สบช.) — แสดง 2 เกณฑ์ เก่า (รุ่น 78–80) / ใหม่ (รุ่น 81+)
+function engCriteriaHTML() {
+  const oldList = [
+    ['PBRI Test', '≥ 41'],
+    ['TOEIC', '≥ 255'],
+    ['TOEFL – Paper Based (PBT)', '≥ 397'],
+    ['TOEFL – Computer Based (CBT)', '≥ 93'],
+    ['TOEFL – Internet Based (IBT)', '≥ 30'],
+    ['IELTS', '≥ 3.0'],
+    ['CU-TEP', '≥ 40'],
+    ['TOEFL-ITP', '≥ 350'],
+    ['สถาบันภาษาของสถาบันอุดมศึกษาฯ', '≥ B1 (ที่ได้รับการยอมรับ)'],
+    ['อื่นๆ', 'ตามที่สภาวิชาการพิจารณาเห็นชอบ']
+  ];
+  const newList = [
+    ['PBRI Test', '≥ 51'],
+    ['TOEIC', '≥ 600'],
+    ['TOEFL – ITP', '≥ 432'],
+    ['TOEFL – Computer Based (CBT)', '≥ 131'],
+    ['TOEFL – Internet Based (IBT)', '≥ 50'],
+    ['IELTS', '≥ 4.5'],
+    ['สถาบันภาษาของสถาบันอุดมศึกษาฯ', '≥ B1 (ที่ได้รับการยอมรับ)'],
+    ['อื่นๆ', 'ตามที่สภาวิชาการพิจารณาเห็นชอบ']
+  ];
+  const rows = list => list.map(([k, v]) => `<div class="flex justify-between gap-3 py-1.5 border-b border-black/5 last:border-0"><span class="text-gray-700">${k}</span><span class="font-semibold text-gray-800 text-right whitespace-nowrap">${v}</span></div>`).join('');
+  return `<details id="engCriteriaCard"${detailsOpen('engCriteriaCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="clipboard-check" class="w-5 h-5 text-primary"></i>เกณฑ์การผ่านภาษาอังกฤษ (สบช./PBRI) — เกณฑ์เก่า &amp; เกณฑ์ใหม่</span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p class="font-bold text-amber-800">เกณฑ์เก่า</p>
+          <p class="text-xs text-amber-700 mb-3">ใช้กับนักศึกษา รุ่น 78 – 80</p>
+          <div class="text-sm">${rows(oldList)}</div>
+        </div>
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p class="font-bold text-emerald-800">เกณฑ์ใหม่</p>
+          <p class="text-xs text-emerald-700 mb-3">เริ่มที่นักศึกษา รุ่น 81 เป็นต้นไป</p>
+          <div class="text-sm">${rows(newList)}</div>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-400 mt-3"><i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i>ระบบตัดสิน "ผ่าน/ไม่ผ่าน" ของข้อสอบ PBRI (สบช.) อัตโนมัติตามรุ่น: รุ่น ≥ 81 หรือปีการศึกษา ≥ 2569 → ผ่านเมื่อ ≥ 51 · รุ่นก่อนหน้า → ผ่านเมื่อ ≥ 41 · การสอบจากภายนอกให้เทียบเกณฑ์ตามตารางข้างต้น</p>
+    </div>
+  </details>`;
 }
 
 function engResultsPage() {
@@ -3780,6 +3992,7 @@ function engResultsPage() {
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_attempt,eng_date,eng_status,academic_year')}</div>` : ''}
   </div>
   ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? engAnalyticsHTML() : ''}
+  ${engCriteriaHTML()}
   ${summaryTableHtml}
   ${yearPickerHtml}
   ${studentSelector}
@@ -4610,17 +4823,82 @@ async function advisorAssignSelected() {
 // ======================== เลื่อนชั้นปี (Promote) ========================
 // แผงปุ่มเลื่อนชั้น แยกต่อชั้นปี (admin เท่านั้น) — เลื่อนเฉพาะผู้ที่กำลังศึกษา
 function promotePanelHTML(allStudents) {
-  const cnt = y => (allStudents || []).filter(s => isActiveStudent(s) && norm(s.year_level) === y).length;
-  const btn = (from, label, color) => `<button onclick="confirmPromoteYear('${from}')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium ${color}"><i data-lucide="arrow-up" class="w-4 h-4"></i>${label} <span class="opacity-80">(${cnt(from)} คน)</span></button>`;
+  const batches = [...new Set((allStudents || []).map(s => norm(s.batch)).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   return `<div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-4">
-    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="arrow-up-circle" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">เลื่อนชั้นปี</h3><span class="text-xs text-amber-600">(เลื่อนเฉพาะผู้ที่กำลังศึกษา · ควรสำรองแท็บ student ก่อน)</span></div>
-    <div class="flex gap-2 flex-wrap">
-      ${btn('1', 'ปี 1 → ปี 2', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('2', 'ปี 2 → ปี 3', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('3', 'ปี 3 → ปี 4', 'bg-white text-gray-700 border border-amber-300 hover:bg-amber-100')}
-      ${btn('4', 'ปี 4 → สำเร็จการศึกษา', 'bg-amber-600 text-white hover:bg-amber-700')}
+    <div class="flex items-center gap-2 mb-2 flex-wrap"><i data-lucide="move-right" class="w-5 h-5 text-amber-600"></i><h3 class="font-semibold text-amber-800 text-sm">ย้ายทั้งรุ่นไปชั้นปีที่กำหนด</h3><span class="text-xs text-amber-600">(ย้ายทุกคนในรุ่น ไม่ว่าสถานะใด · ควรสำรองแท็บ student ก่อน)</span></div>
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="text-xs text-amber-800">รุ่น:</label>
+      <select id="moveBatchSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="">-- เลือกรุ่น --</option>${batches.map(b => `<option value="${b}">รุ่นที่ ${b}</option>`).join('')}</select>
+      <label class="text-xs text-amber-800">ไปชั้นปี:</label>
+      <select id="moveYearSel" class="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white"><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option><option value="จบ">จบ (สำเร็จการศึกษา)</option></select>
+      <button onclick="confirmMoveBatch()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-700"><i data-lucide="arrow-right" class="w-4 h-4"></i>ย้าย</button>
     </div>
   </div>`;
+}
+
+// ย้ายทั้งรุ่น (batch) ไปชั้นปีที่กำหนด — ปี 1-4 ย้ายทุกสถานะ; "จบ" ให้เฉพาะผู้กำลังศึกษาสำเร็จการศึกษา + เพิ่มศิษย์เก่า
+function confirmMoveBatch() {
+  if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
+  const batch = norm((document.getElementById('moveBatchSel') || {}).value);
+  const year = norm((document.getElementById('moveYearSel') || {}).value) || '1';
+  if (!batch) { showToast('กรุณาเลือกรุ่นที่ต้องการย้าย', 'error'); return; }
+  const list = getDataByType('student').filter(s => norm(s.batch) === batch);
+  if (!list.length) { showToast('ไม่พบนักศึกษาในรุ่นที่ ' + batch, 'error'); return; }
+  const activeN = list.filter(isActiveStudent).length;
+  const isGrad = year === 'จบ';
+  let bodyHtml;
+  if (isGrad) {
+    bodyHtml = `<p>กำลังจะให้นักศึกษา <strong>รุ่นที่ ${batch}</strong> ที่ <strong>กำลังศึกษา ${activeN} คน</strong> <strong class="text-primary">สำเร็จการศึกษา</strong> (ชั้นปี = "จบ", สถานะ = สำเร็จการศึกษา)</p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
+        <p class="font-semibold">⚠ ข้อควรระวัง</p>
+        <p>• ทำเฉพาะผู้ที่ "กำลังศึกษา" (ข้ามผู้ที่พัก/ลาออก/โอนย้าย/จบแล้ว)</p>
+        <p>• ระบบจะบันทึกรายชื่อเข้า "ข้อมูลศิษย์เก่า" อัตโนมัติ</p>
+        <p>• ผลการเรียน/ผลสอบเดิมไม่กระทบ (ผูกด้วยรหัสนักศึกษา) · แนะนำสำรองแท็บ student ก่อน</p>
+      </div>`;
+  } else {
+    const already = list.filter(s => norm(s.year_level) === year).length;
+    const gradN = list.filter(isGraduate).length;
+    bodyHtml = `<p>กำลังจะตั้ง <strong>ชั้นปี</strong> ของนักศึกษา <strong class="text-primary">รุ่นที่ ${batch}</strong> ให้เป็น <strong>ชั้นปีที่ ${year}</strong></p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-800 text-xs space-y-1">
+        <p class="font-semibold">⚠ ข้อควรระวัง</p>
+        <p>• ในรุ่นนี้มีทั้งหมด ${list.length} คน — กำลังศึกษา ${activeN} คน, สถานะอื่น (พัก/ลาออก/โอนย้าย/จบ) ${list.length - activeN} คน</p>
+        <p>• อยู่ชั้นปี ${year} อยู่แล้ว ${already} คน · <strong>ต้องย้ายจริง ${list.length - already} คน</strong></p>
+        ${gradN ? `<p>• มีผู้ "สำเร็จการศึกษา/จบ" ${gradN} คน จะถูกเปลี่ยนชั้นปีด้วย (สถานะเดิมไม่เปลี่ยน) หากไม่ต้องการ ให้ยกเลิกแล้วแก้รายคน</p>` : ''}
+        <p>• เปลี่ยนเฉพาะ "ชั้นปี" — สถานภาพ/ข้อมูลอื่นไม่เปลี่ยน · ย้อนกลับอัตโนมัติไม่ได้ แนะนำสำรองแท็บ student ก่อน</p>
+      </div>`;
+  }
+  showModal('ยืนยันการย้ายทั้งรุ่น', `<div class="space-y-3 text-sm">${bodyHtml}</div>`, () => doMoveBatch(batch, year));
+}
+async function doMoveBatch(batch, year) {
+  const isGrad = year === 'จบ';
+  const list = isGrad
+    ? getDataByType('student').filter(s => norm(s.batch) === batch && isActiveStudent(s))
+    : getDataByType('student').filter(s => norm(s.batch) === batch && norm(s.year_level) !== year);
+  closeModal();
+  if (!list.length) { showToast(isGrad ? 'ไม่มีผู้กำลังศึกษาในรุ่นนี้ให้สำเร็จการศึกษา' : 'ทุกคนในรุ่นนี้อยู่ชั้นปีที่ ' + year + ' อยู่แล้ว'); return; }
+  const gradSnapshot = isGrad ? list.map(s => ({ name: s.name || '', batch: s.batch || '', student_id: s.student_id || '' })) : [];
+  list.forEach(s => { if (isGrad) { s.year_level = 'จบ'; s.status = 'สำเร็จการศึกษา'; } else { s.year_level = String(year); } });
+  showToast('กำลังบันทึก ' + list.length + ' คน...', 'loading');
+  const r = await GSheetDB.updateMany(list);
+  hideLoadingToast();
+  let alumniMsg = '';
+  if (isGrad && r.ok) {
+    const existing = new Set(getDataByType('alumni').map(a => norm(a.student_id)).filter(Boolean));
+    const today = new Date().toISOString().slice(0, 10);
+    const newAlumni = gradSnapshot
+      .filter(s => { const sid = norm(s.student_id); return !sid || !existing.has(sid); })
+      .map(s => ({ type: 'alumni', name: s.name, batch: s.batch, admission_date: '', graduation_date: today, alumni_status: '', workplace: '', recorded_date: today, student_id: s.student_id, created_at: new Date().toISOString() }));
+    if (newAlumni.length) {
+      showToast('กำลังบันทึกข้อมูลศิษย์เก่า ' + newAlumni.length + ' คน...', 'loading');
+      const ar = await GSheetDB.createMany(newAlumni);
+      hideLoadingToast();
+      alumniMsg = ' · เพิ่มศิษย์เก่า ' + ar.ok + ' คน';
+    }
+  }
+  const dest = isGrad ? 'สำเร็จการศึกษา' : 'ชั้นปีที่ ' + year;
+  if (r.isOk) showToast('ย้ายรุ่นที่ ' + batch + ' → ' + dest + ' สำเร็จ (' + r.ok + ' คน)' + alumniMsg);
+  else showToast('ทำรายการเสร็จ ' + r.ok + ' คน · ผิดพลาด ' + r.fail + ' คน' + alumniMsg, r.ok ? 'success' : 'error');
+  renderCurrentPage();
 }
 
 function confirmPromoteYear(fromYear) {
@@ -6236,7 +6514,9 @@ function directoryBranchView(year, isAdmin) {
   const auto = computeBranchAuto(year);
   const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
   const bget = (branch, key) => {
-    const s = saved[branch]; if (s && s[key] !== undefined && String(s[key]) !== '') return parseFloat(s[key]) || 0;
+    const s = saved[branch];
+    // สาขาที่มีการแก้ไข/บันทึกแล้ว → ช่องที่ว่าง/ไม่มีค่า = 0 (ไม่ดึง auto มาค้าง)
+    if (s) { const raw = s[key]; return (raw !== undefined && String(raw) !== '') ? (parseFloat(raw) || 0) : 0; }
     const a = auto[branch]; if (a && a[key] !== undefined) return a[key];
     return 0;
   };
@@ -6308,9 +6588,10 @@ function showEditBranchSummaryModal(year) {
   const names = [...new Set([...NURSING_BRANCHES, ...Object.keys(auto), ...Object.keys(saved)])];
 
   const inpCell = (idx, branch, key) => {
-    const sv = saved[branch] || {}; const av = auto[branch] || {};
-    const val = sv[key] !== undefined ? sv[key] : '';
-    const ph = av[key] !== undefined ? String(av[key]) : '0';
+    const sv = saved[branch]; const av = auto[branch] || {};
+    const val = (sv && sv[key] !== undefined) ? sv[key] : '';
+    // สาขาที่แก้ไขแล้ว → ช่องว่าง = 0 (placeholder 0); สาขาที่ยังไม่แตะ → placeholder = ค่า auto
+    const ph = sv ? '0' : (av[key] !== undefined ? String(av[key]) : '0');
     return `<input name="b_${idx}_${key}" data-branch="${(branch || '').replace(/"/g, '&quot;')}" data-key="${key}" value="${val}" inputmode="numeric" class="w-14 border rounded-lg px-1 py-1 text-sm text-right" placeholder="${ph}">`;
   };
   const rowHTML = (idx, branch, editable) => `<tr class="border-t">
@@ -6318,10 +6599,10 @@ function showEditBranchSummaryModal(year) {
     ${DB_EDU_KEYS.map(k => `<td class="px-1 py-1 text-center">${inpCell(idx, branch, k.key)}</td>`).join('')}
   </tr>`;
 
-  const rows = names.map((b, i) => rowHTML(i, b, false)).join('');
+  const rows = names.map((b, i) => rowHTML(i, b, true)).join('');
   showModal('แก้ไขตัวเลขตามสาขา — ปีการศึกษา ' + year, `
     <form id="dbForm" style="max-height:70vh;overflow-y:auto;padding-right:4px">
-      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">ช่องว่าง = ใช้ค่าที่คำนวณอัตโนมัติ (เลข auto ใน placeholder) · กรอกเพื่อกำหนดเอง</div>
+      <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-800 mb-3">แก้ไขได้ทุกช่อง — ทั้งชื่อสาขาและตัวเลข · <b>สาขาที่ยังไม่เคยแก้:</b> ช่องว่างใช้ค่า auto (ตัวเลขจางใน placeholder) · <b>สาขาที่แก้แล้ว:</b> ช่องว่าง = 0 · ต้องการค่าใดให้กรอกตัวเลขลงไป (ล้างทุกช่องในสาขา = กลับไปใช้ auto)</div>
       <button type="button" onclick="dbBranchAutoFill()" class="mb-3 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"><i data-lucide="wand-2" class="w-4 h-4 inline"></i> เติมค่าอัตโนมัติ</button>
       <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-gray-500"><th class="px-1 py-1 text-left">สาขาวิชา</th>${DB_EDU_KEYS.map(k => `<th class="px-1 py-1">${k.short}</th>`).join('')}</tr></thead>
       <tbody id="dbRows">${rows}</tbody></table></div>
@@ -6443,6 +6724,14 @@ function annVisibleTo(a, role) {
 }
 // ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge)
 function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => annVisibleTo(a, role)); }
+// ประกาศที่ "ยังไม่เลยกำหนด" — วันประกาศ/กำหนดการต้องไม่เก่ากว่าวันนี้ (ใช้กับกระดิ่งแจ้งเตือน)
+function annNotExpired(a) {
+  const d = norm(a && a.announcement_date);
+  if (!d) return true;
+  if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10) >= new Date().toISOString().slice(0, 10);
+  return true;
+}
+function activeAnnouncements() { return visibleAnnouncements().filter(annNotExpired); }
 // ช่องเลือกบทบาทผู้รับในฟอร์มประกาศ (ไม่ติ๊กเลย = ทุกบทบาท)
 function annRolesFieldHTML(selected) {
   const sel = annParseRoles(selected);
@@ -7893,6 +8182,46 @@ function showAddLeaveModal() {
 }
 
 // ======================== LOGIN LOG (admin only) ========================
+// จัดกลุ่มบทบาทสำหรับกราฟการเข้าใช้งาน: อาจารย์ / นักศึกษา / อื่นๆ
+function loginRoleGroup(role) {
+  const x = norm(role).toLowerCase();
+  if (x === 'teacher' || x === 'classteacher' || x === 'depthead') return 'teacher';
+  if (x === 'student') return 'student';
+  return 'other';
+}
+// กราฟเส้น (SVG) หลายชุด + แถบ Low–High (band) — months:[{key,label}], series:[{name,color,values[]}]
+function svgLineChart(months, series) {
+  const W = 760, H = 300, padL = 38, padR = 14, padT = 14, padB = 50;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = months.length;
+  const allVals = series.reduce((a, s) => a.concat(s.values), [0]);
+  const rawMax = Math.max(1, ...allVals);
+  const stepY = Math.max(1, Math.ceil(rawMax / 4));
+  const maxY = stepY * 4;
+  const xAt = i => n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW;
+  const yAt = v => padT + plotH - (v / maxY) * plotH;
+  let grid = '';
+  for (let k = 0; k <= 4; k++) { const v = stepY * k, y = yAt(v); grid += `<line class="lc-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#eef2f7"/><text class="lc-axis" x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#94a3b8">${v}</text>`; }
+  let band = '';
+  if (n) {
+    const highs = months.map((_, i) => Math.max(...series.map(s => s.values[i] || 0)));
+    const lows = months.map((_, i) => Math.min(...series.map(s => s.values[i] || 0)));
+    const up = highs.map((v, i) => `${i === 0 ? 'M' : 'L'}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    const down = lows.map((_, i) => `L${xAt(n - 1 - i).toFixed(1)},${yAt(lows[n - 1 - i]).toFixed(1)}`).join(' ');
+    band = `<path d="${up} ${down} Z" fill="#93c5fd" fill-opacity="0.18"/>`;
+  }
+  let xlab = '';
+  months.forEach((m, i) => { if (n <= 14 || i % 2 === 0) xlab += `<text class="lc-axis" x="${xAt(i).toFixed(1)}" y="${H - padB + 15}" text-anchor="middle" font-size="9" fill="#64748b">${m.label}</text>`; });
+  let lines = '';
+  series.forEach(s => {
+    const pts = s.values.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    lines += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.values.forEach((v, i) => { lines += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3.5" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${s.name} · ${months[i].label}: ${v} ครั้ง</title></circle>`; });
+  });
+  const legend = `<div class="flex flex-wrap gap-4 mt-2 text-xs text-gray-600">${series.map(s => `<span class="inline-flex items-center gap-1"><span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px"></span>${s.name}</span>`).join('')}<span class="inline-flex items-center gap-1"><span style="width:14px;height:10px;background:#93c5fd;opacity:.35;display:inline-block;border-radius:2px"></span>แถบต่ำสุด–สูงสุด (Low–High band)</span></div>`;
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:560px">${grid}${band}${lines}${xlab}</svg></div>${legend}`;
+}
+
 function loginLogPage() {
   if (APP.currentRole !== 'admin') {
     return '<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-500">เฉพาะผู้ดูแลระบบเท่านั้นที่ดูหน้านี้ได้</div>';
@@ -7930,6 +8259,35 @@ function loginLogPage() {
   const last7Logins = sortedLogs.filter(l => l.event_type === 'login' && (l.timestamp || '').slice(0, 10) >= past7);
   const uniqueTodayUsers = [...new Set(todayLogins.map(l => l.user_name))].length;
 
+  // === กราฟเส้นแนวโน้มการเข้าใช้งานรายเดือน (แยกกลุ่ม อาจารย์/นักศึกษา/อื่นๆ, ปี พ.ศ.) ===
+  const _thMon = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const loginsOnly = sortedLogs.filter(l => norm(l.event_type) === 'login');
+  const mKey = l => (l.timestamp || l.created_at || '').slice(0, 7);
+  const chartYears = [...new Set(loginsOnly.map(l => mKey(l).slice(0, 4)).filter(y => /^\d{4}$/.test(y)))].sort().reverse();
+  const selChartYear = APP.filters._loginChartYear || (chartYears[0] || String(new Date().getFullYear()));
+  let monthKeys;
+  if (selChartYear === '__all') monthKeys = [...new Set(loginsOnly.map(mKey).filter(k => /^\d{4}-\d{2}$/.test(k)))].sort();
+  else { monthKeys = []; for (let m = 1; m <= 12; m++) monthKeys.push(selChartYear + '-' + String(m).padStart(2, '0')); }
+  const grpCount = { teacher: {}, student: {}, other: {} };
+  loginsOnly.forEach(l => { const k = mKey(l); if (!/^\d{4}-\d{2}$/.test(k)) return; const g = loginRoleGroup(l.role); grpCount[g][k] = (grpCount[g][k] || 0) + 1; });
+  const chartMonths = monthKeys.map(k => { const p = k.split('-'); return { key: k, label: _thMon[Number(p[1]) - 1] + ' ' + String(Number(p[0]) + 543).slice(2) }; });
+  const chartSeries = [
+    { name: 'อาจารย์', color: '#3b82f6', values: monthKeys.map(k => grpCount.teacher[k] || 0) },
+    { name: 'นักศึกษา', color: '#ec4899', values: monthKeys.map(k => grpCount.student[k] || 0) },
+    { name: 'อื่นๆ', color: '#f59e0b', values: monthKeys.map(k => grpCount.other[k] || 0) }
+  ];
+  const loginChartCard = `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h3 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="line-chart" class="w-5 h-5 text-primary"></i>แนวโน้มการเข้าใช้งานรายเดือน (แยกกลุ่มผู้ใช้)</h3>
+      <select onchange="APP.filters._loginChartYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
+        ${chartYears.map(y => `<option value="${y}" ${selChartYear === y ? 'selected' : ''}>ปี พ.ศ. ${Number(y) + 543}</option>`).join('')}
+        <option value="__all" ${selChartYear === '__all' ? 'selected' : ''}>ทุกปี (รายเดือนต่อเนื่อง)</option>
+      </select>
+    </div>
+    ${chartMonths.length ? svgLineChart(chartMonths, chartSeries) : '<p class="text-gray-400 text-sm text-center py-6">ยังไม่มีข้อมูลการเข้าใช้งาน</p>'}
+    <p class="text-xs text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i>อาจารย์ = อาจารย์/อ.ประจำชั้น/ประธานสาขา · อื่นๆ = ผู้ดูแล/งานวิชาการ/ทะเบียน/ผู้บริหาร</p>
+  </div>`;
+
   const eventBadge = (ev) => {
     if (ev === 'login') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i data-lucide="log-in" class="w-3 h-3 inline"></i> เข้าสู่ระบบ</span>';
     if (ev === 'logout') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700"><i data-lucide="log-out" class="w-3 h-3 inline"></i> ออกจากระบบ</span>';
@@ -7959,6 +8317,8 @@ function loginLogPage() {
       <div><p class="text-xs text-gray-500">เข้าใช้งาน 7 วันล่าสุด</p><p class="text-xl font-bold text-gray-800">${last7Logins.length} <span class="text-xs font-normal text-gray-500">ครั้ง</span></p></div>
     </div>
   </div>
+
+  ${loginChartCard}
 
   <div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -9032,8 +9392,14 @@ function showEditStudentModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">ชื่อผู้ปกครอง</label><input name="parent_name" value="${s.parent_name || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">โทรผู้ปกครอง</label><input name="parent_phone" value="${s.parent_phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">อาจารย์ที่ปรึกษา</label><input name="advisor" value="${s.advisor || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ทุนต้นสังกัด</label><input name="scholarship" value="${(s.scholarship || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น กรมการแพทย์ / ทุนส่วนตัว"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">โครงการที่สมัครเข้าเรียน</label><input name="admission_project" value="${(s.admission_project || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น โครงการปกติ / โควตา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">รอบการสมัคร</label><input name="admission_round" value="${(s.admission_round || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น รอบ 1 / รอบ 2 / TCAS 3"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ประเภทการเข้าศึกษา</label>${entryTypeField(s.entry_type)}</div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถาบันเดิม <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_from" value="${(s.transfer_from || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อสถาบันที่ย้ายมา"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">วันที่โอนเข้า <span class="text-gray-400">(กรณีโอนย้ายเข้า)</span></label><input name="transfer_date" value="${(s.transfer_date || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
         <div><label class="block text-xs text-gray-600 mb-1">วันที่ลาออก/พักการศึกษา</label><input name="status_date" value="${(s.status_date || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น 1 มิ.ย. 2569"></div>
-        <div class="md:col-span-2"><label class="block text-xs text-gray-600 mb-1">เหตุผลการลาออก/พักการศึกษา</label><input name="status_reason" value="${(s.status_reason || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกเมื่อสถานะเป็น ลาออก / พักการศึกษา / โอนย้าย"></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สาเหตุการลาออก/พักการศึกษา</label>${statusReasonField(s.status_reason)}</div>
       </div>
       ${transcriptFieldsHTML(s)}
       <button type="submit" class="w-full mt-3 bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
@@ -10089,15 +10455,21 @@ function surveyResultsTabHTML(year) {
 
   // กราฟแท่งจำนวนผู้ตอบแยกตามกลุ่ม
   const maxC = Math.max(1, ...groups.map(g => g.resps.length));
-  h += `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-5">
-    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>จำนวนผู้ตอบแบบประเมิน แยกตามกลุ่ม</h4>
-    <div class="space-y-3">${groups.map(g => {
-    const c = g.resps.length; const pct = (c / maxC * 100);
+  const _survPalette = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'];
+  const groupBars = groups.map((g, i) => {
+    const c = g.resps.length; const barPct = (c / maxC * 100); const totPct = resps.length ? Math.round(c / resps.length * 100) : 0;
     return `<div class="flex items-center gap-3 text-sm">
         <span class="w-28 sm:w-36 shrink-0 text-gray-600">${g.label}</span>
-        <div class="flex-1 bg-gray-100 rounded-lg h-6 overflow-hidden"><div class="h-6 rounded-lg ${g.color} flex items-center justify-end pr-2 text-white text-xs font-bold" style="width:${Math.max(pct, c ? 8 : 0)}%">${c ? c : ''}</div></div>
-        <span class="w-10 text-right font-bold text-gray-800">${c}</span></div>`;
-  }).join('')}</div>
+        <div class="flex-1 bg-gray-100 rounded-lg h-6 overflow-hidden"><div class="h-6 rounded-lg grow-bar ${g.color} flex items-center justify-end pr-2 text-white text-xs font-bold" style="--tw:${Math.max(barPct, c ? 8 : 0)}%">${c ? c : ''}</div></div>
+        <span class="w-24 text-right font-bold text-gray-800">${c} คน <span class="font-normal text-gray-400">(${totPct}%)</span></span></div>`;
+  }).join('');
+  const groupDonut = svgDonut(groups.map((g, i) => ({ label: g.label, value: g.resps.length, color: _survPalette[i % _survPalette.length] })), 'คน');
+  h += `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-5">
+    <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>จำนวนผู้ตอบแบบประเมิน แยกตามกลุ่ม</h4>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+      <div class="space-y-3">${groupBars}</div>
+      <div>${groupDonut}</div>
+    </div>
     <p class="text-xs text-gray-400 mt-3">รวมผู้ตอบทั้งหมด ${resps.length} คน${other.length ? ' · อื่นๆ ' + other.length + ' คน' : ''}</p>
   </div>`;
 
@@ -10136,13 +10508,13 @@ function surveySectionByGroupHTML(groups, qs) {
   let h = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-5">
     <div class="p-4 border-b"><h4 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-primary"></i>ผลรายด้าน — แยกตามกลุ่ม</h4></div>
     <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-gray-50 text-gray-600 text-left">
-      <th class="px-4 py-2">ด้าน</th>${groups.map(g => `<th class="px-3 py-2 text-center border-l border-gray-100">${g.label}<br><span class="text-[11px] font-normal text-gray-400">μ (n) · แปลผล</span></th>`).join('')}</tr></thead><tbody>`;
+      <th class="px-4 py-2">ด้าน</th>${groups.map(g => `<th class="px-3 py-2 text-center border-l border-gray-100">${g.label}<br><span class="text-[11px] font-normal text-gray-400">μ · % · n · แปลผล</span></th>`).join('')}</tr></thead><tbody>`;
   sections.forEach((sec, idx) => {
     const col = surveySectionColor(idx);
     h += `<tr class="border-t border-gray-100"><td class="px-4 py-2 font-medium text-gray-700"><span class="inline-block w-2.5 h-2.5 rounded-full ${col.dot} mr-1 align-middle"></span>${surveyEsc(sec)}</td>`;
     groups.forEach(g => {
       const s = surveySectionStatFor(g.resps, qs, sec); const it = surveyInterpret(s.mean);
-      h += `<td class="px-3 py-2 text-center border-l border-gray-100">${s.n ? `<span class="font-bold text-gray-800">${s.mean.toFixed(2)}</span> <span class="text-gray-400 text-xs">(${s.n})</span><br><span class="px-2 py-0.5 rounded-full text-[11px] ${it.c}">${it.t}</span>` : '<span class="text-gray-300">—</span>'}</td>`;
+      h += `<td class="px-3 py-2 text-center border-l border-gray-100">${s.n ? `<span class="font-bold text-gray-800">${s.mean.toFixed(2)}</span> <span class="text-emerald-600 text-xs font-semibold">${Math.round(s.mean / 5 * 100)}%</span> <span class="text-gray-400 text-xs">(n=${s.n})</span><br><span class="px-2 py-0.5 rounded-full text-[11px] ${it.c}">${it.t}</span>` : '<span class="text-gray-300">—</span>'}</td>`;
     });
     h += `</tr>`;
   });
@@ -10152,7 +10524,7 @@ function surveySectionByGroupHTML(groups, qs) {
     const parsed = g.resps.map(r => { let a = {}; try { a = JSON.parse(r.answers_json || '{}'); } catch (_) { } return a; });
     let vals = []; ratingQs.forEach(q => parsed.forEach(a => { const v = Number(a[q.q_id]); if (!isNaN(v) && v >= 1 && v <= 5) vals.push(v); }));
     const s = surveyMeanSD(vals);
-    h += `<td class="px-3 py-2 text-center border-l border-blue-100 font-bold text-primary">${s.n ? `${s.mean.toFixed(2)} <span class="text-xs font-normal">(${s.n})</span>` : '—'}</td>`;
+    h += `<td class="px-3 py-2 text-center border-l border-blue-100 font-bold text-primary">${s.n ? `${s.mean.toFixed(2)} <span class="text-emerald-600 text-xs">${Math.round(s.mean / 5 * 100)}%</span> <span class="text-xs font-normal text-gray-400">(n=${s.n})</span>` : '—'}</td>`;
   });
   h += `</tr></tbody></table></div></div>`;
   return h;
