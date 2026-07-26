@@ -254,30 +254,152 @@ details[open]>summary .chev {
 .donut-wrap:hover .donut-seg { opacity: .55; }
 .donut-seg:hover { stroke-width: 26 !important; opacity: 1 !important; }
 
-/* ===== Gender infographic: ตัวการ์ตูนยกมือเมื่อเอาเมาส์ชี้ ===== */
-.gc-fig { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
-.gender-card:hover .gc-fig { transform: translateY(-4px); }
-.gc-arm {
-    transition: transform .4s cubic-bezier(.34, 1.56, .64, 1);
-    transform-box: fill-box;
-    transform-origin: 50% 0%;
+/* ===== Gender infographic: รูปบัณฑิต 3D ยกมือทักทายเมื่อเอาเมาส์ชี้ ===== */
+.gc-fig { position: relative; display: inline-block; width: 60px; height: 124px; line-height: 0; }
+.gc-fig .gc-frame {
+    position: absolute; inset: 0;
+    width: 60px; height: 124px;
+    object-fit: contain; object-position: bottom center;
+    -webkit-user-select: none; user-select: none; -webkit-user-drag: none;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .16));
+    transform-origin: 50% 100%;
+    transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), opacity .18s ease;
 }
-.gender-card:hover .gc-arm.left  { transform: rotate(145deg); }
-.gender-card:hover .gc-arm.right { transform: rotate(-145deg); }
+/* แขนลงเป็นค่าเริ่มต้น → เอาเมาส์ชี้แล้วสลับเป็นภาพยกมือ + โยกไปมาเหมือนโบกมือ (ทั้งชายและหญิง) */
+.gc-fig .gc-up { opacity: 0; }
+.gender-card:hover .gc-fig .gc-down { opacity: 0; }
+.gender-card:hover .gc-fig .gc-up { opacity: 1; animation: gcWave .9s ease-in-out infinite; }
+@keyframes gcWave {
+    0%, 100% { transform: rotate(-4deg) translateY(-3px); }
+    50%      { transform: rotate(4deg)  translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .gender-card:hover .gc-fig .gc-up { animation: none; transform: translateY(-3px); }
+}
 .gc-hint { opacity: 0; transition: opacity .3s ease; }
 .gender-card:hover .gc-hint { opacity: 1; }
 
-/* ===== พื้นหลังเนื้อหาหลัก: ไล่เฉดฟ้าอ่อน → ขาว (ตรึงกับจอ) ===== */
-#mainContent {
-    background-color: #ffffff;
-    background-image: linear-gradient(180deg, #e6f1ff 0%, #f3f9ff 42%, #ffffff 100%);
-    background-attachment: fixed;
+/* =========================================================================
+   DARK THEME — โหมดมืด (เปิดเมื่อ <html class="dark">)
+   ปรับโทนสีทั้งระบบให้อ่านชัด ไม่กลืนพื้นหลังมืด
+   ========================================================================= */
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #0f172a; color: #e2e8f0; }
+
+/* ---- ไอคอนปุ่มสลับธีม (แสดงพระจันทร์ตอนสว่าง / ดวงอาทิตย์ตอนมืด) ---- */
+.ic-sun { display: none; }
+html.dark .ic-sun { display: inline-block; }
+html.dark .ic-moon { display: none; }
+
+/* ---- พื้นผิวหลัก ---- */
+html.dark .bg-white { background-color: #1e293b !important; }
+html.dark .bg-gray-50 { background-color: #172236 !important; }
+html.dark .bg-gray-100 { background-color: #1e2a3f !important; }
+html.dark .bg-gray-200 { background-color: #334155 !important; }
+html.dark .bg-surface { background-color: #1b2940 !important; }
+html.dark .bg-primaryLight { background-color: #153050 !important; }
+
+/* พื้นหลังหน้า/หัวข้อ/แถบข้าง/เนื้อหา */
+html.dark #mainContent { background-color: #0f172a !important; }
+html.dark header.bg-white,
+html.dark .sidebar,
+html.dark #notifPanel { background-color: #1e293b !important; }
+
+/* หน้า login / config / loading (เดิมเป็นไล่เฉดฟ้าอ่อน) */
+html.dark #loginScreen,
+html.dark #configScreen,
+html.dark #loadingScreen {
+  background: linear-gradient(to bottom right, #0b1220, #0f172a 45%, #0e1f34) !important;
 }
 
-/* ===== Gender infographic (รูปจริงบัณฑิต): สลับท่ายกมือเมื่อเอาเมาส์ชี้การ์ด ===== */
-.grad-fig { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
-.gender-card:hover .grad-fig { transform: translateY(-4px) scale(1.04); }
-.grad-down, .grad-wave { transition: opacity .25s ease; }
-.grad-wave { opacity: 0; }
-.gender-card:hover .grad-down { opacity: 0; }
-.gender-card:hover .grad-wave { opacity: 1; }
+/* ---- ตัวอักษร (โทนเทา) ---- */
+html.dark .text-gray-900,
+html.dark .text-gray-800 { color: #e8eef7 !important; }
+html.dark .text-gray-700 { color: #d3dced !important; }
+html.dark .text-gray-600 { color: #c4d0e0 !important; }
+html.dark .text-gray-500 { color: #a2b2c6 !important; }
+html.dark .text-gray-400 { color: #8a9ab0 !important; }
+html.dark .text-gray-300 { color: #6b7c93 !important; }
+
+/* ---- โทนน้ำเงิน/หลัก (เพิ่มความสว่างให้เด่นบนพื้นมืด) ---- */
+html.dark .text-primary { color: #5cabee !important; }
+html.dark .text-blue-800 { color: #93c5fd !important; }
+html.dark .text-blue-700 { color: #82b7f6 !important; }
+html.dark .text-blue-600 { color: #63a4fb !important; }
+html.dark .text-blue-500 { color: #63a4fb !important; }
+html.dark .text-blue-400 { color: #85b6f8 !important; }
+
+/* ---- ขอบ (ทั่วไปก่อน แล้วค่อยทับด้วยสีเฉพาะ) ---- */
+html.dark .border,
+html.dark .border-t, html.dark .border-b,
+html.dark .border-l, html.dark .border-r { border-color: #2f3f56 !important; }
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 { border-color: #354862 !important; }
+html.dark .border-blue-100 { border-color: #274563 !important; }
+html.dark .border-blue-200 { border-color: #2f5075 !important; }
+html.dark .border-primary { border-color: #3b82f6 !important; }
+html.dark .border-red-100 { border-color: rgba(239,68,68,.30) !important; }
+html.dark .border-red-200 { border-color: rgba(239,68,68,.38) !important; }
+html.dark .border-green-200 { border-color: rgba(34,197,94,.34) !important; }
+html.dark .border-amber-100 { border-color: rgba(245,158,11,.28) !important; }
+html.dark .border-amber-200 { border-color: rgba(245,158,11,.38) !important; }
+html.dark [class*="divide-"] > * + * { border-color: #334155 !important; }
+
+/* ---- พื้นหลังโซนสีอ่อน (-50) -> โปร่งแสงบนพื้นมืด ---- */
+html.dark .bg-blue-50 { background-color: rgba(59,130,246,.12) !important; }
+html.dark .bg-red-50 { background-color: rgba(239,68,68,.12) !important; }
+html.dark .bg-green-50 { background-color: rgba(34,197,94,.12) !important; }
+html.dark .bg-amber-50 { background-color: rgba(245,158,11,.12) !important; }
+html.dark .bg-orange-50 { background-color: rgba(249,115,22,.12) !important; }
+html.dark .bg-yellow-50 { background-color: rgba(234,179,8,.12) !important; }
+html.dark .bg-purple-50 { background-color: rgba(168,85,247,.12) !important; }
+html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.12) !important; }
+
+/* ---- ป้ายสถานะ (-100) -> โทนโปร่งเข้ม ---- */
+html.dark .bg-blue-100 { background-color: rgba(59,130,246,.20) !important; }
+html.dark .bg-red-100 { background-color: rgba(239,68,68,.22) !important; }
+html.dark .bg-green-100 { background-color: rgba(34,197,94,.22) !important; }
+html.dark .bg-yellow-100 { background-color: rgba(234,179,8,.22) !important; }
+html.dark .bg-orange-100 { background-color: rgba(249,115,22,.22) !important; }
+html.dark .bg-amber-100 { background-color: rgba(245,158,11,.22) !important; }
+html.dark .bg-emerald-100 { background-color: rgba(16,185,129,.22) !important; }
+html.dark .bg-purple-100 { background-color: rgba(168,85,247,.22) !important; }
+html.dark .bg-pink-100 { background-color: rgba(236,72,153,.22) !important; }
+
+/* ---- ตัวอักษรป้ายสถานะ -> สว่างขึ้นให้อ่านชัด ---- */
+html.dark .text-red-700, html.dark .text-red-600 { color: #f87171 !important; }
+html.dark .text-red-500, html.dark .text-red-400 { color: #fb8b8b !important; }
+html.dark .text-green-700, html.dark .text-green-600 { color: #4ade80 !important; }
+html.dark .text-green-800 { color: #86efac !important; }
+html.dark .text-yellow-700 { color: #facc15 !important; }
+html.dark .text-orange-700 { color: #fb923c !important; }
+html.dark .text-amber-800, html.dark .text-amber-700, html.dark .text-amber-600 { color: #fbbf24 !important; }
+html.dark .text-emerald-600 { color: #34d399 !important; }
+html.dark .text-purple-700 { color: #c084fc !important; }
+
+/* ---- hover พื้นหลัง ---- */
+html.dark .hover\:bg-gray-50:hover { background-color: #243246 !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #2a3a50 !important; }
+html.dark .hover\:bg-blue-50:hover { background-color: rgba(59,130,246,.16) !important; }
+html.dark .hover\:bg-red-50:hover { background-color: rgba(239,68,68,.16) !important; }
+
+/* ---- ฟอร์ม (input / select / textarea) ---- */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f1a2c !important;
+  color: #e2e8f0 !important;
+  border-color: #354862 !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b !important; }
+html.dark select option { background-color: #1e293b; color: #e2e8f0; }
+
+/* ---- เงา ---- */
+html.dark .shadow-sm, html.dark .shadow, html.dark .shadow-md,
+html.dark .shadow-lg, html.dark .shadow-xl, html.dark .shadow-2xl { --tw-shadow-color: rgba(0,0,0,.55); }
+
+/* ---- แถบเลื่อน ---- */
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::-webkit-scrollbar-track { background: #0f172a; }
