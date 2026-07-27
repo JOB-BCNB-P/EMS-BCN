@@ -98,6 +98,14 @@ function deptDatalistHTML(listId) {
   return `<datalist id="${listId}">${ds.map(d => `<option value="${d}"></option>`).join('')}</datalist>`;
 }
 
+// รายชื่ออาจารย์ (จากทะเบียนอาจารย์ + ผู้ประสานงานเดิมในรายวิชา) สำหรับช่องผู้ประสานงานแบบพิมพ์เลือกได้
+function coordDatalistHTML(listId) {
+  const fromTeachers = getDataByType('teacher').map(t => norm(t.name));
+  const fromSubjects = getDataByType('subject').flatMap(s => norm(s.coordinator).split(/[,;|]/).map(x => x.trim()));
+  const names = [...new Set([...fromTeachers, ...fromSubjects].filter(Boolean))].sort();
+  return `<datalist id="${listId}">${names.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('')}</datalist>`;
+}
+
 // ======================== GOOGLE SHEET INIT ========================
 function saveGSheetConfig() {
   const input = document.getElementById('gsheetUrlInput');
@@ -6970,10 +6978,9 @@ function showAddTrackingModal() {
         <div class="col-span-2"><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="${currentYear}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
-        <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
-        <input type="text" id="trackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
-        <input type="hidden" name="coordinator" id="trackingCoordHidden">
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
+        <input type="text" name="coordinator" list="trackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
+        ${coordDatalistHTML('trackingCoordList')}
       </div>
       ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -6988,13 +6995,6 @@ function showAddTrackingModal() {
   });
   document.getElementById('addTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
-    // Sync coordinator checkboxes to hidden field
-    const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
-    const extraText = (document.getElementById('trackingCoordExtra') || {}).value || '';
-    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
-    const allNames = [...checked, ...extraNames].filter(Boolean);
-    const coordHidden = document.getElementById('trackingCoordHidden');
-    if (coordHidden) coordHidden.value = allNames.join(', ');
     // Ensure subject_code is populated (fallback ถ้าผู้ใช้ไม่ได้กดเปลี่ยน)
     const ss = document.getElementById('trackingSubjectSelect');
     const cc = document.getElementById('trackingSubjectCode');
@@ -7223,10 +7223,9 @@ function showAddResultTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
-        <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
-        <input type="text" id="resultTrackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
-        <input type="hidden" name="coordinator" id="resultTrackingCoordHidden">
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
+        <input type="text" name="coordinator" list="resultTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
+        ${coordDatalistHTML('resultTrackingCoordList')}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
@@ -7242,12 +7241,6 @@ function showAddResultTrackingModal() {
   });
   document.getElementById('addResultTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
-    const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
-    const extraText = (document.getElementById('resultTrackingCoordExtra') || {}).value || '';
-    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
-    const allNames = [...checked, ...extraNames].filter(Boolean);
-    const coordHidden = document.getElementById('resultTrackingCoordHidden');
-    if (coordHidden) coordHidden.value = allNames.join(', ');
     const ss = document.getElementById('resultTrackingSubjectSelect');
     const cc = document.getElementById('resultTrackingSubjectCode');
     if (ss && cc && !cc.value) {
@@ -7403,10 +7396,9 @@ function showAddGradeTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
-        <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
-        <input type="text" id="gradeTrackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
-        <input type="hidden" name="coordinator" id="gradeTrackingCoordHidden">
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
+        <input type="text" name="coordinator" list="gradeTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
+        ${coordDatalistHTML('gradeTrackingCoordList')}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
@@ -7422,12 +7414,6 @@ function showAddGradeTrackingModal() {
   });
   document.getElementById('addGradeTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
-    const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
-    const extraText = (document.getElementById('gradeTrackingCoordExtra') || {}).value || '';
-    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
-    const allNames = [...checked, ...extraNames].filter(Boolean);
-    const coordHidden = document.getElementById('gradeTrackingCoordHidden');
-    if (coordHidden) coordHidden.value = allNames.join(', ');
     const ss = document.getElementById('gradeTrackingSubjectSelect');
     const cc = document.getElementById('gradeTrackingSubjectCode');
     if (ss && cc && !cc.value) {
@@ -7584,10 +7570,9 @@ function showAddFileTrackingModal() {
         <div><label class="block text-xs text-gray-600 mb-1">ปีการศึกษา</label><input name="academic_year" value="2568" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (เลือกจากรายชื่อ หรือพิมพ์เพิ่มเติม)</label>
-        <div class="max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50 space-y-0.5">${coordCheckboxes || '<p class="text-xs text-gray-400 p-2">ยังไม่มีข้อมูลอาจารย์ในระบบ</p>'}</div>
-        <input type="text" id="fileTrackingCoordExtra" class="w-full border rounded-xl px-3 py-2 text-sm mt-2" placeholder="พิมพ์ชื่อเพิ่มเติม (คั่นด้วยเครื่องหมาย ,)">
-        <input type="hidden" name="coordinator" id="fileTrackingCoordHidden">
+        <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
+        <input type="text" name="coordinator" list="fileTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
+        ${coordDatalistHTML('fileTrackingCoordList')}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
@@ -7603,12 +7588,6 @@ function showAddFileTrackingModal() {
   });
   document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
-    const checked = [...e.target.querySelectorAll('.coord-check:checked')].map(cb => cb.value);
-    const extraText = (document.getElementById('fileTrackingCoordExtra') || {}).value || '';
-    const extraNames = extraText.split(',').map(s => s.trim()).filter(Boolean);
-    const allNames = [...checked, ...extraNames].filter(Boolean);
-    const coordHidden = document.getElementById('fileTrackingCoordHidden');
-    if (coordHidden) coordHidden.value = allNames.join(', ');
     const ss = document.getElementById('fileTrackingSubjectSelect');
     const cc = document.getElementById('fileTrackingSubjectCode');
     if (ss && cc && !cc.value) {
