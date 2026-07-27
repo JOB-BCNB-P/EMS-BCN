@@ -8736,8 +8736,10 @@ function showAddUserModal() {
     const resp_yr = fd.get('responsible_year');
     if (resp_yr) obj.responsible_year = resp_yr;
 
-    const r = await GSheetDB.create(obj);
-    if (r.isOk) { showToast('เพิ่มผู้ใช้สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    await withLoading(e.target, async () => {
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) { showToast('เพิ่มผู้ใช้สำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
+    });
   };
 }
 
