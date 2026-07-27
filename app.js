@@ -98,12 +98,45 @@ function deptDatalistHTML(listId) {
   return `<datalist id="${listId}">${ds.map(d => `<option value="${d}"></option>`).join('')}</datalist>`;
 }
 
-// รายชื่ออาจารย์ (จากทะเบียนอาจารย์ + ผู้ประสานงานเดิมในรายวิชา) สำหรับช่องผู้ประสานงานแบบพิมพ์เลือกได้
-function coordDatalistHTML(listId) {
+// รายชื่ออาจารย์ (จากทะเบียนอาจารย์ + ผู้ประสานงานเดิมในรายวิชา)
+function coordNamesList() {
   const fromTeachers = getDataByType('teacher').map(t => norm(t.name));
   const fromSubjects = getDataByType('subject').flatMap(s => norm(s.coordinator).split(/[,;|]/).map(x => x.trim()));
-  const names = [...new Set([...fromTeachers, ...fromSubjects].filter(Boolean))].sort();
-  return `<datalist id="${listId}">${names.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('')}</datalist>`;
+  return [...new Set([...fromTeachers, ...fromSubjects].filter(Boolean))].sort();
+}
+// ช่องผู้ประสานงานแบบ combobox — คลิกเลือกจากรายชื่อ (ต่อท้าย คั่นด้วย ,) หรือพิมพ์เองได้
+function coordComboHTML(id, prefill) {
+  return `<div class="relative">
+    <input type="text" name="coordinator" id="${id}" value="${(prefill || '').replace(/"/g, '&quot;')}" autocomplete="off"
+      class="w-full border rounded-xl px-3 py-2 pr-9 text-sm"
+      placeholder="พิมพ์ชื่อ หรือกดลูกศรเพื่อเลือก · หลายคนคั่นด้วย ,"
+      oninput="coordComboRender('${id}')" onfocus="coordComboRender('${id}')"
+      onblur="setTimeout(function(){var m=document.getElementById('${id}_menu');if(m)m.classList.add('hidden')},180)">
+    <button type="button" tabindex="-1" onclick="coordComboRender('${id}',true)" class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-primary"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+    <div id="${id}_menu" class="hidden absolute z-40 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg"></div>
+  </div>`;
+}
+// แสดง/กรองรายการชื่อ; toggle=true = ปุ่มลูกศร (สลับเปิด-ปิด)
+function coordComboRender(id, toggle) {
+  const inp = document.getElementById(id); const menu = document.getElementById(id + '_menu'); if (!inp || !menu) return;
+  if (toggle && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+  const chosen = new Set(inp.value.split(',').map(s => s.trim()).filter(Boolean));
+  const seg = (inp.value.split(',').pop() || '').trim().toLowerCase();
+  if (!window._coordNames) window._coordNames = coordNamesList();
+  const list = window._coordNames.filter(n => !chosen.has(n) && (!seg || n.toLowerCase().includes(seg)));
+  menu.innerHTML = list.length
+    ? list.map(n => `<button type="button" onmousedown="event.preventDefault()" onclick="coordComboPick('${id}',this.dataset.n)" data-n="${n.replace(/"/g, '&quot;')}" class="block w-full text-left px-3 py-2 text-sm hover:bg-blue-50">${n}</button>`).join('')
+    : '<p class="px-3 py-2 text-xs text-gray-400">ไม่พบชื่อในรายการ — พิมพ์เพื่อเพิ่มเองได้</p>';
+  menu.classList.remove('hidden');
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+// เลือกชื่อ → แทนที่ช่วงหลังเครื่องหมาย , ตัวสุดท้าย แล้วต่อท้ายให้เรียบร้อย
+function coordComboPick(id, name) {
+  const inp = document.getElementById(id); const menu = document.getElementById(id + '_menu'); if (!inp) return;
+  const parts = inp.value.split(','); parts[parts.length - 1] = name;
+  inp.value = parts.map(s => s.trim()).filter(Boolean).join(', ');
+  if (menu) menu.classList.add('hidden');
+  inp.focus();
 }
 
 // ======================== GOOGLE SHEET INIT ========================
@@ -6979,8 +7012,7 @@ function showAddTrackingModal() {
       </div>
       <div>
         <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
-        <input type="text" name="coordinator" list="trackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
-        ${coordDatalistHTML('trackingCoordList')}
+        ${coordComboHTML('trackingCoord', myName)}
       </div>
       ${trackingBackfillCheckboxHTML()}
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -7224,8 +7256,7 @@ function showAddResultTrackingModal() {
       </div>
       <div>
         <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
-        <input type="text" name="coordinator" list="resultTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
-        ${coordDatalistHTML('resultTrackingCoordList')}
+        ${coordComboHTML('resultTrackingCoord', myName)}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
@@ -7397,8 +7428,7 @@ function showAddGradeTrackingModal() {
       </div>
       <div>
         <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
-        <input type="text" name="coordinator" list="gradeTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
-        ${coordDatalistHTML('gradeTrackingCoordList')}
+        ${coordComboHTML('gradeTrackingCoord', myName)}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
@@ -7571,8 +7601,7 @@ function showAddFileTrackingModal() {
       </div>
       <div>
         <label class="block text-xs text-gray-600 mb-1">ผู้ประสานงานรายวิชา (พิมพ์เพื่อค้นหา/เลือก · หลายคนคั่นด้วย ,)</label>
-        <input type="text" name="coordinator" list="fileTrackingCoordList" value="${(myName || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="พิมพ์ชื่อแล้วเลือกจากรายการ เช่น อ.ก, อ.ข">
-        ${coordDatalistHTML('fileTrackingCoordList')}
+        ${coordComboHTML('fileTrackingCoord', myName)}
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">หมายเหตุ</label><input name="remarks" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       ${trackingBackfillCheckboxHTML()}
