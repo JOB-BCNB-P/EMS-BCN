@@ -2781,7 +2781,8 @@ function scholarshipRosterHTML() {
   const roundDonut = svgDonut(toSegs(countBy(rows, 'admission_round', 'ไม่ระบุรอบ')), 'คน');
   const projDonut = svgDonut(toSegs(countBy(rows, 'admission_project', 'ไม่ระบุโครงการ')), 'คน');
 
-  const body = rows.map(s => { const np = studentNameParts(s); return `<tr class="border-t hover:bg-gray-50">
+  const body = rows.map(s => {
+    const np = studentNameParts(s); return `<tr class="border-t hover:bg-gray-50">
     <td class="px-3 py-2 font-mono text-primary">${s.student_id || ''}</td>
     <td class="px-3 py-2">${np.prefix || ''}</td>
     <td class="px-3 py-2 font-medium">${np.first || ''}</td>
@@ -2792,7 +2793,8 @@ function scholarshipRosterHTML() {
     <td class="px-3 py-2">${s.scholarship || '-'}</td>
     <td class="px-3 py-2">${s.admission_project || '-'}</td>
     <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs ${stColor(norm(s.status))}">${s.status || ''}</span></td>
-  </tr>`; }).join('');
+  </tr>`;
+  }).join('');
   return `<details id="rosterCard"${detailsOpen('rosterCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
       <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="filter" class="w-5 h-5 text-primary"></i>รายชื่อตามทุนต้นสังกัด / โครงการ / รอบการสมัคร <span class="text-xs font-normal text-gray-400">(เฉพาะที่กำลังศึกษา — ไม่รวมผู้สำเร็จการศึกษา/ลาออก/พัก/โอนย้าย)</span></span>
@@ -2879,6 +2881,12 @@ function gpaxAnalyticsHTML() {
   </div>`).join('');
 
   const scopeLabel = sel === '__grad' ? 'ผู้สำเร็จการศึกษา' : (sel ? 'ชั้นปีที่ ' + sel : 'ทุกชั้นปี');
+  // แถบกรองตามชั้นปี (ย้ายมาไว้บนการ์ดภาพรวมผลการเรียน) — ควบคุม _gradeYearLevel เดียวกับตัวเลือกนักศึกษา
+  const _yb = (val, label) => `<button onclick="APP.filters._gradeYearLevel='${val}';APP.filters._gradeStudent='';APP.filters._gradeSearch='';APP.pagination.page=1;renderCurrentPage()" class="px-4 py-2 rounded-xl text-sm font-medium ${sel === val ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${label}</button>`;
+  const gradeYearBar = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="layers" class="w-4 h-4 inline mr-1"></i>กรองตามชั้นปี</label>
+    <div class="flex flex-wrap gap-2">${_yb('', 'ทุกชั้นปี')}${['1', '2', '3', '4'].map(y => _yb(y, 'ชั้นปี ' + y)).join('')}${_yb('__grad', 'ผู้สำเร็จการศึกษา')}</div>
+  </div>`;
   const rankRows = withGpax.map((r, i) => {
     const g = r.gpax;
     const c = g < 2.30 ? 'text-red-600 font-bold' : g >= 3.50 ? 'text-emerald-600 font-bold' : 'text-gray-800';
@@ -2892,7 +2900,7 @@ function gpaxAnalyticsHTML() {
     </tr>`;
   }).join('');
 
-  return `<details id="gpaxCard"${detailsOpen('gpaxCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+  return `${gradeYearBar}<details id="gpaxCard"${detailsOpen('gpaxCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
     <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
       <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>ภาพรวมผลการเรียน (GPAx) <span class="text-sm font-normal text-gray-500">— ${scopeLabel} · ${withGpax.length} คน${noGrade ? ' (ยังไม่มีเกรด ' + noGrade + ' คน)' : ''}</span> <span class="text-xs font-normal text-gray-400">— คลิกเพื่อดู</span></span>
       <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
@@ -2999,7 +3007,8 @@ function gradesPage() {
         </select>
         ${selectedAdvisor ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>แสดงเฉพาะนักศึกษาในความดูแลของ ${selectedAdvisor} (${studentList.length} คน)</p>` : ''}
       </div>`;
-      advisorSelector = `${yearLevelSelector}${batchSelector}${advisorDiv}`;
+      // ย้ายตัวกรองชั้นปีไปไว้บนการ์ดภาพรวมผลการเรียนแล้ว (gradeYearBar ใน gpaxAnalyticsHTML)
+      advisorSelector = `${batchSelector}${advisorDiv}`;
     }
 
     // Store student list for search
@@ -3665,11 +3674,13 @@ function engAnalyticsHTML() {
   const yearSel = `<select onchange="APP.filters._engYear=this.value;renderCurrentPage()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white"><option value="">ทุกปีการศึกษา</option>${engYears.map(y => `<option value="${y}" ${selYear === y ? 'selected' : ''}>ปี ${y}</option>`).join('')}</select>`;
   const attemptSel = `<select onchange="APP.filters._engAttempt=this.value;renderCurrentPage()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white"><option value="">ทุกครั้งที่สอบ</option>${attempts.map(a => `<option value="${a}" ${selAttempt === a ? 'selected' : ''}>ครั้งที่ ${a}</option>`).join('')}</select>`;
 
-  return `<div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-      <h3 class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>วิเคราะห์ผลสอบภาษาอังกฤษ (PBRI)</h3>
-      <div class="flex flex-wrap items-center gap-2">${yearSel}${attemptSel}</div>
-    </div>
+  return `<details id="engAnalyticsCard"${detailsOpen('engAnalyticsCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+    <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+      <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>วิเคราะห์ผลสอบภาษาอังกฤษ (PBRI)</span>
+      <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+    </summary>
+    <div class="px-5 pb-5">
+    <div class="flex flex-wrap items-center gap-2 mb-4">${yearSel}${attemptSel}</div>
     <div class="mb-4">${yrBtns}</div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
@@ -3685,7 +3696,8 @@ function engAnalyticsHTML() {
       <p class="text-sm font-semibold text-gray-600 mb-3">สัดส่วนการเข้าสอบ (เฉพาะข้อสอบ PBRI — ไม่นับผลจากภายนอก) <span class="font-normal text-gray-400">· ไม่เข้าสอบ/ไม่มีผล ${cNoAttend} คน จาก ${scopeStudents.length} คน</span></p>
       ${attendDonut}
     </div>
-  </div>`;
+    </div>
+  </details>`;
 }
 
 // เกณฑ์การผ่านภาษาอังกฤษ (PBRI/สบช.) — แสดง 2 เกณฑ์ เก่า (รุ่น 78–80) / ใหม่ (รุ่น 81+)
@@ -3971,8 +3983,12 @@ function engResultsPage() {
     }
 
     summaryTableHtml = `
-    <div class="bg-white rounded-2xl border border-blue-100 p-5 mb-4">
-      <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>สรุปผลสอบภาษาอังกฤษ${scopeLabel ? ` <span class="text-sm font-normal text-gray-500">— ${scopeLabel}</span>` : ''}</h3>
+    <details id="engSummaryCard"${detailsOpen('engSummaryCard')} ontoggle="rememberDetails(this)" class="bg-white rounded-2xl border border-blue-100 mb-4">
+      <summary class="cursor-pointer select-none p-5 flex items-center justify-between">
+        <span class="font-bold text-gray-800 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>สรุปผลสอบภาษาอังกฤษ${scopeLabel ? ` <span class="text-sm font-normal text-gray-500">— ${scopeLabel}</span>` : ''}</span>
+        <i data-lucide="chevron-down" class="chev w-5 h-5 text-gray-400"></i>
+      </summary>
+      <div class="px-5 pb-5">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="relative group cursor-default">
           ${statCard('check-circle', 'สอบผ่าน', passedCount, 'คน', 'bg-green-500')}
@@ -3984,15 +4000,16 @@ function engResultsPage() {
         </div>
       </div>
       ${perYearCardsHtml}
-    </div>`;
+      </div>
+    </details>`;
   }
 
   return `<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="text-xl font-bold text-gray-800"><i data-lucide="languages" class="w-6 h-6 inline mr-2"></i>ผลสอบภาษาอังกฤษ</h2>
     ${isAdmin ? `<div class="flex gap-2"><button onclick="showAddEngModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primaryDark text-sm"><i data-lucide="plus" class="w-4 h-4"></i>เพิ่มผลสอบ</button>${csvUploadBtn('eng_result', 'student_id,eng_score,eng_type,eng_attempt,eng_date,eng_status,academic_year')}</div>` : ''}
   </div>
-  ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? engAnalyticsHTML() : ''}
   ${engCriteriaHTML()}
+  ${['admin', 'academic', 'registrar', 'executive'].includes(APP.currentRole) ? engAnalyticsHTML() : ''}
   ${summaryTableHtml}
   ${yearPickerHtml}
   ${studentSelector}
@@ -8191,7 +8208,7 @@ function loginRoleGroup(role) {
 }
 // กราฟเส้น (SVG) หลายชุด + แถบ Low–High (band) — months:[{key,label}], series:[{name,color,values[]}]
 function svgLineChart(months, series) {
-  const W = 760, H = 300, padL = 38, padR = 14, padT = 14, padB = 50;
+  const W = 760, H = 224, padL = 38, padR = 14, padT = 12, padB = 40;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const n = months.length;
   const allVals = series.reduce((a, s) => a.concat(s.values), [0]);
@@ -8219,7 +8236,7 @@ function svgLineChart(months, series) {
     s.values.forEach((v, i) => { lines += `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3.5" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${s.name} · ${months[i].label}: ${v} ครั้ง</title></circle>`; });
   });
   const legend = `<div class="flex flex-wrap gap-4 mt-2 text-xs text-gray-600">${series.map(s => `<span class="inline-flex items-center gap-1"><span style="width:14px;height:3px;background:${s.color};display:inline-block;border-radius:2px"></span>${s.name}</span>`).join('')}<span class="inline-flex items-center gap-1"><span style="width:14px;height:10px;background:#93c5fd;opacity:.35;display:inline-block;border-radius:2px"></span>แถบต่ำสุด–สูงสุด (Low–High band)</span></div>`;
-  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:560px">${grid}${band}${lines}${xlab}</svg></div>${legend}`;
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:640px;min-width:480px;display:block">${grid}${band}${lines}${xlab}</svg></div>${legend}`;
 }
 
 function loginLogPage() {
