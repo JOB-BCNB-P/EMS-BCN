@@ -476,7 +476,8 @@ function buildSidebar() {
   if (p.fileTracking) trackSub.push({ id: 'fileTracking', label: 'ส่งแฟ้มรายวิชา' });
   if (trackSub.length) items.push({ id: 'trackingGroup', icon: 'clipboard-list', label: 'ติดตามการส่ง', sub: trackSub });
 
-  if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
+  // ระบบการลาของนักศึกษา ถูกถอดออกจากทุกบทบาทแล้ว (ย้ายไปทำเป็นระบบแยกต่างหาก)
+  // if (p.leave) items.push({ id: 'leave', icon: 'calendar-off', label: 'ระบบการลาของนักศึกษา' });
   // แบบประเมินความพึงพอใจ — ผู้ใช้ทั่วไป (7 บทบาท) ทำแบบประเมิน, admin จัดการ+ดูสรุปผล
   if (p.survey) items.push({ id: 'survey', icon: 'clipboard-check', label: 'แบบประเมินความพึงพอใจ' });
   if (p.surveyManage) items.push({ id: 'surveyManage', icon: 'clipboard-check', label: 'แบบประเมินความพึงพอใจ' });
@@ -890,6 +891,7 @@ function closeModal() {
 // คืนรายการใบลาที่ "รอ" การอนุมัติของ user ปัจจุบัน (ตามบทบาท teacher/classTeacher/executive)
 // หลังจาก user กดอนุมัติ → leave นั้นจะไม่อยู่ในลิสต์นี้อีก → bell count ลดอัตโนมัติ
 function getPendingLeavesForCurrentRole() {
+  return []; // ระบบการลาถูกถอดออกจากทุกบทบาทแล้ว — ไม่แจ้งเตือนการอนุมัติการลาอีก
   const role = APP.currentRole;
   if (role !== 'teacher' && role !== 'classTeacher' && role !== 'executive') return [];
   let leaves = getDataByType('leave').filter(l => l.leave_status !== 'ปฏิเสธ');
@@ -1279,6 +1281,13 @@ function renderHomeroomHTML(homeroom) {
   if (parts.length <= 1) return parts[0] || '';
   return parts.map(p => `<span class="block leading-tight">• ${p}</span>`).join('');
 }
+// หมายเหตุ: นักศึกษาที่กำลังศึกษาแต่ค่า "ชั้นปี" ไม่ใช่ 1–4 (เว้นว่าง/พิมพ์ผิด) — จึงไม่ถูกนับในการ์ดรายชั้นปี
+// ทำให้ผลรวมรายชั้นปีน้อยกว่ายอดรวมนักศึกษาทั้งหมด
+function unassignedYearNote(students) {
+  const a = activeStudents(students);
+  const n = a.length - a.filter(s => ['1', '2', '3', '4'].includes(norm(s.year_level))).length;
+  return n ? `<p class="text-xs text-amber-600 -mt-3 mb-6"><i data-lucide="alert-triangle" class="w-3 h-3 inline mr-0.5"></i>มี ${n} คนที่กำลังศึกษาแต่ยังไม่ได้ระบุชั้นปี (1–4) จึงไม่ถูกนับในการ์ดรายชั้นปี (ผลรวมรายชั้นปีจะน้อยกว่ายอดรวม ${n} คน) — โปรดตรวจ/แก้ค่า "ชั้นปี" ในข้อมูลนักศึกษาให้ครบ</p>` : '';
+}
 // การ์ดนักศึกษารายชั้นปี (ใช้ทั้งแดชบอร์ด admin และประธานสาขา)
 function yearLevelCardsHTML(students, engPassRecords, canEdit) {
   const _hr = getHomeroomNumbers();
@@ -1366,7 +1375,8 @@ function dashboardPage() {
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${yearLevelCardsHTML(students, engPassRecords, _canEditHr)}
-    </div>`;
+    </div>
+    ${unassignedYearNote(students)}`;
   } else if (r === 'deptHead') {
     stats = `
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -1376,7 +1386,8 @@ function dashboardPage() {
     <h3 class="font-bold mb-3 text-gray-800">นักศึกษารายชั้นปี</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       ${yearLevelCardsHTML(students, engPassRecords, false)}
-    </div>`;
+    </div>
+    ${unassignedYearNote(students)}`;
   } else if (r === 'teacher') {
     const myStudents = activeStudents(students).filter(s => s.advisor === APP.currentUser.name);
     const myEngPassUnique = [...new Set(allEngResults.filter(e => e.eng_status === 'ผ่าน' && myStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
@@ -1423,41 +1434,7 @@ function dashboardPage() {
       </div>
     </div>`;
   } else if (r === 'student' && APP.currentUser.data) {
-    const myLeaves = getDataByType('leave').filter(l => l.name === APP.currentUser.data.name);
-    const subjectMap = {};
-    myLeaves.forEach(l => {
-      const subj = l.subject_name || 'ไม่ระบุ';
-      if (!subjectMap[subj]) subjectMap[subj] = { hours: 0, percent: 0, count: 0 };
-      subjectMap[subj].hours += Number(l.leave_hours) || 0;
-      subjectMap[subj].count++;
-      const pct = Number(l.leave_percent) || 0;
-      if (pct > subjectMap[subj].percent) subjectMap[subj].percent = pct;
-    });
-    const leaveRows = Object.entries(subjectMap).map(([subj, info]) => {
-      const pct = info.percent;
-      const colorClass = pct >= 20 ? 'bg-red-100 text-red-700 font-bold' : pct >= 15 ? 'bg-yellow-100 text-yellow-700 font-semibold' : 'bg-green-100 text-green-700';
-      return `<tr class="border-t hover:bg-gray-50">
-        <td class="px-4 py-2 text-sm">${subj}</td>
-        <td class="px-4 py-2 text-sm text-center">${info.hours}</td>
-        <td class="px-4 py-2 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs ${colorClass}">${pct}%</span></td>
-        <td class="px-4 py-2 text-sm text-center">${info.count} ครั้ง</td>
-      </tr>`;
-    }).join('');
-    stats = `
-    <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">ข้อมูลนักศึกษา</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>
-    ${Object.keys(subjectMap).length ? `
-    <div class="bg-white rounded-2xl p-5 border border-blue-100 mb-6">
-      <h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-5 h-5 text-primary"></i>เปอร์เซ็นต์การลาแต่ละรายวิชา</h3>
-      <div class="overflow-x-auto"><table class="w-full text-sm">
-        <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รายวิชา</th><th class="px-4 py-2 font-semibold text-center">ชม.ลารวม</th><th class="px-4 py-2 font-semibold text-center">%ลา</th><th class="px-4 py-2 font-semibold text-center">จำนวนครั้ง</th></tr></thead>
-        <tbody>${leaveRows}</tbody>
-      </table></div>
-      <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> ≥ 20% เกินเกณฑ์</span>
-        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-yellow-500"></span> 15-19% ใกล้เกินเกณฑ์</span>
-        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span> < 15% ปกติ</span>
-      </div>
-    </div>` : '<div class="bg-blue-50 rounded-2xl p-4 mb-6 text-sm text-blue-700"><i data-lucide="info" class="w-4 h-4 inline"></i> ยังไม่มีข้อมูลการลา</div>'}`;
+    stats = `<div class="bg-white rounded-2xl p-5 border border-blue-100 mb-4"><p class="text-sm text-gray-500">ข้อมูลนักศึกษา</p><p class="font-bold text-lg">${APP.currentUser.name}</p></div>`;
   }
 
   return `<h2 class="text-xl font-bold text-gray-800 mb-4"><i data-lucide="layout-dashboard" class="w-6 h-6 inline mr-2"></i>หน้าหลัก</h2>
@@ -8626,7 +8603,7 @@ function passwordLogSection() {
 
 function settingsPage() {
   const roles = ['admin', 'academic', 'registrar', 'deptHead', 'executive', 'teacher', 'classTeacher', 'student'];
-  const modules = ['dashboard', 'students', 'teachers', 'advisors', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'leave', 'survey'];
+  const modules = ['dashboard', 'students', 'teachers', 'advisors', 'specialTeachers', 'alumni', 'schedule', 'subjects', 'grades', 'engResults', 'teacherDirectory', 'services', 'tracking', 'resultTracking', 'gradeTracking', 'fileTracking', 'survey'];
   const moduleLabels = { dashboard: 'หน้าหลัก', students: 'ข้อมูลนักศึกษา', teachers: 'ข้อมูลอาจารย์', advisors: 'ข้อมูลอาจารย์ที่ปรึกษา', specialTeachers: 'ข้อมูลอาจารย์พิเศษ', alumni: 'ข้อมูลศิษย์เก่า', schedule: 'ปฏิทินกิจกรรมวิชาการ', subjects: 'รายวิชาที่เปิดสอน', grades: 'ผลการเรียน', engResults: 'ผลสอบ ENG', teacherDirectory: 'ทำเนียบอาจารย์', services: 'บริการอื่นๆ', tracking: 'ติดตามการส่งรายละเอียดรายวิชา', resultTracking: 'ติดตามการส่งผลการดำเนินงานรายวิชา', gradeTracking: 'ติดตามการส่งเกรดรายวิชา', fileTracking: 'ติดตามส่งแฟ้มรายวิชา', leave: 'ระบบการลาของนักศึกษา', survey: 'แบบประเมินความพึงพอใจ' };
   const roleLabels = { admin: 'ผู้ดูแลระบบ', academic: 'เจ้าหน้าที่งานวิชาการ', registrar: 'งานทะเบียน', deptHead: 'ประธานสาขา', executive: 'ผู้บริหาร', teacher: 'อาจารย์', classTeacher: 'อ.ประจำชั้น', student: 'นักศึกษา' };
 
