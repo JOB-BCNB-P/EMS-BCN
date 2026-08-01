@@ -275,10 +275,17 @@ function getActiveConfig() {
   };
 }
 
-// Boot
-(() => {
+// Boot — ต้องผ่านด่านล็อกอิน Google (@bcn.ac.th) ก่อน จึงจะเชื่อมต่อฐานข้อมูล
+function __emsBoot() {
   const cfg = getActiveConfig();
   initGSheet(cfg.spreadsheetId, cfg.scriptUrl);
+}
+(() => {
+  if (window.EMSAuth) {
+    EMSAuth.showGate(__emsBoot);   // ถ้ายังไม่ล็อกอินโดเมน จะแสดงหน้าลงชื่อเข้าด้วย Google ก่อน
+  } else {
+    __emsBoot();
+  }
 })();
 
 // ======================== LOGIN ========================
