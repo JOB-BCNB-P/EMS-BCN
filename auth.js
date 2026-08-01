@@ -9,7 +9,7 @@
 
    ▼▼▼ ตั้งค่าครั้งเดียว: ใส่ OAuth Client ID (Web application) ที่สร้างจาก Google Cloud Console ▼▼▼
    =================================================================== */
-var DEFAULT_CLIENT_ID = '';   // << วาง Client ID ที่นี่ เช่น '1234567890-abcd.apps.googleusercontent.com'
+var DEFAULT_CLIENT_ID = '284853368755-27oi5mn1po4aog33vgbbfprh52auq4e5.apps.googleusercontent.com';   // OAuth Client ID (Web) โปรเจกต์ EMSbcn
 var ALLOWED_DOMAIN = 'bcn.ac.th';
 
 (function (global) {
