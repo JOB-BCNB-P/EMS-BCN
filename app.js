@@ -242,6 +242,19 @@ async function refreshData() {
   showToast('รีเฟรชข้อมูลสำเร็จ');
 }
 
+// รีเฟรชข้อมูลล่าสุดแบบเงียบ (ไม่มี toast) — ใช้ตอนเปิดกระดิ่ง/เข้าหน้าหลัก เพื่อให้ประกาศที่ admin ลบ/ยกเลิกหายไปโดยไม่ต้องรีเฟรชเอง
+// มี throttle 60 วินาที กันเรียกถี่เกินไป (โควตา Apps Script)
+var _lastSharedRefresh = 0;
+async function autoRefreshShared(force) {
+  const now = Date.now();
+  if (!force && now - _lastSharedRefresh < 60000) return;
+  _lastSharedRefresh = now;
+  try {
+    if (APP.currentRole === 'student') { if (window.GSheetDB && GSheetDB.studentRefresh) await GSheetDB.studentRefresh(); }
+    else if (window.GSheetDB && GSheetDB.refresh) await GSheetDB.refresh();
+  } catch (_) { }
+}
+
 async function debugConnection() {
   const result = await GSheetDB.debugTab('user');
   const totalData = APP.allData.length;
@@ -571,6 +584,8 @@ function navigateTo(page) {
     n.classList.toggle('font-semibold', n.dataset.page === page);
   });
   renderCurrentPage();
+  // เข้าหน้าที่แสดงประกาศ/ปฏิทิน → ดึงข้อมูลล่าสุดแบบเงียบ (มี throttle) เพื่อให้ประกาศที่ถูกลบ/ยกเลิกหายไปเอง
+  if (['dashboard', 'schedule', 'services'].indexOf(page) !== -1) autoRefreshShared();
   if (APP.sidebarOpen) toggleSidebar();
 }
 
@@ -1029,9 +1044,11 @@ async function clearTrackingBacklog() {
   });
 }
 
-function showNotifications() {
+async function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
-  renderNotifications();
+  renderNotifications();                 // แสดงทันทีจากข้อมูลปัจจุบัน
+  await autoRefreshShared();              // ดึงข้อมูลล่าสุด (มี throttle) — ประกาศที่ถูกลบ/ยกเลิกจะหายไป
+  renderNotifications();                  // เรนเดอร์ซ้ำด้วยข้อมูลใหม่
   // เคลียร์เฉพาะส่วน "ประกาศ" เมื่อเปิดดู — ส่วนใบลา/ติดตามจะค้างไว้จนกว่าจะอนุมัติจริง
   const seenCount = activeAnnouncements().length;
   try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
@@ -6722,9 +6739,9 @@ function servicesPage() {
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
       <div class="flex items-center justify-between mb-4"><h3 class="font-bold">ข่าวสาร/แจ้งเตือน</h3><button onclick="showAddAnnouncementModal()" class="text-primary hover:underline text-sm">+ เพิ่มประกาศ</button></div>
-      ${announcements.length ? announcements.map(a => `<div class="p-3 bg-surface rounded-xl mb-2 flex justify-between items-start">
-        <div><p class="font-medium text-sm">${a.announcement_title || ''}</p><p class="text-xs text-gray-500">${a.announcement_date || ''} · ${a.event_type || 'ทั่วไป'} · <span class="${annParseRoles(a.roles).length ? 'text-teal-600' : 'text-gray-400'}">${annParseRoles(a.roles).length ? annParseRoles(a.roles).map(r => ANN_ROLE_LABEL[r] || r).join('/') : 'ทุกบทบาท'}</span></p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content || '').substring(0, 80)}</p></div>
-        <div class="flex gap-1 ml-2"><button onclick="showEditAnnouncementModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+      ${announcements.length ? announcements.map(a => `<div class="p-3 bg-surface rounded-xl mb-2 flex justify-between items-start ${annIsCancelled(a) ? 'opacity-60' : ''}">
+        <div><p class="font-medium text-sm">${a.announcement_title || ''}${annIsCancelled(a) ? ' <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full align-middle">ยกเลิกแล้ว</span>' : ''}${norm(a.year_level) ? ' <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full align-middle">ชั้นปี ' + norm(a.year_level) + '</span>' : ''}</p><p class="text-xs text-gray-500">${a.announcement_date || ''} · ${a.event_type || 'ทั่วไป'} · <span class="${annParseRoles(a.roles).length ? 'text-teal-600' : 'text-gray-400'}">${annParseRoles(a.roles).length ? annParseRoles(a.roles).map(r => ANN_ROLE_LABEL[r] || r).join('/') : 'ทุกบทบาท'}</span></p><p class="text-xs text-gray-600 mt-1">${(a.announcement_content || '').substring(0, 80)}</p></div>
+        <div class="flex gap-1 ml-2"><button onclick="toggleAnnouncementCancel('${a.__backendId}')" class="${annIsCancelled(a) ? 'text-green-500 hover:text-green-700' : 'text-amber-500 hover:text-amber-700'}" title="${annIsCancelled(a) ? 'กู้คืนประกาศ' : 'ยกเลิกประกาศ (ซ่อนจากผู้ใช้ทุกคน)'}"><i data-lucide="${annIsCancelled(a) ? 'rotate-ccw' : 'ban'}" class="w-4 h-4"></i></button><button onclick="showEditAnnouncementModal('${a.__backendId}')" class="text-blue-400 hover:text-blue-600" title="แก้ไข"><i data-lucide="pencil" class="w-4 h-4"></i></button><button onclick="deleteRecord('${a.__backendId}')" class="text-red-400 hover:text-red-600" title="ลบ"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
       </div>`).join('') : '<p class="text-gray-400 text-center py-6 text-sm">ไม่มีประกาศ</p>'}
     </div>
     <div class="bg-white rounded-2xl p-5 border border-blue-100">
@@ -6762,6 +6779,15 @@ function annNameKey(name) {
   }
   return n;
 }
+// ชั้นปีเป้าหมายของประกาศ — ใช้ฟิลด์ year_level ถ้ามี ไม่งั้นแกะจากหัวข้อ/เนื้อหา ("ชั้นปีที่ X"); "ทุกชั้นปี" = ว่าง (เห็นทุกชั้นปี)
+function annYearLevel(a) {
+  const y = norm(a && a.year_level);
+  if (y) return y;
+  const text = String((a && a.announcement_title) || '') + ' ' + String((a && a.announcement_content) || '');
+  if (/ทุกชั้นปี/.test(text)) return '';
+  const m = text.match(/ชั้นปีที่\s*([1-4])/);
+  return m ? m[1] : '';
+}
 function annVisibleTo(a, role) {
   // ประกาศที่เจาะจงรายบุคคล (เช่น แจ้งผู้คุมสอบ) — เห็นเฉพาะคนที่มีชื่อ + ผู้ดูแล/งานวิชาการ
   const targets = annParseNames(a && a.target_names);
@@ -6771,10 +6797,21 @@ function annVisibleTo(a, role) {
     return !!myKey && targets.some(n => annNameKey(n) === myKey);
   }
   const rs = annParseRoles(a && a.roles);
-  return rs.length === 0 || rs.indexOf(role) !== -1;
+  if (rs.length !== 0 && rs.indexOf(role) === -1) return false;
+  // นักศึกษา: เห็นเฉพาะประกาศของชั้นปีตัวเอง หรือประกาศที่ตั้งเป็น "ทุกชั้นปี"
+  if (role === 'student') {
+    const yr = norm((APP.currentUser && APP.currentUser.data && APP.currentUser.data.year_level) || '');
+    const ayl = annYearLevel(a);
+    if (yr && ayl && ayl !== yr) return false;
+  }
+  return true;
 }
-// ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge)
-function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => annVisibleTo(a, role)); }
+// ประกาศที่ถูก "ยกเลิก" โดย admin — ซ่อนจากทุก user (ยังเก็บแถวไว้ในฐานข้อมูล)
+function annIsCancelled(a) {
+  return ['✓', '✔', 'true', 'yes', 'y', '1', 'ยกเลิก', 'cancel', 'cancelled'].indexOf(String((a && a.ann_cancelled) || '').trim().toLowerCase()) !== -1;
+}
+// ประกาศที่บทบาทผู้ใช้ปัจจุบันมีสิทธิ์เห็น (ใช้กับกระดิ่ง + หน้าหลัก + badge) — ไม่รวมประกาศที่ถูกยกเลิก
+function visibleAnnouncements() { const role = APP.currentRole; return getDataByType('announcement').filter(a => !annIsCancelled(a) && annVisibleTo(a, role)); }
 // ประกาศที่ "ยังไม่เลยกำหนด" — วันประกาศ/กำหนดการต้องไม่เก่ากว่าวันนี้ (ใช้กับกระดิ่งแจ้งเตือน)
 function annNotExpired(a) {
   const d = norm(a && a.announcement_date);
@@ -9043,7 +9080,7 @@ function filterScheduleForStudent(records) {
   return records.filter(e => {
     if (!norm(e.schedule_date)) {                           // ประกาศ (ไม่ใช่รายการปฏิทิน)
       if (!yr) return true;                                 // ไม่ทราบชั้นปีนักศึกษา → แสดงไว้ก่อน
-      const ayl = norm(e.year_level);
+      const ayl = annYearLevel(e);
       return !ayl || ayl === yr;                            // ประกาศ: เฉพาะชั้นปีตัวเอง หรือ ทุกชั้นปี
     }
     const isExam = norm(e.schedule_type).includes('สอบ');
@@ -9096,7 +9133,7 @@ function renderCalendar(containerId) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-  const events = filterScheduleForStudent([...getDataByType('announcement'), ...getDataByType('schedule')].filter(e => !isAutoScheduleAnnouncement(e)));
+  const events = filterScheduleForStudent([...getDataByType('announcement'), ...getDataByType('schedule')].filter(e => !isAutoScheduleAnnouncement(e) && !annIsCancelled(e)));
   const isThisMonth = (year === now.getFullYear() && month === now.getMonth());
 
   let h = `<div class="flex items-center justify-between mb-3">
@@ -9191,7 +9228,7 @@ function showCalendarDayModal(dateStr, idx) {
   const canManage = APP.currentRole === 'admin' || APP.currentRole === 'academic' || APP.currentRole === 'executive' || APP.currentRole === 'registrar';
   const events = filterScheduleForStudent([...getDataByType('schedule'), ...getDataByType('announcement')]
     .filter(e => (e.schedule_date || e.announcement_date || '').startsWith(dateStr))
-    .filter(e => !isAutoScheduleAnnouncement(e)));
+    .filter(e => !isAutoScheduleAnnouncement(e) && !annIsCancelled(e)));
   const dateTh = (typeof toBuddhistDate === 'function' && toBuddhistDate(dateStr)) || dateStr;
   if (!events.length) { showModal('รายการวันที่ ' + dateTh, '<p class="text-center text-gray-400 py-6">ไม่มีรายการในวันนี้</p>'); return; }
   if (idx < 0) idx = 0; if (idx >= events.length) idx = events.length - 1;
@@ -9368,6 +9405,22 @@ async function deleteRecord(id) {
     hideLoadingToast();
     if (r.isOk) { showToast('ลบสำเร็จ'); closeModal(); renderCurrentPage() } else { showToast('เกิดข้อผิดพลาด', 'error'); closeModal() }
   });
+}
+
+// ยกเลิก/กู้คืนประกาศ (soft cancel) — ประกาศที่ยกเลิกจะซ่อนจากทุก user แต่ยังเก็บแถวไว้
+async function toggleAnnouncementCancel(id) {
+  const rec = APP.allData.find(d => d.__backendId === id); if (!rec) return;
+  const willCancel = !annIsCancelled(rec);
+  const doIt = async () => {
+    showToast(willCancel ? 'กำลังยกเลิกประกาศ...' : 'กำลังกู้คืนประกาศ...', 'loading');
+    rec.ann_cancelled = willCancel ? '✓' : '';
+    const r = await GSheetDB.update(rec);
+    hideLoadingToast();
+    if (r.isOk) { showToast(willCancel ? 'ยกเลิกประกาศแล้ว — ซ่อนจากผู้ใช้ทุกคน' : 'กู้คืนประกาศแล้ว'); closeModal(); renderCurrentPage(); }
+    else { showToast('เกิดข้อผิดพลาด', 'error'); }
+  };
+  if (willCancel) showModal('ยืนยันการยกเลิกประกาศ', '<p class="text-center text-gray-600">ยกเลิกประกาศนี้? ประกาศจะถูกซ่อนจากผู้ใช้ทุกคน (ยังเก็บไว้ในระบบและกู้คืนได้ภายหลัง)</p>', doIt);
+  else doIt();
 }
 
 // หาประกาศแจ้งเตือนที่ระบบสร้างจากรายการปฏิทิน (จับคู่ด้วยวันที่ + ชื่อวิชา)
