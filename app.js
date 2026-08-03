@@ -2450,6 +2450,12 @@ function scheduleTypeInput(name, selectedValue) {
     <p class="text-xs text-gray-400 mt-1">พิมพ์ประเภทใหม่ได้เอง ไม่จำเป็นต้องเลือกจากรายการ</p>`;
 }
 
+// บังคับกรอกรายวิชาเฉพาะการสอบหลัก 4 ประเภท (กลางภาค/ซ่อมกลางภาค/ปลายภาค/ซ่อมปลายภาค)
+// ประเภทอื่น (เช่น การสอบ Pretest, กิจกรรม, วันหยุด หรือประเภทที่พิมพ์เอง) ไม่ต้องระบุรายวิชาก็ได้
+function schedRequiresSubject(type) {
+  return ['สอบกลางภาค', 'สอบซ่อมกลางภาค', 'สอบปลายภาค', 'สอบซ่อมปลายภาค'].indexOf((type || '').trim()) !== -1;
+}
+
 // ---- ปฏิทินกิจกรรมวิชาการ: ฟอร์ม + ฟิลด์การสอบแบบไดนามิก + เลือกหลายวิชา ----
 // ตัวเลือกรายวิชา (จากชีต subject) กรองตามชั้นปีที่เลือก — ไม่ซ้ำชื่อวิชา
 function schedSubjectOptionsHTML(yearLevel) {
@@ -2576,6 +2582,7 @@ function onScheduleTypeChange(el) {
   if (sc1) sc1.disabled = !isExam;
   if (sp) sp.disabled = !isExam;
   const rh = document.getElementById('schedRoomHint'); if (rh) rh.textContent = isExam ? '(ห้องสอบที่ 1)' : '';
+  const mreq = document.getElementById('schedMultiReq'); if (mreq) mreq.style.display = schedRequiresSubject((el && el.value) || '') ? '' : 'none';
   updateSchedSplitState();
   if (isExam) { renderSchedSubjectChips(); renderSchedProctorChips(1); if (window.lucide) lucide.createIcons(); }
   // เมื่อเพิ่งเปลี่ยนประเภทเป็น "การสอบ" → เปิดแจ้งเตือน + เลือกบทบาทเริ่มต้นให้ (ผู้ใช้ปรับเองได้)
@@ -2629,11 +2636,11 @@ function scheduleFormBody(s, isNew) {
   return `
     <div><label class="block text-xs text-gray-600 mb-1">ประเภท * <span class="font-normal text-gray-400">(เลือกก่อน)</span></label>${scheduleTypeInput('schedule_type', s.schedule_type || '')}</div>
     <div id="schedSubjectSingleWrap" class="${isExam ? 'hidden' : ''}">
-      <label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม *</label>
+      <label class="block text-xs text-gray-600 mb-1">รายวิชา/กิจกรรม <span class="font-normal text-gray-400">(ระบุหรือไม่ก็ได้)</span></label>
       <input name="subject_name" id="schedSubjectSingle" value="${subjVal}" ${isExam ? 'disabled' : ''} class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="ชื่อรายวิชาหรือกิจกรรม">
     </div>
     <div id="schedSubjectMultiWrap" class="${isExam ? '' : 'hidden'}">
-      <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอบ * <span class="font-normal text-gray-400">(เลือกได้หลายวิชา)</span></label>
+      <label class="block text-xs text-gray-600 mb-1">รายวิชาที่สอบ <span id="schedMultiReq" class="text-red-500"${schedRequiresSubject(s.schedule_type) ? '' : ' style="display:none"'}>*</span> <span class="font-normal text-gray-400">(เลือกได้หลายวิชา)</span></label>
       <input type="hidden" name="subject_name" id="schedSubjectMultiValue" value="${subjVal}" ${isExam ? '' : 'disabled'}>
       <div class="flex gap-2 items-stretch">
         <select id="schedSubjectSelect" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm">${schedSubjectOptionsHTML(s.year_level)}</select>
@@ -2762,7 +2769,7 @@ function showAddScheduleModal() {
     await withLoading(e.target, async () => {
       const fd = new FormData(e.target);
       if (!(fd.get('schedule_type') || '').trim()) { showToast('กรุณาระบุประเภท', 'error'); return; }
-      if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
+      if (schedRequiresSubject(fd.get('schedule_type')) && !(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชาที่สอบ', 'error'); return; }
       const base = { type: 'schedule', created_at: new Date().toISOString() }; fd.forEach((v, k) => base[k] = v);
       // รวมวันที่: วันหลัก + วันที่เพิ่มเติม (จัดหลายวัน)
       const dates = [];
@@ -9458,7 +9465,7 @@ function showEditScheduleModal(id) {
   document.getElementById('editScheduleForm').onsubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    if (!(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชา/กิจกรรม', 'error'); return; }
+    if (schedRequiresSubject(fd.get('schedule_type')) && !(fd.get('subject_name') || '').trim()) { showToast('กรุณาระบุรายวิชาที่สอบ', 'error'); return; }
     // อ่านค่าการแจ้งเตือนก่อนปิด modal
     const notifyEl = document.getElementById('schedNotify');
     const doNotify = !!(notifyEl && notifyEl.checked);
