@@ -2441,11 +2441,13 @@ function schedulePage() {
 }
 
 function scheduleTypeInput(name, selectedValue) {
+  const existing = [...new Set(getDataByType('schedule').map(s => (s.schedule_type || '').trim()).filter(Boolean))];
   const defaults = ['สอบกลางภาค', 'สอบซ่อมกลางภาค', 'สอบปลายภาค', 'สอบซ่อมปลายภาค', 'การสอบ Pretest', 'กิจกรรม', 'วันหยุด'];
-  const allTypes = [...new Set(defaults)];
+  const allTypes = [...new Set([...defaults, ...existing])];
   const listId = 'scheduleTypeList_' + Date.now();
-  return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" oninput="if(window.onScheduleTypeChange)onScheduleTypeChange(this)" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น สอบกลางภาค, กิจกรรม">
-    <datalist id="${listId}">${allTypes.map(t => `<option value="${t}">`).join('')}</datalist>`;
+  return `<input name="${name}" list="${listId}" value="${selectedValue || ''}" oninput="if(window.onScheduleTypeChange)onScheduleTypeChange(this)" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เลือกจากรายการ หรือพิมพ์ประเภทเองได้">
+    <datalist id="${listId}">${allTypes.map(t => `<option value="${t}">`).join('')}</datalist>
+    <p class="text-xs text-gray-400 mt-1">พิมพ์ประเภทใหม่ได้เอง ไม่จำเป็นต้องเลือกจากรายการ</p>`;
 }
 
 // ---- ปฏิทินกิจกรรมวิชาการ: ฟอร์ม + ฟิลด์การสอบแบบไดนามิก + เลือกหลายวิชา ----
