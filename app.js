@@ -2738,6 +2738,7 @@ async function createScheduleAnnouncement(s, roles, sendLine) {
     announcement_content: lines.join('\n'),
     announcement_date: norm(s.schedule_date) || new Date().toISOString().slice(0, 10),
     event_type: isExam ? 'สอบ' : (type || 'ทั่วไป'),
+    year_level: yr || '',
     roles: roles || '',
     target_names: (isExam && [norm(s.proctor), norm(s.proctor2)].filter(Boolean).join(', ')) || '',
     line_notify: sendLine ? '✓' : '',
@@ -6804,6 +6805,7 @@ function showAddAnnouncementModal() {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทั่วไป</option><option>สอบ</option><option>วันหยุด</option><option>กิจกรรม</option></select></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่ให้เห็นประกาศ</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ทุกชั้นปี</option><option value="1">ชั้นปี 1</option><option value="2">ชั้นปี 2</option><option value="3">ชั้นปี 3</option><option value="4">ชั้นปี 4</option></select><p class="text-xs text-gray-400 mt-1">ถ้าเลือกชั้นปี นักศึกษาจะเห็นเฉพาะชั้นปีนั้น (อาจารย์/เจ้าหน้าที่เห็นทั้งหมด)</p></div>
       ${annRolesFieldHTML('')}
       <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4"><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึก</button>
@@ -9034,12 +9036,16 @@ function schedTimeRange(e) {
   return st + (et ? ' - ' + et : '');
 }
 
-// นักศึกษา: เห็นเฉพาะ "วันสอบ" ของชั้นปีตัวเอง (วันหยุด/กิจกรรม/ประกาศ เห็นทุกคน) — บทบาทอื่นเห็นทุกอย่าง
+// นักศึกษา: เห็นเฉพาะ "วันสอบ" และ "ประกาศ" ของชั้นปีตัวเอง (หรือที่ตั้งเป็นทุกชั้นปี) — วันหยุด/กิจกรรม เห็นทุกคน — บทบาทอื่นเห็นทุกอย่าง
 function filterScheduleForStudent(records) {
   if (APP.currentRole !== 'student') return records;
   const yr = norm((APP.currentUser && APP.currentUser.data && APP.currentUser.data.year_level) || '');
   return records.filter(e => {
-    if (!norm(e.schedule_date)) return true;               // ประกาศ (ไม่ใช่รายการปฏิทิน)
+    if (!norm(e.schedule_date)) {                           // ประกาศ (ไม่ใช่รายการปฏิทิน)
+      if (!yr) return true;                                 // ไม่ทราบชั้นปีนักศึกษา → แสดงไว้ก่อน
+      const ayl = norm(e.year_level);
+      return !ayl || ayl === yr;                            // ประกาศ: เฉพาะชั้นปีตัวเอง หรือ ทุกชั้นปี
+    }
     const isExam = norm(e.schedule_type).includes('สอบ');
     if (!isExam) return true;                               // วันหยุด/กิจกรรม แสดงทุกคน
     if (!yr) return true;                                   // ไม่ทราบชั้นปี → แสดงไว้ก่อน
@@ -9626,6 +9632,7 @@ function showEditAnnouncementModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">วันที่</label><input name="announcement_date" type="date" value="${a.announcement_date || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ประเภท</label><select name="event_type" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${a.event_type === 'ทั่วไป' ? 'selected' : ''}>ทั่วไป</option><option ${a.event_type === 'สอบ' ? 'selected' : ''}>สอบ</option><option ${a.event_type === 'วันหยุด' ? 'selected' : ''}>วันหยุด</option><option ${a.event_type === 'กิจกรรม' ? 'selected' : ''}>กิจกรรม</option></select></div>
       </div>
+      <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่ให้เห็นประกาศ</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="" ${!norm(a.year_level) ? 'selected' : ''}>ทุกชั้นปี</option><option value="1" ${norm(a.year_level) === '1' ? 'selected' : ''}>ชั้นปี 1</option><option value="2" ${norm(a.year_level) === '2' ? 'selected' : ''}>ชั้นปี 2</option><option value="3" ${norm(a.year_level) === '3' ? 'selected' : ''}>ชั้นปี 3</option><option value="4" ${norm(a.year_level) === '4' ? 'selected' : ''}>ชั้นปี 4</option></select><p class="text-xs text-gray-400 mt-1">ถ้าเลือกชั้นปี นักศึกษาจะเห็นเฉพาะชั้นปีนั้น (อาจารย์/เจ้าหน้าที่เห็นทั้งหมด)</p></div>
       ${annRolesFieldHTML(a.roles || '')}
       <label class="flex items-center gap-2 bg-green-50 rounded-xl px-3 py-2 cursor-pointer"><input type="checkbox" name="line_notify" value="✓" class="w-4 h-4" ${['✓', '✔', 'true', 'yes', 'y', '1', 'ส่ง', 'แจ้ง'].includes(String(a.line_notify || '').trim().toLowerCase()) ? 'checked' : ''}><span class="text-sm text-green-700">📢 ส่งประกาศนี้เข้า LINE</span></label>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
