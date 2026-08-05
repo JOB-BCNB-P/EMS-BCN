@@ -550,6 +550,8 @@ function navigateTo(page) {
   APP.filters._engStudent = '';
   APP.filters._gradeSearch = '';
   APP.filters._engSearch = '';
+  APP.filters._engLevel = '';
+  APP.filters._engExtType = '';
   APP.filters._trackingYear = '';
   APP.filters._resultTrackingYear = '';
   APP.filters._gradeTrackingYear = '';
@@ -3874,8 +3876,32 @@ function engResultsPage() {
     allEng = allEng.filter(e => (e.academic_year || '') === selectedEngYear);
   }
 
+  // ---- ตัวช่วยกรองรายชื่อตามผลสอบ: ระดับ PBRI ล่าสุด + ชนิดสอบภายนอกที่ผ่าน (อิงข้อมูลตามปีที่เลือก) ----
+  const _engLatestPbri = {};   // studentId -> { level, score }
+  const _engExtPassed = {};    // studentId -> Set(ชนิดสอบภายนอกที่ผ่าน)
+  const _engPassedIds = new Set(allEng.filter(e => norm(e.eng_status) === 'ผ่าน').map(e => norm(e.student_id)));
+  allEng.forEach(e => {
+    const id = norm(e.student_id);
+    if (norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ') {
+      const att = parseInt(norm(e.eng_attempt), 10) || 0;
+      const cur = _engLatestPbri[id];
+      if (!cur || att > cur._att || (att === cur._att && norm(e.eng_date) > cur._date)) {
+        _engLatestPbri[id] = { level: getEngLevel(Number(e.eng_score) || 0), score: Number(e.eng_score) || 0, _att: att, _date: norm(e.eng_date) };
+      }
+    }
+    if (norm(e.eng_type) && norm(e.eng_type) !== 'สบช.' && norm(e.eng_status) === 'ผ่าน') {
+      (_engExtPassed[id] = _engExtPassed[id] || new Set()).add(norm(e.eng_type));
+    }
+  });
+  const selEngLevel = APP.filters._engLevel || '';
+  const selEngExt = APP.filters._engExtType || '';
+  const ENG_LEVELS = ['Beginner', 'Elementary', 'Intermediate', 'Upper Intermediate', 'Advanced', 'Proficiency'];
+  const _extFound = new Set(); Object.values(_engExtPassed).forEach(set => set.forEach(t => _extFound.add(t)));
+  const extTypeOptions = [...ENG_TYPES.filter(t => t !== 'สบช.'), ...[...(_extFound)].filter(t => ENG_TYPES.indexOf(t) === -1).sort((a, b) => a.localeCompare(b, 'th'))];
+
   // Build student selector for non-student roles
   let studentSelector = '';
+  let engRosterStudents = [];
   let selectedStudentName = APP.filters._engStudent || '';
 
   if (!isStudent) {
@@ -3946,13 +3972,40 @@ function engResultsPage() {
       advisorSelector = `${yearLevelSelector}${batchSelector}${advisorDiv}`;
     }
 
+    // กรองตามผลสอบ: ระดับ PBRI (สบช.) และชนิดสอบผ่านภายนอกสถาบัน
+    if (selEngLevel === '__none') studentList = studentList.filter(s => !_engLatestPbri[norm(s.student_id)]);
+    else if (selEngLevel) studentList = studentList.filter(s => (_engLatestPbri[norm(s.student_id)] || {}).level === selEngLevel);
+    if (selEngExt) studentList = studentList.filter(s => (_engExtPassed[norm(s.student_id)] || new Set()).has(selEngExt));
+
     const searchVal = APP.filters._engSearch || '';
     let filteredList = studentList;
     if (searchVal) {
       const q = searchVal.toLowerCase();
       filteredList = studentList.filter(s => (s.name || '').toLowerCase().includes(q) || (s.student_id || '').toLowerCase().includes(q));
     }
-    studentSelector = `${advisorSelector}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+    engRosterStudents = filteredList;
+    const levelExtFilter = `<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="filter" class="w-4 h-4 inline mr-1"></i>กรองตามผลสอบ</label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p class="text-xs text-gray-500 mb-1">ระดับผลสอบ PBRI (สบช.)</p>
+          <select onchange="APP.filters._engLevel=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <option value="">-- ทุกระดับ --</option>
+            ${ENG_LEVELS.map(l => `<option value="${l}" ${selEngLevel === l ? 'selected' : ''}>${l}</option>`).join('')}
+            <option value="__none" ${selEngLevel === '__none' ? 'selected' : ''}>ไม่มีผลสอบ สบช.</option>
+          </select>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1">สอบผ่านภายนอกสถาบัน (ชนิดการสอบ)</p>
+          <select onchange="APP.filters._engExtType=this.value;APP.filters._engStudent='';APP.filters._engSearch='';APP.pagination.page=1;renderCurrentPage()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <option value="">-- ทุกชนิด --</option>
+            ${extTypeOptions.map(t => `<option value="${t}" ${selEngExt === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      ${(selEngLevel || selEngExt) ? `<p class="text-xs text-gray-500 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-1"></i>พบ ${filteredList.length} คน${selEngLevel ? ` · ระดับ ${selEngLevel === '__none' ? 'ไม่มีผลสอบ สบช.' : selEngLevel}` : ''}${selEngExt ? ` · สอบผ่าน ${selEngExt}` : ''} <button onclick="APP.filters._engLevel='';APP.filters._engExtType='';APP.filters._engStudent='';APP.pagination.page=1;renderCurrentPage()" class="ml-2 text-primary hover:underline">ล้างตัวกรองผลสอบ</button></p>` : ''}
+    </div>`;
+    studentSelector = `${advisorSelector}${levelExtFilter}<div class="bg-white rounded-2xl p-4 border border-blue-100 mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"><i data-lucide="user-search" class="w-4 h-4 inline mr-1"></i>เลือกนักศึกษา</label>
       <div class="flex gap-2 mb-2">
         <div class="flex-1 relative"><i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i><input type="text" placeholder="พิมพ์ค้นหาชื่อหรือรหัส..." value="${searchVal}" class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm" oninput="clearTimeout(window._engSearchTimer);window._engSearchTimer=setTimeout(()=>{APP.filters._engSearch=this.value;APP.filters._engStudent='';APP.pagination.page=1;renderCurrentPage()},300)"></div>
@@ -3978,10 +4031,34 @@ function engResultsPage() {
   data = applyFilters(data);
   const total = data.length; const paged = paginate(data);
 
-  // Show prompt if no student selected
+  // Show prompt if no student selected — ถ้ามีตัวกรองผลสอบ ให้แสดง "รายชื่อนักศึกษาตามผลสอบ" แทน
   let noSelectionMsg = '';
   if (!isStudent && !selectedStudentName) {
-    noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400"><i data-lucide="user-search" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i><p>กรุณาเลือกนักศึกษาเพื่อดูผลสอบภาษาอังกฤษ</p></div>`;
+    if (selEngLevel || selEngExt) {
+      const rosterRows = engRosterStudents.map(s => {
+        const id = norm(s.student_id);
+        const lv = _engLatestPbri[id];
+        const ext = [...(_engExtPassed[id] || [])];
+        const passed = _engPassedIds.has(id);
+        return `<tr class="border-t hover:bg-blue-50 cursor-pointer" onclick="APP.filters._engStudent='${s.student_id || s.name}';APP.pagination.page=1;renderCurrentPage()">
+          <td class="px-4 py-2 font-mono text-primary">${s.student_id || ''}</td>
+          <td class="px-4 py-2 font-medium">${s.name || ''}</td>
+          <td class="px-4 py-2 text-center">${s.year_level || '-'}</td>
+          <td class="px-4 py-2">${lv ? `${lv.level} <span class="text-gray-400">(${lv.score})</span>` : '<span class="text-gray-300">-</span>'}</td>
+          <td class="px-4 py-2">${ext.length ? ext.map(t => `<span class="text-xs bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded mr-1">${t}</span>`).join('') : '<span class="text-gray-300">-</span>'}</td>
+          <td class="px-4 py-2"><span class="px-2 py-1 rounded-full text-xs ${passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${passed ? 'ผ่าน' : 'ยังไม่ผ่าน'}</span></td>
+        </tr>`;
+      }).join('');
+      noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4">
+        <div class="px-4 py-3 border-b border-gray-100 bg-surface text-sm font-semibold text-gray-700">รายชื่อนักศึกษาตามผลสอบ (${engRosterStudents.length} คน) <span class="font-normal text-gray-400">— คลิกที่แถวเพื่อดูรายละเอียดผลสอบรายบุคคล</span></div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
+          <tbody>${rosterRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+    } else {
+      noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 p-8 text-center text-gray-400"><i data-lucide="user-search" class="w-10 h-10 mx-auto mb-3 text-gray-300"></i><p>กรุณาเลือกนักศึกษาเพื่อดูผลสอบภาษาอังกฤษ</p></div>`;
+    }
   }
 
   // Build summary stats (pass/fail counts only)
