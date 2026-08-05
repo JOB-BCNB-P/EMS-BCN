@@ -4044,6 +4044,7 @@ function engResultsPage() {
           <td class="px-4 py-2 font-mono text-primary">${s.student_id || ''}</td>
           <td class="px-4 py-2 font-medium">${s.name || ''}</td>
           <td class="px-4 py-2 text-center">${s.year_level || '-'}</td>
+          <td class="px-4 py-2">${s.advisor ? String(s.advisor).replace(/</g, '&lt;') : '<span class="text-gray-300">ยังไม่ระบุ</span>'}</td>
           <td class="px-4 py-2">${lv ? `${lv.level} <span class="text-gray-400">(${lv.score})</span>` : '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2">${ext.length ? ext.map(t => `<span class="text-xs bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded mr-1">${t}</span>`).join('') : '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2"><span class="px-2 py-1 rounded-full text-xs ${passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${passed ? 'ผ่าน' : 'ยังไม่ผ่าน'}</span></td>
@@ -4052,8 +4053,8 @@ function engResultsPage() {
       noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4">
         <div class="px-4 py-3 border-b border-gray-100 bg-surface text-sm font-semibold text-gray-700">รายชื่อนักศึกษาตามผลสอบ (${engRosterStudents.length} คน) <span class="font-normal text-gray-400">— คลิกที่แถวเพื่อดูรายละเอียดผลสอบรายบุคคล</span></div>
         <div class="overflow-x-auto"><table class="w-full text-sm">
-          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
-          <tbody>${rosterRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
+          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
+          <tbody>${rosterRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
         </table></div>
       </div>`;
     } else {
