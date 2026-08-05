@@ -3278,7 +3278,7 @@ function _agAddRow() {
     <div class="col-span-4"><input data-agname readonly class="w-full border rounded-lg px-2 py-1.5 text-sm bg-gray-50" placeholder="เลือกรหัสวิชา"></div>
     <div class="col-span-2"><select data-aggrade class="w-full border rounded-lg px-2 py-1.5 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
     <div class="col-span-1"><input data-agcredits type="number" value="3" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
-    <div class="col-span-1"><select data-agsem class="w-full border rounded-lg px-2 py-1.5 text-sm"><option value="1">1</option><option value="2">2</option></select></div>
+    <div class="col-span-1"><select data-agsem class="w-full border rounded-lg px-2 py-1.5 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
     <div class="col-span-1 text-center"><button type="button" onclick="this.closest('[data-agrow]').remove()" class="text-red-400 hover:text-red-600" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`;
   wrap.appendChild(div);
   lucide.createIcons();
@@ -9597,7 +9597,7 @@ function showEditGradeModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">รายวิชา <span class="text-gray-400">(อัตโนมัติ)</span></label><input id="egName" name="subject_name" required readonly class="w-full border rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="เลือกรหัสวิชาก่อน"></div>
         <div><label class="block text-xs text-gray-600 mb-1">เกรด</label><select name="grade" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${g.grade === 'A' ? 'selected' : ''}>A</option><option ${g.grade === 'B+' ? 'selected' : ''}>B+</option><option ${g.grade === 'B' ? 'selected' : ''}>B</option><option ${g.grade === 'C+' ? 'selected' : ''}>C+</option><option ${g.grade === 'C' ? 'selected' : ''}>C</option><option ${g.grade === 'D+' ? 'selected' : ''}>D+</option><option ${g.grade === 'D' ? 'selected' : ''}>D</option><option ${g.grade === 'F' ? 'selected' : ''}>F</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">หน่วยกิต</label><input id="egCredits" name="credits" type="number" value="${_gradeCredits(g) || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
-        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="egSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(g.semester) === '2' ? 'selected' : ''}>2</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">ภาคการศึกษา</label><select id="egSem" name="semester" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="1" ${norm(g.semester) === '1' ? 'selected' : ''}>1</option><option value="2" ${norm(g.semester) === '2' ? 'selected' : ''}>2</option><option value="3" ${norm(g.semester) === '3' ? 'selected' : ''}>ฤดูร้อน</option></select></div>
       </div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกการแก้ไข</button>
     </form>
