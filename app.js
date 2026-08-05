@@ -3877,8 +3877,9 @@ function engResultsPage() {
   }
 
   // ---- ตัวช่วยกรองรายชื่อตามผลสอบ: ระดับ PBRI ล่าสุด + ชนิดสอบภายนอกที่ผ่าน (อิงข้อมูลตามปีที่เลือก) ----
-  const _engLatestPbri = {};   // studentId -> { level, score }
+  const _engLatestPbri = {};   // studentId -> { level, score, year, att }
   const _engExtPassed = {};    // studentId -> Set(ชนิดสอบภายนอกที่ผ่าน)
+  const _engExtRec = {};       // studentId -> { ชนิด -> { year, att } } (ผลล่าสุดของแต่ละชนิด)
   const _engPassedIds = new Set(allEng.filter(e => norm(e.eng_status) === 'ผ่าน').map(e => norm(e.student_id)));
   allEng.forEach(e => {
     const id = norm(e.student_id);
@@ -3886,11 +3887,16 @@ function engResultsPage() {
       const att = parseInt(norm(e.eng_attempt), 10) || 0;
       const cur = _engLatestPbri[id];
       if (!cur || att > cur._att || (att === cur._att && norm(e.eng_date) > cur._date)) {
-        _engLatestPbri[id] = { level: getEngLevel(Number(e.eng_score) || 0), score: Number(e.eng_score) || 0, _att: att, _date: norm(e.eng_date) };
+        _engLatestPbri[id] = { level: getEngLevel(Number(e.eng_score) || 0), score: Number(e.eng_score) || 0, year: norm(e.academic_year), att: norm(e.eng_attempt), _att: att, _date: norm(e.eng_date) };
       }
     }
     if (norm(e.eng_type) && norm(e.eng_type) !== 'สบช.' && norm(e.eng_status) === 'ผ่าน') {
-      (_engExtPassed[id] = _engExtPassed[id] || new Set()).add(norm(e.eng_type));
+      const t = norm(e.eng_type);
+      (_engExtPassed[id] = _engExtPassed[id] || new Set()).add(t);
+      const att = parseInt(norm(e.eng_attempt), 10) || 0;
+      const bucket = (_engExtRec[id] = _engExtRec[id] || {});
+      const prev = bucket[t];
+      if (!prev || att > prev._att || (att === prev._att && norm(e.eng_date) > prev._date)) bucket[t] = { year: norm(e.academic_year), att: norm(e.eng_attempt), _att: att, _date: norm(e.eng_date) };
     }
   });
   const selEngLevel = APP.filters._engLevel || '';
@@ -4040,6 +4046,10 @@ function engResultsPage() {
         const lv = _engLatestPbri[id];
         const ext = [...(_engExtPassed[id] || [])];
         const passed = _engPassedIds.has(id);
+        // ปีการศึกษา/ครั้งที่สอบ — อิงผลที่เกี่ยวกับตัวกรอง (ถ้ากรองสอบภายนอกใช้ผลของชนิดนั้น มิฉะนั้นใช้ผล PBRI ล่าสุด)
+        let rYr = '', rAtt = '';
+        if (selEngExt && _engExtRec[id] && _engExtRec[id][selEngExt]) { rYr = _engExtRec[id][selEngExt].year; rAtt = _engExtRec[id][selEngExt].att; }
+        else if (lv) { rYr = lv.year; rAtt = lv.att; }
         return `<tr class="border-t hover:bg-blue-50 cursor-pointer" onclick="APP.filters._engStudent='${s.student_id || s.name}';APP.pagination.page=1;renderCurrentPage()">
           <td class="px-4 py-2 font-mono text-primary">${s.student_id || ''}</td>
           <td class="px-4 py-2 font-medium">${s.name || ''}</td>
@@ -4047,14 +4057,16 @@ function engResultsPage() {
           <td class="px-4 py-2">${s.advisor ? String(s.advisor).replace(/</g, '&lt;') : '<span class="text-gray-300">ยังไม่ระบุ</span>'}</td>
           <td class="px-4 py-2">${lv ? `${lv.level} <span class="text-gray-400">(${lv.score})</span>` : '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2">${ext.length ? ext.map(t => `<span class="text-xs bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded mr-1">${t}</span>`).join('') : '<span class="text-gray-300">-</span>'}</td>
+          <td class="px-4 py-2 text-center">${rYr || '<span class="text-gray-300">-</span>'}</td>
+          <td class="px-4 py-2 text-center">${rAtt || '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2"><span class="px-2 py-1 rounded-full text-xs ${passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${passed ? 'ผ่าน' : 'ยังไม่ผ่าน'}</span></td>
         </tr>`;
       }).join('');
       noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4">
         <div class="px-4 py-3 border-b border-gray-100 bg-surface text-sm font-semibold text-gray-700">รายชื่อนักศึกษาตามผลสอบ (${engRosterStudents.length} คน) <span class="font-normal text-gray-400">— คลิกที่แถวเพื่อดูรายละเอียดผลสอบรายบุคคล</span></div>
         <div class="overflow-x-auto"><table class="w-full text-sm">
-          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
-          <tbody>${rosterRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
+          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold text-center">ปีการศึกษา</th><th class="px-4 py-2 font-semibold text-center">ครั้งที่สอบ</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
+          <tbody>${rosterRows || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
         </table></div>
       </div>`;
     } else {
