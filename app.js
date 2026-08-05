@@ -609,6 +609,26 @@ function isActiveStudent(s) { return !NON_ACTIVE_STATUS.includes(norm(s && s.sta
 // คืนเฉพาะนักศึกษาที่ยังกำลังศึกษา (ใช้สำหรับการนับจำนวน)
 function activeStudents(list) { return (list || []).filter(isActiveStudent); }
 
+// ---- สถานะอาจารย์ ----
+// รายการสถานะทั้งหมด (ใช้ในฟอร์มเพิ่ม/แก้ไข)
+const TEACHER_STATUS_OPTIONS = ['ปฏิบัติงานอยู่', 'ลาศึกษาต่อ', 'ช่วยราชการ', 'ย้าย', 'ลาออกจากราชการ'];
+// สถานะที่ถือว่า "พ้นจากวิทยาลัย" — ไม่นับเป็นอาจารย์ปฏิบัติงาน/ไม่ให้เป็นที่ปรึกษา (รวมค่าเดิม 'ลาออก' เพื่อรองรับข้อมูลเก่า)
+const TEACHER_LEFT_STATUS = ['ย้าย', 'ลาออกจากราชการ', 'ลาออก'];
+function teacherHasLeft(t) { return TEACHER_LEFT_STATUS.indexOf(norm(t && t.teacher_status)) !== -1; }
+// สีป้ายสถานะอาจารย์: ปฏิบัติงาน=เขียว, พ้นจากวิทยาลัย=แดง, ลาศึกษาต่อ/ช่วยราชการ=เหลือง
+function teacherStatusColor(st) {
+  st = norm(st) || 'ปฏิบัติงานอยู่';
+  if (st === 'ปฏิบัติงานอยู่') return 'bg-green-100 text-green-700';
+  if (TEACHER_LEFT_STATUS.indexOf(st) !== -1) return 'bg-red-100 text-red-700';
+  return 'bg-yellow-100 text-yellow-700';
+}
+// สร้าง <option> สำหรับ dropdown สถานะอาจารย์ (แปลงค่าเดิม 'ลาออก' → 'ลาออกจากราชการ' ให้อัตโนมัติ)
+function teacherStatusOptionsHTML(current) {
+  let cur = norm(current) || 'ปฏิบัติงานอยู่';
+  if (cur === 'ลาออก') cur = 'ลาออกจากราชการ';
+  return TEACHER_STATUS_OPTIONS.map(s => `<option ${s === cur ? 'selected' : ''}>${s}</option>`).join('');
+}
+
 // ======================== ROLE HELPERS (RBAC) ========================
 // สิทธิ์ "แก้ไขเต็มที่เหมือน admin" สำหรับหน้าทั่วไป: admin / งานวิชาการ / งานทะเบียน
 // + ประธานสาขาวิชา (deptHead) ให้แก้ไขได้เฉพาะหน้าติดตามการส่ง และทำเนียบอาจารย์
@@ -1317,7 +1337,8 @@ function yearLevelCardsHTML(students, engPassRecords, canEdit) {
   const _hr = getHomeroomNumbers();
   return [1, 2, 3, 4].map(yr => {
     const yrStudents = activeStudents(students).filter(s => norm(s.year_level) === String(yr));
-    const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrStudents.some(s => s.student_id === e.student_id)).map(e => e.student_id))];
+    const yrIdSet = new Set(yrStudents.map(s => norm(s.student_id)));
+    const yrEngPassUnique = [...new Set(engPassRecords.filter(e => yrIdSet.has(norm(e.student_id))).map(e => norm(e.student_id)))];
     const homeroom = _hr[String(yr)] || '';
     return `<div class="bg-white rounded-2xl p-5 border border-blue-100">
       <p class="text-sm font-medium text-gray-500 mb-3">ชั้นปี ${yr}</p>
@@ -1343,7 +1364,7 @@ function dashboardPage() {
   const students = getDataByType('student');
   const teachers = getDataByType('teacher');
   const allEngResults = getDataByType('eng_result');
-  const engPassRecords = allEngResults.filter(e => e.eng_status === 'ผ่าน');
+  const engPassRecords = allEngResults.filter(e => norm(e.eng_status) === 'ผ่าน');
   // นับเฉพาะ "นักศึกษาที่กำลังศึกษา" ซึ่งสอบผ่าน (ให้ตรงกับหน้าผลสอบ — ไม่นับรหัสที่ไม่มีในรายชื่อ/จบ/พัก/ลาออก)
   const engPassIdSet = new Set(engPassRecords.map(e => norm(e.student_id)));
   const engPassStudentIds = activeStudents(students).filter(s => engPassIdSet.has(norm(s.student_id))).map(s => s.student_id);
@@ -3708,6 +3729,23 @@ function engAnalyticsHTML() {
     { label: 'ยังไม่ผ่าน', value: cFail, color: '#ef4444' }
   ], 'คน');
 
+  // --- กราฟแท่ง: ผ่านด้วยการสอบภายนอกสถาบัน แยกตามชนิดการสอบ (นับผู้สอบผ่านไม่ซ้ำต่อชนิด) ---
+  const extPassRecs = engScope.filter(e => norm(e.eng_status) === 'ผ่าน' && norm(e.eng_type) && norm(e.eng_type) !== 'สบช.');
+  const extTypeStu = {};
+  extPassRecs.forEach(e => { const t = norm(e.eng_type); (extTypeStu[t] = extTypeStu[t] || new Set()).add(norm(e.student_id)); });
+  const extOrder = ENG_TYPES.filter(t => t !== 'สบช.');
+  const extAll = [...extOrder.filter(t => extTypeStu[t]), ...Object.keys(extTypeStu).filter(t => extOrder.indexOf(t) === -1).sort((a, b) => a.localeCompare(b, 'th'))];
+  const extPalette = ['#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#14b8a6', '#84cc16', '#ef4444'];
+  const extDenom = scopeStudents.length || 0;
+  const extBarItems = extAll.length ? animBarRows(extAll.map((t, i) => {
+    const n = extTypeStu[t].size;
+    const pct = extDenom ? Math.round(n / extDenom * 1000) / 10 : 0;
+    return { label: `${t} <span style="color:#94a3b8">(${pct}%)</span>`, value: n, color: extPalette[i % extPalette.length] };
+  })) : '<p class="text-sm text-gray-400">ยังไม่มีผู้สอบผ่านจากภายนอกสถาบันในขอบเขตนี้</p>';
+  const extTotalStu = new Set(); extPassRecs.forEach(e => extTotalStu.add(norm(e.student_id)));
+  const extTotalN = extTotalStu.size;
+  const extTotalPct = extDenom ? Math.round(extTotalN / extDenom * 1000) / 10 : 0;
+
   // --- สัดส่วนเข้าสอบ vs ไม่เข้าสอบ (เฉพาะ PBRI สบช. — ไม่นับผลจากภายนอก) ---
   const attendedIds = new Set(engScope.filter(e => norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ').map(e => norm(e.student_id)));
   let cAttend = 0, cNoAttend = 0;
@@ -3742,6 +3780,11 @@ function engAnalyticsHTML() {
         <p class="text-sm font-semibold text-gray-600 mb-3">สัดส่วนการสอบผ่าน <span class="font-normal text-green-600">(ผ่าน ${passPct}% ของ ${scopeStudents.length} คน)</span></p>
         ${donut}
       </div>
+    </div>
+    <div class="mt-6 pt-5 border-t border-gray-100">
+      <p class="text-sm font-semibold text-gray-600 mb-3">ผ่านด้วยการสอบภายนอกสถาบัน — แยกตามชนิดการสอบ <span class="font-normal text-sky-600">(รวม ${extTotalN} คน · ${extTotalPct}% ของ ${scopeStudents.length} คน)</span></p>
+      <div class="space-y-2.5">${extBarItems}</div>
+      <p class="text-[11px] text-gray-400 mt-2"><i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i>นับผู้สอบผ่านแบบไม่ซ้ำต่อชนิดการสอบ · % คิดจากนักศึกษาในขอบเขต ${scopeStudents.length} คน · เลือกปุ่มชั้นปีด้านบนเพื่อดูแยกแต่ละชั้นปี</p>
     </div>
     <div class="mt-6 pt-5 border-t border-gray-100">
       <p class="text-sm font-semibold text-gray-600 mb-3">สัดส่วนการเข้าสอบ (เฉพาะข้อสอบ PBRI — ไม่นับผลจากภายนอก) <span class="font-normal text-gray-400">· ไม่เข้าสอบ/ไม่มีผล ${cNoAttend} คน จาก ${scopeStudents.length} คน</span></p>
@@ -4561,7 +4604,7 @@ function teachersPage() {
       <div class="overflow-x-auto"><table class="w-full text-sm">
         <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3 font-semibold">โทร</th><th class="px-4 py-3 font-semibold">E-mail</th></tr></thead>
         <tbody>${paged.length ? paged.map(t => {
-      const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+      const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = teacherStatusColor(st); return `<tr class="border-t hover:bg-gray-50">
           <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
           <td class="px-4 py-3">${t.department || ''}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td><td class="px-4 py-3">${t.phone || ''}</td><td class="px-4 py-3">${t.email || ''}</td></tr>`
     }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">ไม่มีข้อมูล</td></tr>'}</tbody>
@@ -4589,7 +4632,7 @@ function teachersPage() {
     <div class="overflow-x-auto"><table class="w-full text-sm">
       <thead><tr class="bg-surface text-left"><th class="px-4 py-3 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-3 font-semibold">ตำแหน่ง</th><th class="px-4 py-3 font-semibold">สาขาวิชา</th><th class="px-4 py-3 font-semibold">สถานะ</th><th class="px-4 py-3"></th></tr></thead>
       <tbody>${paged.length ? paged.map(t => {
-    const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = st === 'ปฏิบัติงานอยู่' ? 'bg-green-100 text-green-700' : st === 'ลาออก' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'; return `<tr class="border-t hover:bg-gray-50">
+    const st = t.teacher_status || 'ปฏิบัติงานอยู่'; const stColor = teacherStatusColor(st); return `<tr class="border-t hover:bg-gray-50">
         <td class="px-4 py-3 font-medium">${t.name || ''}</td><td class="px-4 py-3">${t.position || ''}</td>
         <td class="px-4 py-3">${t.department || ''}</td>
         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${stColor}">${st}</span></td>
@@ -4738,7 +4781,7 @@ function advisorInfoPage() {
   </details>`;
 
   // ----- พาเนล: อาจารย์ที่ยังไม่มีนักศึกษาในความดูแล (ไม่รวมผู้ที่ลาออก, เคารพตัวกรองสาขาวิชา) -----
-  let freeTeachers = teachers.filter(t => norm(t.name) && norm(t.teacher_status || '') !== 'ลาออก' && !advisorMap[nameKey(t.name)]);
+  let freeTeachers = teachers.filter(t => norm(t.name) && !teacherHasLeft(t) && !advisorMap[nameKey(t.name)]);
   if (selectedDept) freeTeachers = freeTeachers.filter(t => (norm(t.department) || NO_DEPT) === selectedDept);
   freeTeachers.sort((a, b) => norm(a.name).localeCompare(norm(b.name), 'th'));
   const freeTeacherCards = freeTeachers.map(t => {
@@ -4793,7 +4836,7 @@ function advisorGotoEng(sid) { navigateTo('engResults'); APP.filters._engStudent
 function showAssignAdvisorToStudent(id) {
   if (!(GSheetDB.hasWriteAccess && GSheetDB.hasWriteAccess())) { showToast('ระบบอยู่ในโหมดอ่านอย่างเดียว — ตั้งค่า Apps Script URL ก่อน', 'error'); return; }
   const s = APP.allData.find(d => d.__backendId === id); if (!s) return;
-  const tList = getDataByType('teacher').filter(t => norm(t.name) && norm(t.teacher_status || '') !== 'ลาออก')
+  const tList = getDataByType('teacher').filter(t => norm(t.name) && !teacherHasLeft(t))
     .sort((a, b) => norm(a.name).localeCompare(norm(b.name), 'th'));
   const rows = tList.map(t => {
     const nm = norm(t.name).replace(/'/g, "\\'");
@@ -5340,7 +5383,7 @@ function showTeacherDetail(id) {
   const t = APP.allData.find(d => d.__backendId === id); if (!t) return;
   const isAdmin = isAdminOnlyRole();
   const _tst = t.teacher_status || 'ปฏิบัติงานอยู่';
-  const stBadge = _tst === 'ปฏิบัติงานอยู่' ? '<span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">ปฏิบัติงานอยู่</span>' : _tst === 'ลาออก' ? '<span class="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">ลาออก</span>' : '<span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">ลาศึกษาต่อ</span>';
+  const stBadge = `<span class="px-2 py-1 rounded-full text-xs ${teacherStatusColor(_tst)}">${norm(_tst) || 'ปฏิบัติงานอยู่'}</span>`;
   showModal('ข้อมูลอาจารย์', `<div class="grid grid-cols-2 gap-3">
     ${infoRow('ชื่อ-สกุล', t.name)}${infoRow('ตำแหน่ง', t.position)}${infoRow('สาขาวิชา', t.department)}
     <div><p class="text-xs text-gray-500">สถานะ</p><p class="font-medium mt-1">${stBadge}</p></div>
@@ -5360,7 +5403,7 @@ function showAddTeacherModal() {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ (ถ้ามี)</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ปฏิบัติงานอยู่</option><option>ลาศึกษาต่อ</option><option>ลาออก</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm">${teacherStatusOptionsHTML('')}</select></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm"></textarea></div>
@@ -9665,7 +9708,7 @@ function showEditTeacherModal(id) {
         <div><label class="block text-xs text-gray-600 mb-1">โทรศัพท์</label><input name="phone" value="${t.phone || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">E-mail</label><input name="email" value="${t.email || ''}" type="email" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปีที่รับผิดชอบ</label><select name="responsible_year" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">ไม่มี</option><option ${norm(t.responsible_year) === '1' ? 'selected' : ''}>1</option><option ${norm(t.responsible_year) === '2' ? 'selected' : ''}>2</option><option ${norm(t.responsible_year) === '3' ? 'selected' : ''}>3</option><option ${norm(t.responsible_year) === '4' ? 'selected' : ''}>4</option></select></div>
-        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm"><option ${(t.teacher_status || 'ปฏิบัติงานอยู่') === 'ปฏิบัติงานอยู่' ? 'selected' : ''}>ปฏิบัติงานอยู่</option><option ${t.teacher_status === 'ลาศึกษาต่อ' ? 'selected' : ''}>ลาศึกษาต่อ</option><option ${t.teacher_status === 'ลาออก' ? 'selected' : ''}>ลาออก</option></select></div>
+        <div><label class="block text-xs text-gray-600 mb-1">สถานะ</label><select name="teacher_status" class="w-full border rounded-xl px-3 py-2 text-sm">${teacherStatusOptionsHTML(t.teacher_status)}</select></div>
         <div><label class="block text-xs text-gray-600 mb-1">เลขบัญชีธนาคาร</label><input name="bank_account" value="${t.bank_account || ''}" class="w-full border rounded-xl px-3 py-2 text-sm"></div>
       </div>
       <div><label class="block text-xs text-gray-600 mb-1">ที่อยู่</label><textarea name="address" rows="2" class="w-full border rounded-xl px-3 py-2 text-sm">${t.address || ''}</textarea></div>
