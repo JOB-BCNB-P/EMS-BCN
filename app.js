@@ -3714,7 +3714,11 @@ function engAnalyticsHTML() {
   pbriRecs.forEach(e => { const id = norm(e.student_id); if (!latestPbriByStu[id] || _isLater(e, latestPbriByStu[id])) latestPbriByStu[id] = e; });
   const latestPbri = Object.values(latestPbriByStu);
   latestPbri.forEach(e => { const lv = getEngLevel(Number(e.eng_score) || 0); if (levelCount[lv] !== undefined) levelCount[lv]++; });
-  const barItems = animBarRows(levelDefs.map(l => ({ label: l.label, value: levelCount[l.key], color: l.color })));
+  const pbriTotal = latestPbri.length;
+  const barItems = animBarRows(levelDefs.map(l => {
+    const pct = pbriTotal ? Math.round(levelCount[l.key] / pbriTotal * 1000) / 10 : 0;
+    return { label: `${l.label} <span style="color:#94a3b8">(${pct}%)</span>`, value: levelCount[l.key], color: l.color };
+  }));
 
   // --- กราฟวงกลม: ผ่าน/ไม่ผ่าน + แยกประเภทการผ่าน ---
   const passedPBRI = new Set(engScope.filter(e => norm(e.eng_status) === 'ผ่าน' && norm(e.eng_type) === 'สบช.').map(e => norm(e.student_id)));
