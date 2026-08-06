@@ -1671,11 +1671,45 @@ function studentRetentionAnalyticsHTML() {
   const reasonCount = {};
   resignStudents.forEach(s => { let k = norm(s.status_reason) || 'ไม่ระบุ'; if (k !== 'ไม่ระบุ' && !STATUS_REASONS.includes(k)) k = 'อื่นๆ'; reasonCount[k] = (reasonCount[k] || 0) + 1; });
   const reasonSegs = Object.entries(reasonCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v, color: catPalette[k] || '#64748b' }));
+
+  // --- การลาออกแยกตามรอบการสมัคร: จำนวน + % ของผู้ลาออก + อัตราลาออกของรุ่นนั้น ---
+  const roundOf = s => norm(s.admission_round) || 'ไม่ระบุรอบ';
+  const admittedByRound = {}; scoped.forEach(s => { const r = roundOf(s); admittedByRound[r] = (admittedByRound[r] || 0) + 1; });
+  const resignByRound = {}; resignStudents.forEach(s => { const r = roundOf(s); resignByRound[r] = (resignByRound[r] || 0) + 1; });
+  const roundKeys = Object.keys(resignByRound).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  const roundRows = roundKeys.map(r => {
+    const n = resignByRound[r];
+    const shareP = cResign ? Math.round(n / cResign * 1000) / 10 : 0;
+    const admitted = admittedByRound[r] || 0;
+    const rateP = admitted ? Math.round(n / admitted * 1000) / 10 : 0;
+    return `<tr class="border-t">
+      <td class="px-3 py-1.5">${String(r).replace(/</g, '&lt;')}</td>
+      <td class="px-3 py-1.5 text-center font-semibold text-red-600">${n}</td>
+      <td class="px-3 py-1.5 text-center">${shareP}%</td>
+      <td class="px-3 py-1.5 text-center">${rateP}% <span class="text-gray-400 text-[11px]">(${n}/${admitted})</span></td>
+    </tr>`;
+  }).join('');
+  const roundTable = resignStudents.length ? `<div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="bg-surface text-left text-xs text-gray-500"><th class="px-3 py-2 font-semibold">รอบการสมัคร</th><th class="px-3 py-2 font-semibold text-center">ลาออก (คน)</th><th class="px-3 py-2 font-semibold text-center">% ของผู้ลาออก</th><th class="px-3 py-2 font-semibold text-center">อัตราลาออกของรุ่น</th></tr></thead>
+      <tbody>${roundRows}</tbody>
+    </table></div>
+    <p class="text-[11px] text-gray-400 mt-2">% ของผู้ลาออก = สัดส่วนในบรรดาผู้ลาออกทั้งหมด (${cResign} คน) · อัตราลาออกของรุ่น = ผู้ลาออก ÷ ผู้รับเข้ารอบนั้นในขอบเขต</p>`
+    : '<p class="text-sm text-gray-400">ยังไม่มีข้อมูลการลาออกในขอบเขตนี้</p>';
+
   const reasonCard = `<div class="mt-6 pt-5 border-t border-gray-100">
-    <p class="text-sm font-semibold text-gray-600 mb-1"><i data-lucide="pie-chart" class="w-4 h-4 inline mr-1"></i>สาเหตุการลาออก (แยกตามหมวดหมู่)</p>
-    <p class="text-xs text-gray-400 mb-3">ลาออก ${cResign} · พักการศึกษา ${cLeave} · โอนย้าย ${cTransfer} คน</p>
-    ${resignStudents.length ? svgDonut(reasonSegs, 'ลาออก') : '<p class="text-sm text-gray-400">ยังไม่มีข้อมูลการลาออกในขอบเขตนี้</p>'}
-    <p class="text-[11px] text-gray-400 mt-2">* เลือก "สาเหตุ" จากหมวดหมู่ในฟอร์มนักศึกษา (เปลี่ยนสาขาวิชา/การเงิน/การเรียน/สุขภาพ/อื่นๆ)</p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <p class="text-sm font-semibold text-gray-600 mb-1"><i data-lucide="pie-chart" class="w-4 h-4 inline mr-1"></i>สาเหตุการลาออก (แยกตามหมวดหมู่)</p>
+        <p class="text-xs text-gray-400 mb-3">ลาออก ${cResign} · พักการศึกษา ${cLeave} · โอนย้าย ${cTransfer} คน</p>
+        ${resignStudents.length ? svgDonut(reasonSegs, 'ลาออก') : '<p class="text-sm text-gray-400">ยังไม่มีข้อมูลการลาออกในขอบเขตนี้</p>'}
+        <p class="text-[11px] text-gray-400 mt-2">* เลือก "สาเหตุ" จากหมวดหมู่ในฟอร์มนักศึกษา (เปลี่ยนสาขาวิชา/การเงิน/การเรียน/สุขภาพ/อื่นๆ)</p>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-600 mb-1"><i data-lucide="users" class="w-4 h-4 inline mr-1"></i>การลาออกแยกตามรอบการสมัคร</p>
+        <p class="text-xs text-gray-400 mb-3">จำนวนและสัดส่วนผู้ลาออก จำแนกตามรอบที่รับเข้า</p>
+        ${roundTable}
+      </div>
+    </div>
   </div>`;
 
   // --- ตารางเปรียบเทียบรับเข้า (รายรุ่น) vs กำลังศึกษา ---
