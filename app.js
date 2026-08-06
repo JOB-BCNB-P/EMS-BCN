@@ -3311,10 +3311,10 @@ function _agAddRow() {
   div.className = 'grid grid-cols-12 gap-2 items-center';
   div.innerHTML = `
     <div class="col-span-3"><select data-agcode onchange="_agOnCodeChange(this)" class="w-full border rounded-lg px-2 py-1.5 text-sm">${_gradeCodeOptions(subs, '')}</select></div>
-    <div class="col-span-4"><input data-agname readonly class="w-full border rounded-lg px-2 py-1.5 text-sm bg-gray-50" placeholder="เลือกรหัสวิชา"></div>
+    <div class="col-span-3"><input data-agname readonly class="w-full border rounded-lg px-2 py-1.5 text-sm bg-gray-50" placeholder="เลือกรหัสวิชา"></div>
     <div class="col-span-2"><select data-aggrade class="w-full border rounded-lg px-2 py-1.5 text-sm"><option>A</option><option>B+</option><option>B</option><option>C+</option><option>C</option><option>D+</option><option>D</option><option>F</option></select></div>
     <div class="col-span-1"><input data-agcredits type="number" value="3" class="w-full border rounded-lg px-2 py-1.5 text-sm"></div>
-    <div class="col-span-1"><select data-agsem class="w-full border rounded-lg px-2 py-1.5 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
+    <div class="col-span-2"><select data-agsem class="w-full border rounded-lg px-2 py-1.5 text-sm"><option value="1">1</option><option value="2">2</option><option value="3">ฤดูร้อน</option></select></div>
     <div class="col-span-1 text-center"><button type="button" onclick="this.closest('[data-agrow]').remove()" class="text-red-400 hover:text-red-600" title="ลบแถว"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`;
   wrap.appendChild(div);
   lucide.createIcons();
@@ -3332,12 +3332,12 @@ function showAddGradeModal() {
         <button type="button" onclick="_agAddRow()" class="flex items-center gap-1 text-xs px-2 py-1 bg-primaryLight text-primary rounded-lg hover:bg-blue-100"><i data-lucide="plus" class="w-3.5 h-3.5"></i>เพิ่มรายวิชา</button>
       </div>
       <div class="grid grid-cols-12 gap-2 text-xs text-gray-400 px-1">
-        <div class="col-span-3">รหัสวิชา</div><div class="col-span-4">รายวิชา</div><div class="col-span-2">เกรด</div><div class="col-span-1">นก.</div><div class="col-span-1">ภาค</div><div class="col-span-1"></div>
+        <div class="col-span-3">รหัสวิชา</div><div class="col-span-3">รายวิชา</div><div class="col-span-2">เกรด</div><div class="col-span-1">นก.</div><div class="col-span-2">ภาค</div><div class="col-span-1"></div>
       </div>
       <div id="agRows" class="space-y-2 max-h-[40vh] overflow-auto"></div>
       <button type="submit" class="w-full bg-primary text-white py-2.5 rounded-xl hover:bg-primaryDark">บันทึกทั้งหมด</button>
     </form>
-  `, null, 'max-w-2xl');
+  `, null, 'max-w-3xl');
   _agRefreshSubjects();
   _agAddRow();
   document.getElementById('addGradeForm').onsubmit = async (e) => {
