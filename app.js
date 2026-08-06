@@ -1277,7 +1277,7 @@ async function handleCSVUpload(e, type, fieldsStr) {
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
   let count = 0;
   for (let i = 1; i < lines.length; i++) {
-    if (count + getDataByType(type).length >= 999) { showToast('ข้อมูลเต็ม (สูงสุด 999 รายการ)', 'error'); break }
+    // (ยกเลิกเพดานจำกัด 999 รายการ — นำเข้า CSV ได้ไม่จำกัดจำนวน)
     const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
     const obj = { type, created_at: new Date().toISOString() };
     headers.forEach((h, idx) => { obj[h] = vals[idx] || '' });
@@ -2040,7 +2040,7 @@ function showAddStudentModal() {
       const obj = { type: 'student', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = v);
       obj.name = combineName(e.target); // เก็บ title_prefix ไว้เป็นคอลัมน์แยกด้วย (ถ้าชีตมีคอลัมน์นี้)
-      if (APP.allData.filter(d => d.type === 'student').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+      // (ยกเลิกเพดานจำกัด 999 รายการ)
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มนักศึกษาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -2305,7 +2305,7 @@ function showAddSubjectModal() {
       const fd = new FormData(e.target);
       const obj = { type: 'subject', created_at: new Date().toISOString() };
       fd.forEach((v, k) => obj[k] = k === 'credits' ? Number(v) : v);
-      if (APP.allData.filter(d => d.type === 'subject').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+      // (ยกเลิกเพดานจำกัด 999 รายการ)
       const r = await GSheetDB.create(obj);
       if (r.isOk) { showToast('เพิ่มรายวิชาสำเร็จ'); closeModal() } else showToast('เกิดข้อผิดพลาด', 'error');
     });
@@ -8929,7 +8929,7 @@ function showAddUserModal() {
     const fd = new FormData(e.target);
     const role = fd.get('role');
     if (!role) { showToast('กรุณาเลือกบทบาท', 'error'); return }
-    if (APP.allData.filter(d => d.type === 'user').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); return }
+    // (ยกเลิกเพดานจำกัด 999 รายการ)
     const obj = { type: 'user', name: fd.get('name'), role, created_at: new Date().toISOString() };
     if (role === 'admin') { obj.password = fd.get('password') || '123456' }
     else if (role === 'student') { obj.national_id = fd.get('national_id') }
@@ -9209,7 +9209,7 @@ function initPageScripts(page) {
             class_teacher_approval: 'รอ',
             deputy_approval: 'รอ'
           };
-          if (APP.allData.filter(d => d.type === 'leave').length >= 999) { showToast('ข้อมูลเต็ม', 'error'); break; }
+          // (ยกเลิกเพดานจำกัด 999 รายการ)
           const r = await GSheetDB.create(obj);
           if (r.isOk) successCount++;
         }
