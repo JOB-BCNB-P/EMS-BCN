@@ -1275,15 +1275,23 @@ async function handleCSVUpload(e, type, fieldsStr) {
   const lines = text.split('\n').filter(l => l.trim());
   if (lines.length < 2) { showToast('ไฟล์ CSV ไม่มีข้อมูล', 'error'); return }
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  const totalRows = lines.length - 1;
+  // แสดงตัวโหลด + ความคืบหน้าระหว่างนำเข้า
+  const toast = showToast(`กำลังโหลดข้อมูล... <span class="csvmsg">0/${totalRows}</span> รายการ`, 'loading');
+  const setProgress = (done) => { const sp = toast && toast.querySelector('.csvmsg'); if (sp) sp.textContent = `${done}/${totalRows}`; };
   let count = 0;
-  for (let i = 1; i < lines.length; i++) {
-    // (ยกเลิกเพดานจำกัด 999 รายการ — นำเข้า CSV ได้ไม่จำกัดจำนวน)
-    const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-    const obj = { type, created_at: new Date().toISOString() };
-    headers.forEach((h, idx) => { obj[h] = vals[idx] || '' });
-    const r = await GSheetDB.create(obj);
-
-    if (r.isOk) count++;
+  try {
+    for (let i = 1; i < lines.length; i++) {
+      // (ยกเลิกเพดานจำกัด 999 รายการ — นำเข้า CSV ได้ไม่จำกัดจำนวน)
+      const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      const obj = { type, created_at: new Date().toISOString() };
+      headers.forEach((h, idx) => { obj[h] = vals[idx] || '' });
+      const r = await GSheetDB.create(obj);
+      if (r.isOk) count++;
+      setProgress(i);
+    }
+  } finally {
+    hideLoadingToast();
   }
   showToast(`นำเข้าข้อมูลสำเร็จ ${count} รายการ`);
   e.target.value = '';
