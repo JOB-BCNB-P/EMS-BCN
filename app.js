@@ -4315,8 +4315,12 @@ function updateEngTypeForm(prefix) {
   const type = document.getElementById(prefix + 'EngType').value;
   const sbch = document.getElementById(prefix + 'EngSbch');
   const other = document.getElementById(prefix + 'EngOther');
-  if (sbch) sbch.style.display = type === 'สบช.' ? 'block' : 'none';
-  if (other) other.style.display = type === 'สบช.' ? 'none' : 'block';
+  const licmu = document.getElementById(prefix + 'EngLicmu');
+  const isSbch = type === 'สบช.';
+  const isLicmu = type === 'LICMU';
+  if (sbch) sbch.style.display = isSbch ? 'block' : 'none';
+  if (licmu) licmu.style.display = isLicmu ? 'block' : 'none';
+  if (other) other.style.display = (!isSbch && !isLicmu) ? 'block' : 'none';
 }
 function calcEngSbchTotal(prefix) {
   const l = Number(document.getElementById(prefix + 'EngL').value) || 0;
@@ -4350,15 +4354,17 @@ function updateEngSbchLevelStatus(prefix) {
     }
   }
 }
-const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL', 'TU-GET'];
+const ENG_TYPES = ['สบช.', 'TOEIC', 'CU-TEP', 'IELTS', 'TOEIC-ITP', 'TOEFL', 'TU-GET', 'LICMU'];
 function toggleEngAbsent(prefix) {
   const checked = document.getElementById(prefix + 'EngAbsent').checked;
   const sbch = document.getElementById(prefix + 'EngSbch');
   const other = document.getElementById(prefix + 'EngOther');
+  const licmu = document.getElementById(prefix + 'EngLicmu');
   const typeEl = document.getElementById(prefix + 'EngType');
   if (checked) {
     if (sbch) sbch.style.display = 'none';
     if (other) other.style.display = 'none';
+    if (licmu) licmu.style.display = 'none';
     if (typeEl) typeEl.disabled = true;
   } else {
     if (typeEl) { typeEl.disabled = false; updateEngTypeForm(prefix); }
@@ -4407,6 +4413,11 @@ function showAddEngModal() {
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="addEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน">ผ่าน</option><option value="ไม่ผ่าน">ไม่ผ่าน</option></select></div>
         </div>
       </div>
+      <!-- LICMU: กรอกระดับผลการสอบ + ผ่านอัตโนมัติ -->
+      <div id="addEngLicmu" style="display:none">
+        <div><label class="block text-xs text-gray-600 mb-1">ระดับผลการสอบ * <span class="text-gray-400">(เช่น A1, A2, B1, B2, C1)</span></label><input id="addEngLicmuLevel" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกระดับผลการสอบ"></div>
+        <p class="text-xs text-green-600 mt-1">เลือก LICMU ระบบจะบันทึกสถานะเป็น "ผ่าน" ให้อัตโนมัติ</p>
+      </div>
       <!-- ไม่เข้าสอบ -->
       <label class="flex items-center gap-2 cursor-pointer select-none">
         <input type="checkbox" id="addEngAbsent" onchange="toggleEngAbsent('add')" class="w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-400">
@@ -4440,6 +4451,10 @@ function showAddEngModal() {
         if (r) obj.eng_reading = r;
         obj.eng_score = total; obj.eng_level = getEngLevel(total);
         obj.eng_status = total >= engPassThreshold(studentId, year) ? 'ผ่าน' : 'ไม่ผ่าน';
+      } else if (engType === 'LICMU') {
+        const lvl = (document.getElementById('addEngLicmuLevel').value || '').trim();
+        if (!lvl) { showToast('กรุณากรอกระดับผลการสอบ', 'error'); return; }
+        obj.eng_level = lvl; obj.eng_score = ''; obj.eng_status = 'ผ่าน';
       } else {
         obj.eng_score = Number(document.getElementById('addEngOtherScore').value) || '';
         obj.eng_status = document.getElementById('addEngOtherStatus').value;
@@ -9753,6 +9768,7 @@ function showEditGradeModal(id) {
 function showEditEngModal(id) {
   const e = APP.allData.find(d => d.__backendId === id); if (!e) return;
   const isSbch = e.eng_type === 'สบช.';
+  const isLicmu = e.eng_type === 'LICMU';
   const initTotal = Number(e.eng_score) || 0;
   const initLevel = e.eng_level || (isSbch ? getEngLevel(initTotal) : '');
   const initStatus = e.eng_status || (isSbch ? (initTotal >= engPassThreshold(e.student_id, e.academic_year) ? 'ผ่าน' : 'ไม่ผ่าน') : '');
@@ -9782,11 +9798,16 @@ function showEditEngModal(id) {
         <div class="mt-2"><label class="block text-xs text-gray-600 mb-1">สถานะ (อัตโนมัติ)</label><div class="border rounded-xl px-3 py-2 bg-gray-50 min-h-[36px] flex items-center"><span id="editEngStatus" class="inline-block px-3 py-1 rounded-full text-sm font-semibold ${initStatus === 'ผ่าน' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${initStatus || '-'}</span></div></div>
       </div>
       <!-- Other type fields -->
-      <div id="editEngOther" style="display:${isSbch ? 'none' : 'block'}">
+      <div id="editEngOther" style="display:${(isSbch || isLicmu) ? 'none' : 'block'}">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="editEngOtherScore" type="number" step="any" min="0" value="${!isSbch ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกทศนิยมได้ เช่น 85.5"></div>
+          <div><label class="block text-xs text-gray-600 mb-1">คะแนนรวม</label><input id="editEngOtherScore" type="number" step="any" min="0" value="${(!isSbch && !isLicmu) ? (e.eng_score || '') : ''}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกทศนิยมได้ เช่น 85.5"></div>
           <div><label class="block text-xs text-gray-600 mb-1">สถานะ *</label><select id="editEngOtherStatus" class="w-full border rounded-xl px-3 py-2 text-sm"><option value="ผ่าน" ${e.eng_status === 'ผ่าน' ? 'selected' : ''}>ผ่าน</option><option value="ไม่ผ่าน" ${e.eng_status === 'ไม่ผ่าน' ? 'selected' : ''}>ไม่ผ่าน</option></select></div>
         </div>
+      </div>
+      <!-- LICMU: ระดับผลการสอบ + ผ่านอัตโนมัติ -->
+      <div id="editEngLicmu" style="display:${isLicmu ? 'block' : 'none'}">
+        <div><label class="block text-xs text-gray-600 mb-1">ระดับผลการสอบ * <span class="text-gray-400">(เช่น A1, A2, B1, B2, C1)</span></label><input id="editEngLicmuLevel" value="${(e.eng_level || '').replace(/"/g, '&quot;')}" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="กรอกระดับผลการสอบ"></div>
+        <p class="text-xs text-green-600 mt-1">LICMU บันทึกสถานะเป็น "ผ่าน" อัตโนมัติ</p>
       </div>
       <!-- ไม่เข้าสอบ -->
       <label class="flex items-center gap-2 cursor-pointer select-none">
@@ -9820,6 +9841,11 @@ function showEditEngModal(id) {
         obj.eng_listening = l; obj.eng_grammar = g; obj.eng_reading = r;
         obj.eng_score = total; obj.eng_level = getEngLevel(total);
         obj.eng_status = total >= engPassThreshold(studentId, year) ? 'ผ่าน' : 'ไม่ผ่าน';
+      } else if (engType === 'LICMU') {
+        const lvl = (document.getElementById('editEngLicmuLevel').value || '').trim();
+        if (!lvl) { showToast('กรุณากรอกระดับผลการสอบ', 'error'); return; }
+        obj.eng_level = lvl; obj.eng_score = ''; obj.eng_status = 'ผ่าน';
+        obj.eng_listening = ''; obj.eng_grammar = ''; obj.eng_reading = '';
       } else {
         obj.eng_score = Number(document.getElementById('editEngOtherScore').value) || '';
         obj.eng_status = document.getElementById('editEngOtherStatus').value;
