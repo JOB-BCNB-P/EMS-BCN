@@ -3918,9 +3918,19 @@ function engResultsPage() {
   const _engLatestPbri = {};   // studentId -> { level, score, year, att }
   const _engExtPassed = {};    // studentId -> Set(ชนิดสอบภายนอกที่ผ่าน)
   const _engExtRec = {};       // studentId -> { ชนิด -> { year, att } } (ผลล่าสุดของแต่ละชนิด)
+  const _engLatestRec = {};    // studentId -> ผลสอบล่าสุด (ทุกชนิด ที่เข้าสอบ)
+  const _engPassRec = {};      // studentId -> ผลสอบที่ "ผ่าน" ล่าสุด
   const _engPassedIds = new Set(allEng.filter(e => norm(e.eng_status) === 'ผ่าน').map(e => norm(e.student_id)));
+  const _engRecSnap = e => ({ eng_type: norm(e.eng_type), eng_score: norm(e.eng_score), eng_level: norm(e.eng_level), eng_status: norm(e.eng_status), year: norm(e.academic_year), att: norm(e.eng_attempt), _att: parseInt(norm(e.eng_attempt), 10) || 0, _date: norm(e.eng_date) });
+  const _isNewer = (a, b) => !b || a._att > b._att || (a._att === b._att && a._date > b._date);
   allEng.forEach(e => {
     const id = norm(e.student_id);
+    // ผลสอบล่าสุด (ทุกชนิด) และผลที่ผ่านล่าสุด — สำหรับมุมมองกรองตามอาจารย์ที่ปรึกษา
+    if (norm(e.eng_status) !== 'ไม่เข้าสอบ') {
+      const snap = _engRecSnap(e);
+      if (_isNewer(snap, _engLatestRec[id])) _engLatestRec[id] = snap;
+      if (norm(e.eng_status) === 'ผ่าน' && _isNewer(snap, _engPassRec[id])) _engPassRec[id] = snap;
+    }
     if (norm(e.eng_type) === 'สบช.' && norm(e.eng_status) !== 'ไม่เข้าสอบ') {
       const att = parseInt(norm(e.eng_attempt), 10) || 0;
       const cur = _engLatestPbri[id];
@@ -4113,6 +4123,43 @@ function engResultsPage() {
         <div class="overflow-x-auto"><table class="w-full text-sm">
           <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับคะแนน</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold text-center">ปีการศึกษา</th><th class="px-4 py-2 font-semibold text-center">ครั้งที่สอบ</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
           <tbody>${rosterRows || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+    } else if (canFilterByAdvisor && (APP.filters._engAdvisor || '')) {
+      // เลือกกรองตามอาจารย์ที่ปรึกษา → แสดงรายชื่อนักศึกษาในความดูแล พร้อมผลสอบที่ผ่าน (หรือผลล่าสุดถ้ายังไม่ผ่าน)
+      const selAdv = APP.filters._engAdvisor;
+      const advRows = engRosterStudents.map(s => {
+        const id = norm(s.student_id);
+        const rec = _engPassRec[id] || _engLatestRec[id];
+        let typeHtml = '<span class="text-gray-300">-</span>', resultHtml = '<span class="text-gray-300">ยังไม่มีผลสอบ</span>';
+        let yrH = '<span class="text-gray-300">-</span>', attH = '<span class="text-gray-300">-</span>';
+        let statusHtml = '<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">ยังไม่มีผล</span>';
+        if (rec) {
+          typeHtml = String(rec.eng_type || '-').replace(/</g, '&lt;');
+          if (rec.eng_type === 'สบช.') { const lvv = rec.eng_level || getEngLevel(Number(rec.eng_score) || 0); resultHtml = `${lvv} <span class="text-gray-400">(${rec.eng_score})</span>`; }
+          else if (rec.eng_level) resultHtml = String(rec.eng_level).replace(/</g, '&lt;');
+          else resultHtml = rec.eng_score !== '' ? String(rec.eng_score).replace(/</g, '&lt;') : '<span class="text-gray-300">-</span>';
+          if (rec.year) yrH = rec.year; if (rec.att) attH = rec.att;
+          const isPass = rec.eng_status === 'ผ่าน';
+          statusHtml = `<span class="px-2 py-1 rounded-full text-xs ${isPass ? 'bg-green-100 text-green-700' : rec.eng_status === 'ไม่ผ่าน' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}">${rec.eng_status || '-'}</span>`;
+        }
+        return `<tr class="border-t hover:bg-blue-50 cursor-pointer" onclick="APP.filters._engStudent='${s.student_id || s.name}';APP.pagination.page=1;renderCurrentPage()">
+          <td class="px-4 py-2 font-mono text-primary">${s.student_id || ''}</td>
+          <td class="px-4 py-2 font-medium">${s.name || ''}</td>
+          <td class="px-4 py-2 text-center">${s.year_level || '-'}</td>
+          <td class="px-4 py-2">${typeHtml}</td>
+          <td class="px-4 py-2">${resultHtml}</td>
+          <td class="px-4 py-2 text-center">${yrH}</td>
+          <td class="px-4 py-2 text-center">${attH}</td>
+          <td class="px-4 py-2">${statusHtml}</td>
+        </tr>`;
+      }).join('');
+      const passN = engRosterStudents.filter(s => _engPassedIds.has(norm(s.student_id))).length;
+      noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4">
+        <div class="px-4 py-3 border-b border-gray-100 bg-surface text-sm font-semibold text-gray-700">รายชื่อนักศึกษาในความดูแลของ ${String(selAdv).replace(/</g, '&lt;')} (${engRosterStudents.length} คน · สอบผ่าน ${passN} คน) <span class="font-normal text-gray-400">— แสดงผลสอบที่ผ่าน หรือผลสอบล่าสุด · คลิกแถวเพื่อดูรายบุคคล</span></div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">รูปแบบการสอบ</th><th class="px-4 py-2 font-semibold">ผลสอบ</th><th class="px-4 py-2 font-semibold text-center">ปีการศึกษา</th><th class="px-4 py-2 font-semibold text-center">ครั้งที่สอบ</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
+          <tbody>${advRows || '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาในความดูแล</td></tr>'}</tbody>
         </table></div>
       </div>`;
     } else {
