@@ -1070,15 +1070,14 @@ async function showNotifications() {
   document.getElementById('notifPanel').style.transform = 'translateX(0)';
   renderNotifications();                 // แสดงทันทีจากข้อมูลปัจจุบัน
   await autoRefreshShared();              // ดึงข้อมูลล่าสุด (มี throttle) — ประกาศที่ถูกลบ/ยกเลิกจะหายไป
-  renderNotifications();                  // เรนเดอร์ซ้ำด้วยข้อมูลใหม่
-  // เคลียร์เฉพาะส่วน "ประกาศ" เมื่อเปิดดู — ส่วนใบลา/ติดตามจะค้างไว้จนกว่าจะอนุมัติจริง
-  const seenCount = activeAnnouncements().length;
-  try { localStorage.setItem('notifSeenCount', String(seenCount)); } catch (e) { }
+  renderNotifications();                  // เรนเดอร์ซ้ำด้วยข้อมูลใหม่ (ยังโชว์ประกาศที่ยังไม่อ่านให้เห็นในรอบนี้)
+  // ทำเครื่องหมายประกาศทั้งหมดว่า "อ่านแล้ว" — ครั้งถัดไปจะไม่โชว์ในกระดิ่งอีก (ใบลา/ติดตามยังค้างจนกว่าจะอนุมัติจริง)
+  annMarkAllSeen();
   updateNotifBadge();
 }
 function closeNotifications() { document.getElementById('notifPanel').style.transform = 'translateX(100%)' }
 function renderNotifications() {
-  const ann = activeAnnouncements().slice(-10).reverse();
+  const ann = unseenAnnouncements().slice(-10).reverse();
   const pendingLeaves = getPendingLeavesForCurrentRole();
   const pendingTracks = getPendingTrackingsForCurrentRole();
   let html = '';
@@ -1143,10 +1142,7 @@ function renderNotifications() {
 function updateNotifBadge() {
   const b = document.getElementById('notifBadge');
   if (!b) return;
-  const annTotal = activeAnnouncements().length;
-  let seenAnn = 0;
-  try { seenAnn = parseInt(localStorage.getItem('notifSeenCount') || '0', 10) || 0; } catch (e) { }
-  const unseenAnn = Math.max(0, annTotal - seenAnn);
+  const unseenAnn = unseenAnnouncements().length;
   // ใบลา + ติดตาม: นับค้างไว้จนกว่าจะอนุมัติจริง (รายการที่เสร็จ/ลงย้อนหลังถูกกรองออกแล้วใน getPending*)
   const pendingLeaves = getPendingLeavesForCurrentRole().length;
   const pendingTracks = getPendingTrackingsForCurrentRole().length;
@@ -7014,6 +7010,20 @@ function annNotExpired(a) {
   return true;
 }
 function activeAnnouncements() { return visibleAnnouncements().filter(annNotExpired); }
+// ---- "อ่านแล้ว" ในกระดิ่ง (รายชิ้น) — ประกาศที่เปิดอ่านแล้วจะไม่โชว์ในกระดิ่งอีก (แต่ยังอยู่ในกล่องประกาศหน้าหลัก) ----
+function annSeenKey(a) {
+  return [norm(a && a.announcement_date), norm(a && a.announcement_title), norm(a && a.announcement_content).slice(0, 60)].join('|');
+}
+function annGetSeenSet() {
+  try { return new Set(JSON.parse(localStorage.getItem('notifSeenIds') || '[]')); } catch (e) { return new Set(); }
+}
+function annMarkAllSeen() {
+  try { localStorage.setItem('notifSeenIds', JSON.stringify(activeAnnouncements().map(annSeenKey))); } catch (e) { }
+}
+function unseenAnnouncements() {
+  const seen = annGetSeenSet();
+  return activeAnnouncements().filter(a => !seen.has(annSeenKey(a)));
+}
 // ช่องเลือกบทบาทผู้รับในฟอร์มประกาศ (ไม่ติ๊กเลย = ทุกบทบาท)
 function annRolesFieldHTML(selected) {
   const sel = annParseRoles(selected);
