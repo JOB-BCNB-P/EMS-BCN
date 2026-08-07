@@ -3934,7 +3934,7 @@ function engResultsPage() {
       const att = parseInt(norm(e.eng_attempt), 10) || 0;
       const bucket = (_engExtRec[id] = _engExtRec[id] || {});
       const prev = bucket[t];
-      if (!prev || att > prev._att || (att === prev._att && norm(e.eng_date) > prev._date)) bucket[t] = { year: norm(e.academic_year), att: norm(e.eng_attempt), _att: att, _date: norm(e.eng_date) };
+      if (!prev || att > prev._att || (att === prev._att && norm(e.eng_date) > prev._date)) bucket[t] = { year: norm(e.academic_year), att: norm(e.eng_attempt), level: norm(e.eng_level), _att: att, _date: norm(e.eng_date) };
     }
   });
   const selEngLevel = APP.filters._engLevel || '';
@@ -4088,12 +4088,20 @@ function engResultsPage() {
         let rYr = '', rAtt = '';
         if (selEngExt && _engExtRec[id] && _engExtRec[id][selEngExt]) { rYr = _engExtRec[id][selEngExt].year; rAtt = _engExtRec[id][selEngExt].att; }
         else if (lv) { rYr = lv.year; rAtt = lv.att; }
+        // ระดับคะแนน: PBRI แสดง ระดับ+คะแนน เหมือนเดิม · การสอบภายนอกที่มีระดับ (เช่น LICMU) แสดงแค่ระดับ เช่น B1
+        let lvlHtml = '<span class="text-gray-300">-</span>';
+        const extLevelSel = (selEngExt && _engExtRec[id] && _engExtRec[id][selEngExt]) ? _engExtRec[id][selEngExt].level : '';
+        let extLevelAny = extLevelSel;
+        if (!extLevelAny) { const b = _engExtRec[id] || {}; for (const k in b) { if (b[k].level) { extLevelAny = b[k].level; break; } } }
+        if (selEngExt && extLevelSel) lvlHtml = String(extLevelSel).replace(/</g, '&lt;');
+        else if (lv) lvlHtml = `${lv.level} <span class="text-gray-400">(${lv.score})</span>`;
+        else if (extLevelAny) lvlHtml = String(extLevelAny).replace(/</g, '&lt;');
         return `<tr class="border-t hover:bg-blue-50 cursor-pointer" onclick="APP.filters._engStudent='${s.student_id || s.name}';APP.pagination.page=1;renderCurrentPage()">
           <td class="px-4 py-2 font-mono text-primary">${s.student_id || ''}</td>
           <td class="px-4 py-2 font-medium">${s.name || ''}</td>
           <td class="px-4 py-2 text-center">${s.year_level || '-'}</td>
           <td class="px-4 py-2">${s.advisor ? String(s.advisor).replace(/</g, '&lt;') : '<span class="text-gray-300">ยังไม่ระบุ</span>'}</td>
-          <td class="px-4 py-2">${lv ? `${lv.level} <span class="text-gray-400">(${lv.score})</span>` : '<span class="text-gray-300">-</span>'}</td>
+          <td class="px-4 py-2">${lvlHtml}</td>
           <td class="px-4 py-2">${ext.length ? ext.map(t => `<span class="text-xs bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded mr-1">${t}</span>`).join('') : '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2 text-center">${rYr || '<span class="text-gray-300">-</span>'}</td>
           <td class="px-4 py-2 text-center">${rAtt || '<span class="text-gray-300">-</span>'}</td>
@@ -4103,7 +4111,7 @@ function engResultsPage() {
       noSelectionMsg = `<div class="bg-white rounded-2xl border border-blue-100 overflow-hidden mb-4">
         <div class="px-4 py-3 border-b border-gray-100 bg-surface text-sm font-semibold text-gray-700">รายชื่อนักศึกษาตามผลสอบ (${engRosterStudents.length} คน) <span class="font-normal text-gray-400">— คลิกที่แถวเพื่อดูรายละเอียดผลสอบรายบุคคล</span></div>
         <div class="overflow-x-auto"><table class="w-full text-sm">
-          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับ PBRI (คะแนน)</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold text-center">ปีการศึกษา</th><th class="px-4 py-2 font-semibold text-center">ครั้งที่สอบ</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
+          <thead><tr class="bg-surface text-left"><th class="px-4 py-2 font-semibold">รหัส</th><th class="px-4 py-2 font-semibold">ชื่อ-สกุล</th><th class="px-4 py-2 font-semibold text-center">ชั้นปี</th><th class="px-4 py-2 font-semibold">อาจารย์ที่ปรึกษา</th><th class="px-4 py-2 font-semibold">ระดับคะแนน</th><th class="px-4 py-2 font-semibold">สอบผ่านภายนอก</th><th class="px-4 py-2 font-semibold text-center">ปีการศึกษา</th><th class="px-4 py-2 font-semibold text-center">ครั้งที่สอบ</th><th class="px-4 py-2 font-semibold">สถานะ</th></tr></thead>
           <tbody>${rosterRows || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">ไม่พบนักศึกษาตามเงื่อนไข</td></tr>'}</tbody>
         </table></div>
       </div>`;
