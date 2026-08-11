@@ -1633,7 +1633,9 @@ function genderFigureSVG(sex) {
 
 // แผงวิเคราะห์อัตราการคงอยู่ของนักศึกษา (หน้าข้อมูลนักศึกษา — สำหรับผู้ดูแล/วิชาการ/ผู้บริหาร)
 function studentRetentionAnalyticsHTML() {
-  const all = getDataByType('student');
+  // เริ่มนับการวิเคราะห์อัตราการคงอยู่ตั้งแต่รุ่นที่ 78 ขึ้นไป (รุ่นก่อนหน้าไม่นำมาคำนวณ · รุ่นที่ไม่ระบุยังคงไว้)
+  const RETENTION_MIN_BATCH = 78;
+  const all = getDataByType('student').filter(s => { const b = parseInt(norm(s.batch), 10); return isNaN(b) || b >= RETENTION_MIN_BATCH; });
   // --- ตัวกรองปีการศึกษาที่รับเข้า (cohort) ---
   const cohortKey = s => admissionYearOf(s);
   const allCohorts = [...new Set(all.map(cohortKey))].sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
