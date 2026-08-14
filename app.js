@@ -7222,7 +7222,6 @@ function trackingPage() {
         <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
-      ${trackingDeptFilterHTML('_trackingDept', APP.filters._trackingDept || '')}
     </div>
     ${statsSection}
   </div>
@@ -7484,7 +7483,6 @@ function resultTrackingPage() {
         <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
-      ${trackingDeptFilterHTML('_resultTrackingDept', APP.filters._resultTrackingDept || '')}
     </div>
     ${statsSection}
   </div>
@@ -7658,7 +7656,6 @@ function gradeTrackingPage() {
         <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
-      ${trackingDeptFilterHTML('_gradeTrackingDept', APP.filters._gradeTrackingDept || '')}
     </div>
     ${statsSection}
   </div>
@@ -7832,7 +7829,6 @@ function fileTrackingPage() {
         <option value="">-- เลือกปีการศึกษา --</option>
         ${allYears.map(y => `<option value="${y}" ${selectedYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
-      ${trackingDeptFilterHTML('_fileTrackingDept', APP.filters._fileTrackingDept || '')}
     </div>
     ${statsSection}
   </div>
