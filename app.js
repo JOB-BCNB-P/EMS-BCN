@@ -676,7 +676,7 @@ function currentDept() { return norm(APP.currentUser && APP.currentUser.departme
 function allSubjectDepts() {
   const set = new Set();
   getDataByType('subject').forEach(s => subjectDeptsOf(s).forEach(d => set.add(d)));
-  ['tracking', 'resultTracking', 'gradeTracking', 'fileTracking'].forEach(tp => getDataByType(tp).forEach(t => splitDepts(t.department).forEach(d => set.add(d))));
+  ['tracking', 'result_tracking', 'grade_tracking', 'file_tracking'].forEach(tp => getDataByType(tp).forEach(t => splitDepts(t.department).forEach(d => set.add(d))));
   return [...set].sort();
 }
 // ตัวกรองสาขาวิชาในหน้าติดตามการส่ง (admin = dropdown, ประธานสาขา = ป้ายสาขาตัวเอง)
@@ -7298,7 +7298,7 @@ function showAddTrackingModal() {
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
     .map(name => {
       const s = subjects.find(x => x.subject_name === name) || {};
-      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-year="${(s.academic_year || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-dept="${(s.department || '').replace(/"/g, '&quot;')}" data-year="${(s.academic_year || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
     }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
@@ -7312,6 +7312,7 @@ function showAddTrackingModal() {
     <form id="addTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="trackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
       <input type="hidden" name="subject_code" id="trackingSubjectCode">
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(ดึงจากรายวิชาให้อัตโนมัติ · แก้ได้ · 2 สาขาคั่นด้วย ,)</span></label><input name="department" list="trkDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, การพยาบาลชุมชน">${deptDatalistHTML('trkDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -7332,7 +7333,7 @@ function showAddTrackingModal() {
   if (sel) sel.addEventListener('change', () => {
     const opt = sel.options[sel.selectedIndex];
     const codeEl = document.getElementById('trackingSubjectCode');
-    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+    if (codeEl) { codeEl.value = (opt && opt.dataset.code) || ''; const deptEl = codeEl.form && codeEl.form.querySelector('[name="department"]'); if (deptEl) deptEl.value = (opt && opt.dataset.dept) || ''; }
   });
   document.getElementById('addTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -7544,7 +7545,7 @@ function showAddResultTrackingModal() {
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
     .map(name => {
       const s = subjects.find(x => x.subject_name === name) || {};
-      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-dept="${(s.department || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
     }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
@@ -7557,6 +7558,7 @@ function showAddResultTrackingModal() {
     <form id="addResultTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="resultTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
       <input type="hidden" name="subject_code" id="resultTrackingSubjectCode">
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(ดึงจากรายวิชาให้อัตโนมัติ · แก้ได้ · 2 สาขาคั่นด้วย ,)</span></label><input name="department" list="rtDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, การพยาบาลชุมชน">${deptDatalistHTML('rtDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -7577,7 +7579,7 @@ function showAddResultTrackingModal() {
   if (rSel) rSel.addEventListener('change', () => {
     const opt = rSel.options[rSel.selectedIndex];
     const codeEl = document.getElementById('resultTrackingSubjectCode');
-    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+    if (codeEl) { codeEl.value = (opt && opt.dataset.code) || ''; const deptEl = codeEl.form && codeEl.form.querySelector('[name="department"]'); if (deptEl) deptEl.value = (opt && opt.dataset.dept) || ''; }
   });
   document.getElementById('addResultTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -7716,7 +7718,7 @@ function showAddGradeTrackingModal() {
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
     .map(name => {
       const s = subjects.find(x => x.subject_name === name) || {};
-      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-dept="${(s.department || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
     }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
@@ -7729,6 +7731,7 @@ function showAddGradeTrackingModal() {
     <form id="addGradeTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="gradeTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
       <input type="hidden" name="subject_code" id="gradeTrackingSubjectCode">
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(ดึงจากรายวิชาให้อัตโนมัติ · แก้ได้ · 2 สาขาคั่นด้วย ,)</span></label><input name="department" list="gtDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, การพยาบาลชุมชน">${deptDatalistHTML('gtDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -7749,7 +7752,7 @@ function showAddGradeTrackingModal() {
   if (gSel) gSel.addEventListener('change', () => {
     const opt = gSel.options[gSel.selectedIndex];
     const codeEl = document.getElementById('gradeTrackingSubjectCode');
-    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+    if (codeEl) { codeEl.value = (opt && opt.dataset.code) || ''; const deptEl = codeEl.form && codeEl.form.querySelector('[name="department"]'); if (deptEl) deptEl.value = (opt && opt.dataset.dept) || ''; }
   });
   document.getElementById('addGradeTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -7889,7 +7892,7 @@ function showAddFileTrackingModal() {
   const subjectOptions = [...new Set(subjects.map(s => s.subject_name).filter(Boolean))].sort()
     .map(name => {
       const s = subjects.find(x => x.subject_name === name) || {};
-      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
+      return `<option value="${name.replace(/"/g, '&quot;')}" data-code="${(s.subject_code || '').replace(/"/g, '&quot;')}" data-dept="${(s.department || '').replace(/"/g, '&quot;')}">${s.subject_code ? s.subject_code + ' ' : ''}${name}</option>`;
     }).join('');
   const teachers = getDataByType('teacher');
   const teacherList = [...new Set(teachers.map(t => (t.name || '').trim()).filter(Boolean))].sort();
@@ -7902,6 +7905,7 @@ function showAddFileTrackingModal() {
     <form id="addFileTrackingForm" class="space-y-3">
       <div><label class="block text-xs text-gray-600 mb-1">ชื่อรายวิชา *</label><select name="subject_name" id="fileTrackingSubjectSelect" required class="w-full border rounded-xl px-3 py-2 text-sm"><option value="">-- เลือกรายวิชา --</option>${subjectOptions}</select></div>
       <input type="hidden" name="subject_code" id="fileTrackingSubjectCode">
+      <div><label class="block text-xs text-gray-600 mb-1">สาขาวิชาที่รับผิดชอบ <span class="text-gray-400">(ดึงจากรายวิชาให้อัตโนมัติ · แก้ได้ · 2 สาขาคั่นด้วย ,)</span></label><input name="department" list="ftDeptList" class="w-full border rounded-xl px-3 py-2 text-sm" placeholder="เช่น การพยาบาลผู้ใหญ่, การพยาบาลชุมชน">${deptDatalistHTML('ftDeptList')}</div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="block text-xs text-gray-600 mb-1">ทฤษฎี/ปฏิบัติ</label><select name="theory_practice" class="w-full border rounded-xl px-3 py-2 text-sm"><option>ทฤษฎี</option><option>ปฏิบัติ</option></select></div>
         <div><label class="block text-xs text-gray-600 mb-1">ชั้นปี</label><select name="year_level" class="w-full border rounded-xl px-3 py-2 text-sm"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
@@ -7922,7 +7926,7 @@ function showAddFileTrackingModal() {
   if (fSel) fSel.addEventListener('change', () => {
     const opt = fSel.options[fSel.selectedIndex];
     const codeEl = document.getElementById('fileTrackingSubjectCode');
-    if (codeEl) codeEl.value = (opt && opt.dataset.code) || '';
+    if (codeEl) { codeEl.value = (opt && opt.dataset.code) || ''; const deptEl = codeEl.form && codeEl.form.querySelector('[name="department"]'); if (deptEl) deptEl.value = (opt && opt.dataset.dept) || ''; }
   });
   document.getElementById('addFileTrackingForm').onsubmit = async (e) => {
     e.preventDefault();
