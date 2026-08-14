@@ -649,19 +649,36 @@ function deptEq(a, b) { return norm(a) !== '' && norm(a) === norm(b); }
 function splitDepts(v) { return norm(v).split(/[,;/]+/).map(x => x.trim()).filter(Boolean); }
 function subjectDeptsOf(s) { return splitDepts(s && s.department); }
 function subjectHasDept(s, dept) { const d = norm(dept); return d !== '' && subjectDeptsOf(s).some(x => norm(x) === d); }
-// หาสาขาวิชา (อาจมีหลายสาขา) ของ tracking record โดยจับคู่กับรายวิชา ด้วยรหัสวิชาก่อน แล้วชื่อวิชา
+// เทียบชื่อวิชาแบบไม่สนช่องว่าง (กันชื่อที่เว้นวรรคต่างกันเล็กน้อย)
+function _nmKey(v) { return norm(v).replace(/\s+/g, ''); }
+// รหัสวิชาของ tracking record — ใช้ค่าที่บันทึกไว้ ถ้าไม่มีให้ดึงจากชีตรายวิชาด้วยชื่อวิชา
+function trackingCodeOf(t) {
+  if (norm(t && t.subject_code)) return norm(t.subject_code);
+  const nk = _nmKey(t && t.subject_name);
+  if (!nk) return '';
+  const m = getDataByType('subject').find(s => _nmKey(s.subject_name) === nk);
+  return m ? norm(m.subject_code) : '';
+}
+// หาสาขาวิชา (อาจมีหลายสาขา) ของ tracking record — ใช้สาขาที่บันทึกบน record ก่อน แล้วค่อยจับคู่รายวิชา (รหัส → ชื่อ)
 function trackingDeptsOf(t) {
+  const own = splitDepts(t && t.department);
+  if (own.length) return own;
   const subs = getDataByType('subject');
-  const code = norm(t.subject_code), name = norm(t.subject_name);
+  const code = norm(t.subject_code), nk = _nmKey(t.subject_name);
   let m = code ? subs.find(s => norm(s.subject_code) === code) : null;
-  if (!m && name) m = subs.find(s => norm(s.subject_name) === name);
+  if (!m && nk) m = subs.find(s => _nmKey(s.subject_name) === nk);
   return m ? subjectDeptsOf(m) : [];
 }
 function trackingHasDept(t, dept) { const d = norm(dept); return d !== '' && trackingDeptsOf(t).some(x => norm(x) === d); }
 // สาขาวิชาของผู้ใช้ปัจจุบัน (ประธานสาขาวิชา) — ผูกจากชื่ออาจารย์ตอน login
 function currentDept() { return norm(APP.currentUser && APP.currentUser.department); }
 // รายการสาขาวิชาทั้งหมดจากรายวิชา (กระจายกรณีมีหลายสาขาต่อวิชา)
-function allSubjectDepts() { const set = new Set(); getDataByType('subject').forEach(s => subjectDeptsOf(s).forEach(d => set.add(d))); return [...set].sort(); }
+function allSubjectDepts() {
+  const set = new Set();
+  getDataByType('subject').forEach(s => subjectDeptsOf(s).forEach(d => set.add(d)));
+  ['tracking', 'resultTracking', 'gradeTracking', 'fileTracking'].forEach(tp => getDataByType(tp).forEach(t => splitDepts(t.department).forEach(d => set.add(d))));
+  return [...set].sort();
+}
 // ตัวกรองสาขาวิชาในหน้าติดตามการส่ง (admin = dropdown, ประธานสาขา = ป้ายสาขาตัวเอง)
 function trackingDeptFilterHTML(filterKey, selectedDept) {
   if (APP.currentRole === 'deptHead') {
@@ -7242,7 +7259,7 @@ function trackingPage() {
     }
 
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${(() => { const c = trackingCodeOf(t); return c ? `<span class="text-gray-400 font-mono text-xs mr-1">${c}</span>` : ''; })()}${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
@@ -7503,7 +7520,7 @@ function resultTrackingPage() {
     }
 
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${(() => { const c = trackingCodeOf(t); return c ? `<span class="text-gray-400 font-mono text-xs mr-1">${c}</span>` : ''; })()}${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
@@ -7676,7 +7693,7 @@ function gradeTrackingPage() {
     }
 
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${(() => { const c = trackingCodeOf(t); return c ? `<span class="text-gray-400 font-mono text-xs mr-1">${c}</span>` : ''; })()}${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
@@ -7849,7 +7866,7 @@ function fileTrackingPage() {
     }
 
     return `<tr class="border-t hover:bg-gray-50 ${isLate ? 'bg-red-50' : ''}">
-        <td class="px-4 py-3 font-medium">${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
+        <td class="px-4 py-3 font-medium">${(() => { const c = trackingCodeOf(t); return c ? `<span class="text-gray-400 font-mono text-xs mr-1">${c}</span>` : ''; })()}${t.subject_name || ''}${isLate ? ' <span class="text-xs text-red-500 font-normal">(ส่งช้า)</span>' : ''}</td>
         <td class="px-4 py-3">${t.theory_practice || ''}</td>
         <td class="px-4 py-3">${t.year_level || ''}</td>
         <td class="px-4 py-3">${semLabel(t.semester)}/${t.academic_year || ''}</td>
