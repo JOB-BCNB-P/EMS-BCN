@@ -154,7 +154,7 @@ body {
     height: 1.9em;
     margin: -0.95em 0 0 0;
     /* ไฟล์ GIF มีการก้าวขาในตัวอยู่แล้ว — CSS แค่เลื่อนวิ่งจากซ้าย→ขวาแล้ววนซ้ำ */
-    background: url("https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/cat_run_transparent.gif") center/contain no-repeat;
+    background: url("https://cdn.jsdelivr.net/gh/JOB-BCNB-P/picture/grad_loading.gif") center/contain no-repeat;
     animation: catrun 1.4s linear infinite;
 }
 
@@ -227,11 +227,18 @@ details>summary::-webkit-details-marker {
 details[open]>summary .chev {
     transform: rotate(180deg);
 }
+
 /* ===== Analytics: animated bars (โตจากซ้าย→ขวา) ===== */
 @keyframes growBar {
-    from { width: 0; }
-    to { width: var(--tw, 100%); }
+    from {
+        width: 0;
+    }
+
+    to {
+        width: var(--tw, 100%);
+    }
 }
+
 .grow-bar {
     width: var(--tw, 100%);
     animation: growBar .9s cubic-bezier(.4, 0, .2, 1);
@@ -239,33 +246,68 @@ details[open]>summary .chev {
 
 /* ===== Analytics: donut/pie spin-in (หมุนรอบตัวเองตอนโหลด) ===== */
 @keyframes pieSpin {
-    from { transform: rotate(-130deg) scale(.85); opacity: .3; }
-    to   { transform: rotate(0) scale(1); opacity: 1; }
+    from {
+        transform: rotate(-130deg) scale(.85);
+        opacity: .3;
+    }
+
+    to {
+        transform: rotate(0) scale(1);
+        opacity: 1;
+    }
 }
+
 .pie-spin {
     transform-origin: 50% 50%;
     animation: pieSpin .9s cubic-bezier(.34, 1.2, .64, 1) both;
 }
+
 /* เซกเมนต์วงกลม: เอาเมาส์ชี้แล้วหนาขึ้น + ชูออกเล็กน้อย */
 .donut-seg {
     transition: stroke-width .18s ease, opacity .18s ease;
     cursor: default;
 }
-.donut-wrap:hover .donut-seg { opacity: .55; }
-.donut-seg:hover { stroke-width: 26 !important; opacity: 1 !important; }
+
+.donut-wrap:hover .donut-seg {
+    opacity: .55;
+}
+
+.donut-seg:hover {
+    stroke-width: 26 !important;
+    opacity: 1 !important;
+}
 
 /* ===== Gender infographic: ตัวการ์ตูนยกมือเมื่อเอาเมาส์ชี้ ===== */
-.gc-fig { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
-.gender-card:hover .gc-fig { transform: translateY(-4px); }
+.gc-fig {
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.gender-card:hover .gc-fig {
+    transform: translateY(-4px);
+}
+
 .gc-arm {
     transition: transform .4s cubic-bezier(.34, 1.56, .64, 1);
     transform-box: fill-box;
     transform-origin: 50% 0%;
 }
-.gender-card:hover .gc-arm.left  { transform: rotate(145deg); }
-.gender-card:hover .gc-arm.right { transform: rotate(-145deg); }
-.gc-hint { opacity: 0; transition: opacity .3s ease; }
-.gender-card:hover .gc-hint { opacity: 1; }
+
+.gender-card:hover .gc-arm.left {
+    transform: rotate(145deg);
+}
+
+.gender-card:hover .gc-arm.right {
+    transform: rotate(-145deg);
+}
+
+.gc-hint {
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+
+.gender-card:hover .gc-hint {
+    opacity: 1;
+}
 
 /* ===== พื้นหลังเนื้อหาหลัก: ไล่เฉดฟ้าอ่อน → ขาว (ตรึงกับจอ) ===== */
 #mainContent {
@@ -275,9 +317,27 @@ details[open]>summary .chev {
 }
 
 /* ===== Gender infographic (รูปจริงบัณฑิต): สลับท่ายกมือเมื่อเอาเมาส์ชี้การ์ด ===== */
-.grad-fig { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
-.gender-card:hover .grad-fig { transform: translateY(-4px) scale(1.04); }
-.grad-down, .grad-wave { transition: opacity .25s ease; }
-.grad-wave { opacity: 0; }
-.gender-card:hover .grad-down { opacity: 0; }
-.gender-card:hover .grad-wave { opacity: 1; }
+.grad-fig {
+    transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.gender-card:hover .grad-fig {
+    transform: translateY(-4px) scale(1.04);
+}
+
+.grad-down,
+.grad-wave {
+    transition: opacity .25s ease;
+}
+
+.grad-wave {
+    opacity: 0;
+}
+
+.gender-card:hover .grad-down {
+    opacity: 0;
+}
+
+.gender-card:hover .grad-wave {
+    opacity: 1;
+}
